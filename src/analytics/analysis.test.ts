@@ -44,6 +44,7 @@ describe('analyzeReferenceGraph', () => {
     expect(report.summary.totalReferences).toBe(9)
     expect(report.summary.orphanCount).toBe(1)
     expect(report.summary.communityCount).toBe(2)
+    expect((report as any).summary.dormantCount).toBe(1)
 
     expect(report.ranking[0]).toMatchObject({
       documentId: 'doc-a',
@@ -56,9 +57,24 @@ describe('analyzeReferenceGraph', () => {
       ['doc-a', 'doc-b', 'doc-c'],
       ['doc-f', 'doc-g', 'doc-h'],
     ])
+    expect((report.communities[0] as any).topTags).toEqual(['research', 'index', 'topic'])
+    expect((report.communities[0] as any).missingTopicPage).toBe(false)
+    expect((report.communities[1] as any).missingTopicPage).toBe(true)
 
     expect(report.bridgeDocuments.map(document => document.documentId)).toEqual(['doc-e'])
+    expect((report as any).propagationNodes.slice(0, 2)).toEqual([
+      expect.objectContaining({ documentId: 'doc-e' }),
+      expect.objectContaining({ documentId: 'doc-f' }),
+    ])
+    expect((report as any).propagationNodes[0]).toMatchObject({
+      documentId: 'doc-e',
+      bridgeRole: true,
+      pathPairCount: expect.any(Number),
+      score: expect.any(Number),
+    })
+    expect((report as any).summary.propagationCount).toBeGreaterThan(0)
     expect(report.orphans.map(document => document.documentId)).toEqual(['doc-d'])
+    expect((report as any).dormantDocuments.map((document: { documentId: string }) => document.documentId)).toEqual(['doc-d'])
     expect(report.evidenceByDocument['doc-a']).toHaveLength(3)
 
     expect(report.suggestions).toEqual(
@@ -66,8 +82,39 @@ describe('analyzeReferenceGraph', () => {
         expect.objectContaining({ type: 'promote-hub', documentId: 'doc-a' }),
         expect.objectContaining({ type: 'repair-orphan', documentId: 'doc-d' }),
         expect.objectContaining({ type: 'maintain-bridge', documentId: 'doc-e' }),
+        expect.objectContaining({ type: 'archive-dormant', documentId: 'doc-d' }),
       ]),
     )
+  })
+
+  it('keeps historical sparse evidence for documents that are orphaned in the current window', () => {
+    const report = analyzeReferenceGraph({
+      documents: [
+        { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: ['topic'], created: '20260101090000', updated: '20260310120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260102090000', updated: '20260310120000' },
+        { id: 'doc-c', box: 'box-1', path: '/c.sy', hpath: '/Gamma', title: 'Gamma', tags: ['archive'], created: '20260103090000', updated: '20260115120000' },
+      ],
+      references: [
+        { id: 'ref-old-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-c', targetBlockId: 'blk-c1', content: '[[Gamma]]', sourceUpdated: '20260105090000' },
+      ],
+      now,
+      timeRange: '7d',
+    })
+
+    const orphanGamma = report.orphans.find(document => document.documentId === 'doc-c')
+
+    expect(orphanGamma as any).toMatchObject({
+      documentId: 'doc-c',
+      hasSparseEvidence: true,
+      historicalReferenceCount: 1,
+      lastHistoricalAt: '20260105090000',
+    })
+    const dormantGamma = (report as any).dormantDocuments.find((document: { documentId: string }) => document.documentId === 'doc-c')
+
+    expect(dormantGamma).toMatchObject({
+      documentId: 'doc-c',
+      inactivityDays: expect.any(Number),
+    })
   })
 })
 
@@ -93,6 +140,14 @@ describe('analyzeTrends', () => {
       delta: -1,
       currentReferences: 0,
       previousReferences: 1,
+    })
+    expect((trends as any).connectionChanges).toMatchObject({
+      newCount: 7,
+      brokenCount: 1,
+    })
+    expect((trends as any).communityTrends[0]).toMatchObject({
+      documentIds: ['doc-a', 'doc-b', 'doc-c'],
+      delta: 4,
     })
   })
 })

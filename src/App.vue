@@ -54,6 +54,22 @@
           </option>
         </select>
       </label>
+      <label class="filter-item">
+        <span>孤立排序</span>
+        <select v-model="orphanSort">
+          <option value="updated-desc">按更新时间</option>
+          <option value="created-desc">按创建时间</option>
+          <option value="title-asc">按标题</option>
+        </select>
+      </label>
+      <label class="filter-item">
+        <span>沉没阈值</span>
+        <select v-model="dormantDays">
+          <option :value="30">30 天</option>
+          <option :value="90">90 天</option>
+          <option :value="180">180 天</option>
+        </select>
+      </label>
       <label class="filter-item filter-item--wide">
         <span>主题/关键词</span>
         <input
@@ -181,7 +197,7 @@
           <div class="panel-header">
             <div>
               <h2>主题社区</h2>
-              <p>按桥接节点拆分后的文档簇，用于发现已经成形的主题结构。</p>
+              <p>按桥接节点拆分后的文档簇，并补充标签语义与主题页缺口提示。</p>
             </div>
           </div>
 
@@ -192,12 +208,30 @@
             <article
               v-for="community in report.communities"
               :key="community.id"
-              class="community-item"
+              :class="['community-item', { 'community-item--active': community.id === selectedCommunity?.id }]"
             >
               <div class="community-item__header">
-                <strong>{{ community.documentIds.length }} 篇文档</strong>
+                <button
+                  class="ghost-button"
+                  type="button"
+                  @click="selectCommunity(community.id)"
+                >
+                  {{ community.documentIds.length }} 篇文档
+                </button>
                 <span>核心文档：{{ community.hubDocumentIds.map(resolveTitle).join(' / ') }}</span>
               </div>
+              <p class="community-item__meta">
+                标签语义：{{ community.topTags.join(' / ') || '未提取到高频标签' }}
+              </p>
+              <p class="community-item__meta">
+                分布笔记本：{{ community.notebookIds.map(resolveNotebookName).join(' / ') }}
+              </p>
+              <p
+                v-if="community.missingTopicPage"
+                class="community-item__warning"
+              >
+                当前社区缺少明显的索引/总览页，适合补一篇主题页。
+              </p>
               <div class="community-tags">
                 <button
                   v-for="documentId in community.documentIds"
@@ -212,6 +246,21 @@
             </article>
           </div>
           <div
+            v-if="selectedCommunity && selectedCommunityTrend"
+            class="community-detail"
+          >
+            <div class="community-detail__header">
+              <strong>当前社区详情</strong>
+              <span>{{ selectedCommunityTrend.currentReferences }}/{{ selectedCommunityTrend.previousReferences }}，变化 {{ formatDelta(selectedCommunityTrend.delta) }}</span>
+            </div>
+            <p>
+              主题标签：{{ selectedCommunity.topTags.join(' / ') || '未提取到高频标签' }}
+            </p>
+            <p>
+              笔记本分布：{{ selectedCommunity.notebookIds.map(resolveNotebookName).join(' / ') }}
+            </p>
+          </div>
+          <div
             v-else
             class="empty-state"
           >
@@ -223,7 +272,7 @@
           <div class="panel-header">
             <div>
               <h2>孤立与桥接</h2>
-              <p>识别沉没内容与关键桥梁节点。</p>
+              <p>识别当前断裂内容、历史零散证据与长期沉没资料。</p>
             </div>
           </div>
 
@@ -234,15 +283,28 @@
                 v-if="report.orphans.length"
                 class="mini-list"
               >
-                <button
+                <article
                   v-for="item in report.orphans"
                   :key="item.documentId"
-                  class="mini-list__item"
-                  type="button"
-                  @click="openDocument(item.documentId)"
+                  class="mini-list__entry"
                 >
-                  {{ item.title }}
-                </button>
+                  <button
+                    class="mini-list__item"
+                    type="button"
+                    @click="openDocument(item.documentId)"
+                  >
+                    {{ item.title }}
+                  </button>
+                  <p class="mini-list__meta">
+                    最近更新时间：{{ formatTimestamp(item.updatedAt) }}
+                  </p>
+                  <p
+                    v-if="item.hasSparseEvidence"
+                    class="mini-list__meta"
+                  >
+                    历史上还有 {{ item.historicalReferenceCount }} 条零散证据，最后一次出现在 {{ formatTimestamp(item.lastHistoricalAt) }}
+                  </p>
+                </article>
               </div>
               <p
                 v-else
@@ -257,21 +319,58 @@
                 v-if="report.bridgeDocuments.length"
                 class="mini-list"
               >
-                <button
+                <article
                   v-for="item in report.bridgeDocuments"
                   :key="item.documentId"
-                  class="mini-list__item"
-                  type="button"
-                  @click="openDocument(item.documentId)"
+                  class="mini-list__entry"
                 >
-                  {{ item.title }}
-                </button>
+                  <button
+                    class="mini-list__item"
+                    type="button"
+                    @click="openDocument(item.documentId)"
+                  >
+                    {{ item.title }}
+                  </button>
+                  <p class="mini-list__meta">
+                    连接度：{{ item.degree }}
+                  </p>
+                </article>
               </div>
               <p
                 v-else
                 class="empty-inline"
               >
                 没有识别到桥接文档。
+              </p>
+            </div>
+            <div>
+              <h3>沉没文档</h3>
+              <div
+                v-if="report.dormantDocuments.length"
+                class="mini-list"
+              >
+                <article
+                  v-for="item in report.dormantDocuments"
+                  :key="item.documentId"
+                  class="mini-list__entry"
+                >
+                  <button
+                    class="mini-list__item"
+                    type="button"
+                    @click="openDocument(item.documentId)"
+                  >
+                    {{ item.title }}
+                  </button>
+                  <p class="mini-list__meta">
+                    {{ item.inactivityDays }} 天未产生连接，最近活动 {{ formatTimestamp(item.lastConnectedAt || item.updatedAt) }}
+                  </p>
+                </article>
+              </div>
+              <p
+                v-else
+                class="empty-inline"
+              >
+                没有达到沉没阈值的文档。
               </p>
             </div>
           </div>
@@ -281,7 +380,7 @@
           <div class="panel-header">
             <div>
               <h2>趋势观察</h2>
-              <p>基于引用源块更新时间近似计算最近活跃与前一窗口的变化。</p>
+              <p>同时观察文档升降温、主题活跃度，以及新增/断裂连接。</p>
             </div>
             <span class="meta-text">{{ trendLabel }}</span>
           </div>
@@ -294,6 +393,14 @@
             <div>
               <span>前一窗口</span>
               <strong>{{ trends.previous.referenceCount }}</strong>
+            </div>
+            <div>
+              <span>新增连接</span>
+              <strong>{{ trends.connectionChanges.newCount }}</strong>
+            </div>
+            <div>
+              <span>断裂连接</span>
+              <strong>{{ trends.connectionChanges.brokenCount }}</strong>
             </div>
           </div>
 
@@ -315,7 +422,7 @@
                   >
                     {{ item.title }}
                   </button>
-                  <span>+{{ item.delta }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
+                  <span>{{ formatDelta(item.delta) }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
                 </article>
               </div>
               <p
@@ -353,17 +460,118 @@
               </p>
             </div>
           </div>
+
+          <div class="split-block">
+            <div>
+              <h3>升温主题</h3>
+              <div
+                v-if="trends.risingCommunities.length"
+                class="trend-list"
+              >
+                <article
+                  v-for="community in trends.risingCommunities.slice(0, 3)"
+                  :key="community.communityId"
+                  class="trend-item"
+                >
+                  <button
+                    type="button"
+                    @click="selectCommunity(community.communityId)"
+                  >
+                    {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                  </button>
+                  <span>{{ formatDelta(community.delta) }} ({{ community.currentReferences }}/{{ community.previousReferences }})</span>
+                </article>
+              </div>
+              <p
+                v-else
+                class="empty-inline"
+              >
+                没有明显升温主题。
+              </p>
+            </div>
+            <div>
+              <h3>低活跃主题</h3>
+              <div
+                v-if="trends.dormantCommunities.length"
+                class="trend-list"
+              >
+                <article
+                  v-for="community in trends.dormantCommunities.slice(0, 3)"
+                  :key="community.communityId"
+                  class="trend-item"
+                >
+                  <button
+                    type="button"
+                    @click="selectCommunity(community.communityId)"
+                  >
+                    {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                  </button>
+                  <span>{{ community.currentReferences }}/{{ community.previousReferences }}</span>
+                </article>
+              </div>
+              <p
+                v-else
+                class="empty-inline"
+              >
+                没有明显低活跃主题。
+              </p>
+            </div>
+            <div>
+              <h3>断裂连接</h3>
+              <div
+                v-if="trends.connectionChanges.brokenEdges.length"
+                class="trend-list"
+              >
+                <article
+                  v-for="edge in trends.connectionChanges.brokenEdges.slice(0, 3)"
+                  :key="edge.documentIds.join('-')"
+                  class="trend-item"
+                >
+                  <button
+                    type="button"
+                    @click="openDocument(edge.documentIds[0])"
+                  >
+                    {{ edge.documentIds.map(resolveTitle).join(' → ') }}
+                  </button>
+                  <span>{{ edge.referenceCount }} 条</span>
+                </article>
+              </div>
+              <p
+                v-else
+                class="empty-inline"
+              >
+                没有明显断裂连接。
+              </p>
+            </div>
+          </div>
         </section>
 
         <section class="panel">
           <div class="panel-header">
             <div>
               <h2>关系传播路径</h2>
-              <p>用于理解两个核心文档之间经过哪些桥梁节点建立连接。</p>
+              <p>支持限定路径深度与范围，查看文档如何跨主题建立连接。</p>
             </div>
           </div>
 
           <div class="path-controls">
+            <label>
+              <span>范围</span>
+              <select v-model="pathScope">
+                <option value="focused">核心 + 桥接</option>
+                <option value="all">当前筛选全部文档</option>
+                <option value="community">当前社区</option>
+              </select>
+            </label>
+            <label>
+              <span>最大深度</span>
+              <select v-model="maxPathDepth">
+                <option :value="3">3</option>
+                <option :value="4">4</option>
+                <option :value="5">5</option>
+                <option :value="6">6</option>
+              </select>
+            </label>
             <label>
               <span>起点</span>
               <select v-model="fromDocumentId">
@@ -409,6 +617,121 @@
             class="empty-state"
           >
             当前筛选条件下未找到可解释路径。
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>高传播价值节点</h2>
+              <p>统计哪些中间文档最常出现在核心文档、桥接文档和社区枢纽之间的最短路径上。</p>
+            </div>
+          </div>
+
+          <div
+            v-if="report.propagationNodes.length"
+            class="propagation-list"
+          >
+            <article
+              v-for="item in report.propagationNodes.slice(0, 8)"
+              :key="item.documentId"
+              class="propagation-item"
+            >
+              <div class="propagation-item__header">
+                <button
+                  class="propagation-item__title"
+                  type="button"
+                  @click="selectEvidence(item.documentId)"
+                >
+                  {{ item.title }}
+                </button>
+                <span class="badge">{{ item.score }} 分</span>
+              </div>
+              <p class="propagation-item__meta">
+                参与 {{ item.pathPairCount }} 对关键文档的最短路径，覆盖 {{ item.focusDocumentCount }} 个焦点文档
+              </p>
+              <p class="propagation-item__meta">
+                社区跨度：{{ item.communitySpan || 1 }}{{ item.bridgeRole ? '，同时是桥接节点' : '' }}
+              </p>
+            </article>
+          </div>
+          <div
+            v-else
+            class="empty-state"
+          >
+            当前筛选条件下还没有明显的传播节点。
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <h2>文档详情</h2>
+              <p>围绕当前选中文档汇总其社区位置、桥接角色与沉没风险。</p>
+            </div>
+          </div>
+
+          <div
+            v-if="selectedDocumentDetail"
+            class="detail-grid"
+          >
+            <div class="detail-card">
+              <span>当前文档</span>
+              <strong>{{ resolveTitle(selectedDocumentDetail.documentId) }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>所属社区</span>
+              <strong>{{ selectedDocumentDetail.community?.topTags.join(' / ') || '未归入主题社区' }}</strong>
+            </div>
+            <div class="detail-card">
+              <span>桥接角色</span>
+              <strong>{{ selectedDocumentDetail.bridge ? `是，连接度 ${selectedDocumentDetail.bridge.degree}` : '否' }}</strong>
+            </div>
+            <div
+              v-if="selectedDocumentDetail.propagation"
+              class="detail-card"
+            >
+              <span>传播价值</span>
+              <strong>
+                {{ selectedDocumentDetail.propagation.score }} 分，参与 {{ selectedDocumentDetail.propagation.pathPairCount }} 对关键最短路径
+              </strong>
+            </div>
+            <div class="detail-card">
+              <span>趋势变化</span>
+              <strong>
+                {{
+                  selectedDocumentDetail.trend
+                    ? `${formatDelta(selectedDocumentDetail.trend.delta)} (${selectedDocumentDetail.trend.currentReferences}/${selectedDocumentDetail.trend.previousReferences})`
+                    : '当前窗口无明显变化'
+                }}
+              </strong>
+            </div>
+            <div
+              v-if="selectedDocumentDetail.orphan"
+              class="detail-card"
+            >
+              <span>孤立状态</span>
+              <strong>
+                {{
+                  selectedDocumentDetail.orphan.hasSparseEvidence
+                    ? `孤立，但仍有 ${selectedDocumentDetail.orphan.historicalReferenceCount} 条历史证据`
+                    : '当前窗口内孤立'
+                }}
+              </strong>
+            </div>
+            <div
+              v-if="selectedDocumentDetail.dormant"
+              class="detail-card"
+            >
+              <span>沉没风险</span>
+              <strong>{{ selectedDocumentDetail.dormant.inactivityDays }} 天未产生有效连接</strong>
+            </div>
+          </div>
+          <div
+            v-else
+            class="empty-state"
+          >
+            当前没有可展示的文档详情。
           </div>
         </section>
 
@@ -475,9 +798,13 @@ import {
   analyzeTrends,
   findReferencePath,
   type AnalyticsFilters,
+  type OrphanSort,
   type TimeRange,
 } from '@/analytics/analysis'
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '@/analytics/siyuan-data'
+
+type PathScope = 'focused' | 'all' | 'community'
+type SnapshotDocument = AnalyticsSnapshot['documents'][number]
 
 const props = defineProps<{
   plugin: Plugin
@@ -487,6 +814,7 @@ const suggestionTypeLabel = {
   'promote-hub': '升级为主题页',
   'repair-orphan': '补齐链接',
   'maintain-bridge': '重点维护',
+  'archive-dormant': '归档沉没',
 } as const
 
 const loading = ref(false)
@@ -496,10 +824,15 @@ const timeRange = ref<TimeRange>('all')
 const selectedNotebook = ref('')
 const selectedTag = ref('')
 const keyword = ref('')
+const orphanSort = ref<OrphanSort>('updated-desc')
+const dormantDays = ref(30)
 const analysisNow = ref(new Date())
 const fromDocumentId = ref('')
 const toDocumentId = ref('')
 const selectedEvidenceDocument = ref('')
+const selectedCommunityId = ref('')
+const pathScope = ref<PathScope>('focused')
+const maxPathDepth = ref(6)
 
 const filters = computed<AnalyticsFilters>(() => ({
   notebook: selectedNotebook.value || undefined,
@@ -511,7 +844,7 @@ const notebookOptions = computed(() => snapshot.value?.notebooks ?? [])
 const tagOptions = computed(() => {
   const tagSet = new Set<string>()
   for (const document of snapshot.value?.documents ?? []) {
-    for (const tag of Array.isArray(document.tags) ? document.tags : []) {
+    for (const tag of normalizeTags(document.tags)) {
       tagSet.add(tag)
     }
   }
@@ -520,6 +853,10 @@ const tagOptions = computed(() => {
 
 const documentMap = computed(() => {
   return new Map((snapshot.value?.documents ?? []).map(document => [document.id, document]))
+})
+
+const filteredDocuments = computed(() => {
+  return (snapshot.value?.documents ?? []).filter(document => matchesCurrentFilters(document))
 })
 
 const report = computed(() => {
@@ -532,6 +869,8 @@ const report = computed(() => {
     now: analysisNow.value,
     timeRange: timeRange.value,
     filters: filters.value,
+    orphanSort: orphanSort.value,
+    dormantDays: dormantDays.value,
   })
 })
 
@@ -557,6 +896,24 @@ const trends = computed(() => {
   })
 })
 
+const communityTrendMap = computed(() => {
+  return new Map((trends.value?.communityTrends ?? []).map(item => [item.communityId, item]))
+})
+
+const selectedCommunity = computed(() => {
+  if (!report.value?.communities.length) {
+    return null
+  }
+  return report.value.communities.find(community => community.id === selectedCommunityId.value) ?? report.value.communities[0]
+})
+
+const selectedCommunityTrend = computed(() => {
+  if (!selectedCommunity.value) {
+    return null
+  }
+  return communityTrendMap.value.get(selectedCommunity.value.id) ?? null
+})
+
 const summaryCards = computed(() => {
   if (!report.value || !trends.value) {
     return []
@@ -570,12 +927,12 @@ const summaryCards = computed(() => {
     {
       label: '活跃关系',
       value: report.value.summary.totalReferences.toString(),
-      hint: '文档级引用聚合后的边数量',
+      hint: '当前窗口内的文档级引用次数',
     },
     {
       label: '主题社区',
       value: report.value.summary.communityCount.toString(),
-      hint: '已形成结构的文档簇',
+      hint: '按桥接节点拆分后的主题簇',
     },
     {
       label: '孤立文档',
@@ -583,26 +940,46 @@ const summaryCards = computed(() => {
       hint: '当前窗口内无文档级连接',
     },
     {
-      label: '升温信号',
-      value: trends.value.risingDocuments.length.toString(),
-      hint: '较前一窗口活跃度提升的文档',
+      label: '沉没文档',
+      value: report.value.summary.dormantCount.toString(),
+      hint: `超过 ${dormantDays.value} 天未产生有效连接`,
     },
     {
       label: '桥接节点',
       value: report.value.bridgeDocuments.length.toString(),
       hint: '断开后会削弱社区连接的文档',
     },
+    {
+      label: '传播节点',
+      value: report.value.summary.propagationCount.toString(),
+      hint: '出现在关键路径上的高传播价值节点',
+    },
   ]
 })
 
 const pathOptions = computed(() => {
   const ids = new Set<string>()
-  for (const item of report.value?.ranking ?? []) {
-    ids.add(item.documentId)
+
+  if (pathScope.value === 'all') {
+    for (const document of filteredDocuments.value) {
+      ids.add(document.id)
+    }
+  } else if (pathScope.value === 'community') {
+    for (const documentId of selectedCommunity.value?.documentIds ?? []) {
+      ids.add(documentId)
+    }
+  } else {
+    for (const item of report.value?.ranking ?? []) {
+      ids.add(item.documentId)
+    }
+    for (const item of report.value?.bridgeDocuments ?? []) {
+      ids.add(item.documentId)
+    }
+    for (const item of report.value?.propagationNodes ?? []) {
+      ids.add(item.documentId)
+    }
   }
-  for (const item of report.value?.bridgeDocuments ?? []) {
-    ids.add(item.documentId)
-  }
+
   return [...ids]
     .map((id) => {
       const document = documentMap.value.get(id)
@@ -614,6 +991,7 @@ const pathOptions = computed(() => {
         : null
     })
     .filter((item): item is { id: string, title: string } => item !== null)
+    .sort((left, right) => left.title.localeCompare(right.title, 'zh-CN'))
 })
 
 const pathChain = computed(() => {
@@ -625,7 +1003,7 @@ const pathChain = computed(() => {
     references: snapshot.value.references,
     fromDocumentId: fromDocumentId.value,
     toDocumentId: toDocumentId.value,
-    maxDepth: 6,
+    maxDepth: maxPathDepth.value,
     filters: filters.value,
   })
 })
@@ -635,6 +1013,32 @@ const selectedEvidence = computed(() => {
     return []
   }
   return report.value.evidenceByDocument[selectedEvidenceDocument.value] ?? []
+})
+
+const selectedDocumentDetail = computed(() => {
+  if (!report.value || !selectedEvidenceDocument.value) {
+    return null
+  }
+
+  const orphan = report.value.orphans.find(item => item.documentId === selectedEvidenceDocument.value) ?? null
+  const dormant = report.value.dormantDocuments.find(item => item.documentId === selectedEvidenceDocument.value) ?? null
+  const bridge = report.value.bridgeDocuments.find(item => item.documentId === selectedEvidenceDocument.value) ?? null
+  const propagation = report.value.propagationNodes.find(item => item.documentId === selectedEvidenceDocument.value) ?? null
+  const community = report.value.communities.find(item => item.documentIds.includes(selectedEvidenceDocument.value)) ?? null
+  const trend = [
+    ...(trends.value?.risingDocuments ?? []),
+    ...(trends.value?.fallingDocuments ?? []),
+  ].find(item => item.documentId === selectedEvidenceDocument.value) ?? null
+
+  return {
+    documentId: selectedEvidenceDocument.value,
+    orphan,
+    dormant,
+    bridge,
+    propagation,
+    community,
+    trend,
+  }
 })
 
 const snapshotLabel = computed(() => {
@@ -664,14 +1068,43 @@ watch(pathOptions, (options) => {
 }, { immediate: true })
 
 watch(report, (nextReport) => {
-  if (!nextReport?.ranking.length) {
+  if (!nextReport) {
     selectedEvidenceDocument.value = ''
+    selectedCommunityId.value = ''
     return
   }
-  if (!nextReport.ranking.some(item => item.documentId === selectedEvidenceDocument.value)) {
-    selectedEvidenceDocument.value = nextReport.ranking[0].documentId
+
+  const preferredDocumentId = nextReport.ranking[0]?.documentId
+    ?? nextReport.orphans[0]?.documentId
+    ?? nextReport.bridgeDocuments[0]?.documentId
+    ?? ''
+
+  if (!preferredDocumentId) {
+    selectedEvidenceDocument.value = ''
+  } else if (!documentMap.value.has(selectedEvidenceDocument.value)) {
+    selectedEvidenceDocument.value = preferredDocumentId
+  }
+
+  if (!nextReport.communities.some(item => item.id === selectedCommunityId.value)) {
+    selectedCommunityId.value = nextReport.communities[0]?.id ?? ''
   }
 }, { immediate: true })
+
+watch([report, selectedEvidenceDocument], ([nextReport, documentId]) => {
+  if (!nextReport || !documentId) {
+    return
+  }
+  const community = nextReport.communities.find(item => item.documentIds.includes(documentId))
+  if (community) {
+    selectedCommunityId.value = community.id
+  }
+}, { immediate: true })
+
+watch(pathScope, (scope) => {
+  if (scope === 'community' && !selectedCommunity.value) {
+    pathScope.value = 'focused'
+  }
+})
 
 onMounted(() => {
   refresh()
@@ -696,8 +1129,16 @@ function selectEvidence(documentId: string) {
   selectedEvidenceDocument.value = documentId
 }
 
+function selectCommunity(communityId: string) {
+  selectedCommunityId.value = communityId
+}
+
 function resolveTitle(documentId: string) {
   return documentMap.value.get(documentId)?.title || documentId
+}
+
+function resolveNotebookName(notebookId: string) {
+  return notebookOptions.value.find(notebook => notebook.id === notebookId)?.name ?? notebookId
 }
 
 function openDocument(documentId: string) {
@@ -715,6 +1156,40 @@ function formatTimestamp(timestamp?: string) {
     return '未知时间'
   }
   return `${timestamp.slice(0, 4)}-${timestamp.slice(4, 6)}-${timestamp.slice(6, 8)}`
+}
+
+function formatDelta(delta: number) {
+  return delta > 0 ? `+${delta}` : delta.toString()
+}
+
+function matchesCurrentFilters(document: SnapshotDocument) {
+  if (filters.value.notebook && document.box !== filters.value.notebook) {
+    return false
+  }
+  const tags = normalizeTags(document.tags)
+  if (filters.value.tag && !tags.includes(filters.value.tag)) {
+    return false
+  }
+  if (filters.value.keyword) {
+    const haystack = `${document.title ?? ''} ${document.hpath} ${tags.join(' ')}`.toLowerCase()
+    if (!haystack.includes(filters.value.keyword.toLowerCase())) {
+      return false
+    }
+  }
+  return true
+}
+
+function normalizeTags(tags?: readonly string[] | string) {
+  if (!tags) {
+    return []
+  }
+  if (Array.isArray(tags)) {
+    return tags
+  }
+  return tags
+    .split(/[,\s#]+/)
+    .map(tag => tag.trim())
+    .filter(Boolean)
 }
 </script>
 
@@ -786,7 +1261,7 @@ h1 {
 }
 
 .filter-panel {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   margin-bottom: 16px;
 }
 
@@ -806,7 +1281,7 @@ h1 {
 }
 
 .filter-item--wide {
-  grid-column: span 1;
+  grid-column: span 2;
 }
 
 select,
@@ -894,6 +1369,7 @@ input {
 .ranking-list,
 .suggestion-list,
 .community-list,
+.propagation-list,
 .evidence-list {
   display: grid;
   gap: 10px;
@@ -902,6 +1378,7 @@ input {
 .ranking-item,
 .suggestion-item,
 .community-item,
+.propagation-item,
 .evidence-item {
   padding: 14px;
   border-radius: 16px;
@@ -911,6 +1388,7 @@ input {
 
 .ranking-item__title,
 .suggestion-item__title,
+.propagation-item__title,
 .evidence-item__source,
 .trend-item button,
 .mini-list__item,
@@ -927,6 +1405,7 @@ input {
 
 .ranking-item__title,
 .suggestion-item__title,
+.propagation-item__title,
 .evidence-item__source {
   font-weight: 600;
 }
@@ -939,6 +1418,8 @@ input {
 .ranking-item__meta,
 .ranking-item__actions,
 .community-item__header,
+.community-detail__header,
+.propagation-item__header,
 .path-controls,
 .trend-stats,
 .split-block,
@@ -979,7 +1460,7 @@ input {
 
 .split-block {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   align-items: start;
 }
 
@@ -994,11 +1475,50 @@ input {
   gap: 8px;
 }
 
+.mini-list__entry,
+.community-detail,
+.detail-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--b3-theme-background) 88%, white);
+}
+
 .mini-list__item,
 .trend-item button {
   padding: 10px 12px;
   border-radius: 12px;
   background: color-mix(in srgb, var(--b3-theme-background) 84%, white);
+}
+
+.mini-list__entry {
+  display: grid;
+  gap: 8px;
+}
+
+.mini-list__meta,
+.community-item__meta,
+.community-item__warning,
+.propagation-item__meta,
+.community-detail p,
+.detail-card span {
+  margin: 0;
+  font-size: 12px;
+  color: var(--panel-muted);
+}
+
+.community-item--active {
+  border-color: color-mix(in srgb, var(--accent-cool) 55%, transparent);
+  box-shadow: 0 14px 32px -26px rgba(34, 124, 157, 0.45);
+}
+
+.community-item__warning {
+  color: #8d431e;
+}
+
+.community-detail {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
 }
 
 .trend-stats {
@@ -1028,6 +1548,17 @@ input {
   justify-content: space-between;
   gap: 10px;
   align-items: center;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.detail-card {
+  display: grid;
+  gap: 8px;
 }
 
 .path-controls label {

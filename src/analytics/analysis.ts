@@ -29,6 +29,8 @@ export interface AnalyticsFilters {
   keyword?: string
 }
 
+export type OrphanSort = 'updated-desc' | 'created-desc' | 'title-asc'
+
 interface NormalizedDocument {
   id: string
   box: string
@@ -58,6 +60,9 @@ export interface CommunityItem {
   documentIds: string[]
   size: number
   hubDocumentIds: string[]
+  topTags: string[]
+  notebookIds: string[]
+  missingTopicPage: boolean
 }
 
 export interface BridgeItem {
@@ -66,8 +71,29 @@ export interface BridgeItem {
   degree: number
 }
 
+export interface OrphanItem extends BridgeItem {
+  createdAt: string
+  updatedAt: string
+  historicalReferenceCount: number
+  lastHistoricalAt: string
+  hasSparseEvidence: boolean
+}
+
+export interface DormantItem extends OrphanItem {
+  inactivityDays: number
+  lastConnectedAt: string
+}
+
+export interface PropagationNodeItem extends BridgeItem {
+  score: number
+  pathPairCount: number
+  focusDocumentCount: number
+  communitySpan: number
+  bridgeRole: boolean
+}
+
 export interface SuggestionItem {
-  type: 'promote-hub' | 'repair-orphan' | 'maintain-bridge'
+  type: 'promote-hub' | 'repair-orphan' | 'maintain-bridge' | 'archive-dormant'
   documentId: string
   title: string
   reason: string
@@ -81,6 +107,21 @@ export interface TrendDocumentItem {
   delta: number
 }
 
+export interface ConnectionChangeItem {
+  documentIds: string[]
+  referenceCount: number
+}
+
+export interface CommunityTrendItem {
+  communityId: string
+  documentIds: string[]
+  hubDocumentIds: string[]
+  topTags: string[]
+  currentReferences: number
+  previousReferences: number
+  delta: number
+}
+
 export interface ReferenceGraphReport {
   summary: {
     totalDocuments: number
@@ -88,11 +129,16 @@ export interface ReferenceGraphReport {
     totalReferences: number
     orphanCount: number
     communityCount: number
+    dormantCount: number
+    sparseEvidenceCount: number
+    propagationCount: number
   }
   ranking: RankingItem[]
   communities: CommunityItem[]
   bridgeDocuments: BridgeItem[]
-  orphans: BridgeItem[]
+  orphans: OrphanItem[]
+  dormantDocuments: DormantItem[]
+  propagationNodes: PropagationNodeItem[]
   suggestions: SuggestionItem[]
   evidenceByDocument: Record<string, NormalizedReference[]>
 }
@@ -106,6 +152,15 @@ export interface TrendReport {
   }
   risingDocuments: TrendDocumentItem[]
   fallingDocuments: TrendDocumentItem[]
+  connectionChanges: {
+    newCount: number
+    brokenCount: number
+    newEdges: ConnectionChangeItem[]
+    brokenEdges: ConnectionChangeItem[]
+  }
+  communityTrends: CommunityTrendItem[]
+  risingCommunities: CommunityTrendItem[]
+  dormantCommunities: CommunityTrendItem[]
 }
 
 export function analyzeReferenceGraph(params: {
@@ -114,23 +169,30 @@ export function analyzeReferenceGraph(params: {
   now: Date
   timeRange: TimeRange
   filters?: AnalyticsFilters
+  orphanSort?: OrphanSort
+  dormantDays?: number
 }): ReferenceGraphReport {
   const documents = normalizeDocuments(params.documents).filter(document => matchesFilters(document, params.filters))
   const documentMap = new Map(documents.map(document => [document.id, document]))
-  const references = normalizeReferences(params.references).filter((reference) => {
+  const allReferences = normalizeReferences(params.references).filter((reference) => {
     if (reference.sourceDocumentId === reference.targetDocumentId) {
       return false
     }
     if (!documentMap.has(reference.sourceDocumentId) || !documentMap.has(reference.targetDocumentId)) {
       return false
     }
+    return true
+  })
+  const references = allReferences.filter((reference) => {
     return isReferenceInTimeRange(reference.sourceUpdated, params.now, params.timeRange)
   })
 
-  const adjacency = createAdjacency(documents.map(document => document.id))
+  const adjacency = buildAdjacencyFromReferences(documents.map(document => document.id), references)
   const evidenceByDocument: Record<string, NormalizedReference[]> = {}
   const inboundByDocument = new Map<string, NormalizedReference[]>()
   const outboundByDocument = new Map<string, number>()
+  const allTouchesByDocument = buildTouchIndex(documents.map(document => document.id), allReferences)
+  const dormantDays = params.dormantDays ?? 30
 
   for (const reference of references) {
     const inbound = inboundByDocument.get(reference.targetDocumentId) ?? []
@@ -194,15 +256,53 @@ export function analyzeReferenceGraph(params: {
       }
       return left.documentId.localeCompare(right.documentId)
     })
+  const propagationNodes = buildPropagationNodes({
+    documents,
+    adjacency,
+    ranking,
+    bridgeIds,
+    communities,
+  })
 
-  const orphans = documents
+  const orphans = sortOrphans(documents
     .filter(document => (degrees.get(document.id) ?? 0) === 0)
-    .map(document => ({
-      documentId: document.id,
-      title: document.title,
-      degree: 0,
-    }))
-    .sort((left, right) => left.documentId.localeCompare(right.documentId))
+    .map((document) => {
+      const historicalReferences = [...(allTouchesByDocument.get(document.id) ?? [])]
+        .sort((left, right) => compareTimestamp(right.sourceUpdated, left.sourceUpdated))
+      const historicalReferenceCount = historicalReferences.length
+      const lastHistoricalAt = historicalReferences[0]?.sourceUpdated ?? ''
+
+      return {
+        documentId: document.id,
+        title: document.title,
+        degree: 0,
+        createdAt: document.created ?? '',
+        updatedAt: document.updated ?? '',
+        historicalReferenceCount,
+        lastHistoricalAt,
+        hasSparseEvidence: historicalReferenceCount > 0 && historicalReferenceCount <= 2,
+      }
+    }), params.orphanSort)
+
+  const dormantDocuments = orphans
+    .map((item) => {
+      const updatedAt = item.updatedAt || item.createdAt
+      const lastRelevantAt = latestTimestamp(updatedAt, item.lastHistoricalAt)
+      const inactivityDays = diffDays(params.now, lastRelevantAt)
+
+      return {
+        ...item,
+        inactivityDays,
+        lastConnectedAt: item.lastHistoricalAt,
+      }
+    })
+    .filter(item => item.inactivityDays >= dormantDays)
+    .sort((left, right) => {
+      if (right.inactivityDays !== left.inactivityDays) {
+        return right.inactivityDays - left.inactivityDays
+      }
+      return left.documentId.localeCompare(right.documentId)
+    })
 
   return {
     summary: {
@@ -211,12 +311,17 @@ export function analyzeReferenceGraph(params: {
       totalReferences: references.length,
       orphanCount: orphans.length,
       communityCount: communities.length,
+      dormantCount: dormantDocuments.length,
+      sparseEvidenceCount: orphans.filter(item => item.hasSparseEvidence).length,
+      propagationCount: propagationNodes.length,
     },
     ranking,
     communities,
     bridgeDocuments,
     orphans,
-    suggestions: buildSuggestions(ranking, orphans, bridgeDocuments),
+    dormantDocuments,
+    propagationNodes,
+    suggestions: buildSuggestions(ranking, orphans, dormantDocuments, bridgeDocuments),
     evidenceByDocument,
   }
 }
@@ -262,6 +367,44 @@ export function analyzeTrends(params: {
     })
     .filter((item): item is TrendDocumentItem => item !== null)
 
+  const allAdjacency = buildAdjacencyFromReferences(documents.map(document => document.id), references)
+  const allBridgeIds = findMeaningfulBridgeDocuments(allAdjacency)
+  const communities = buildCommunities(documents, allAdjacency, allBridgeIds)
+  const communityTrends = communities
+    .map((community) => {
+      const communityIds = new Set(community.documentIds)
+      const currentCommunityReferences = currentReferences.filter((reference) => {
+        return communityIds.has(reference.sourceDocumentId) && communityIds.has(reference.targetDocumentId)
+      })
+      const previousCommunityReferences = previousReferences.filter((reference) => {
+        return communityIds.has(reference.sourceDocumentId) && communityIds.has(reference.targetDocumentId)
+      })
+
+      return {
+        communityId: community.id,
+        documentIds: community.documentIds,
+        hubDocumentIds: community.hubDocumentIds,
+        topTags: community.topTags,
+        currentReferences: currentCommunityReferences.length,
+        previousReferences: previousCommunityReferences.length,
+        delta: currentCommunityReferences.length - previousCommunityReferences.length,
+      }
+    })
+    .sort((left, right) => {
+      if (right.delta !== left.delta) {
+        return right.delta - left.delta
+      }
+      if (right.currentReferences !== left.currentReferences) {
+        return right.currentReferences - left.currentReferences
+      }
+      return left.documentIds[0].localeCompare(right.documentIds[0])
+    })
+
+  const currentEdges = buildConnectionEdgeMap(currentReferences)
+  const previousEdges = buildConnectionEdgeMap(previousReferences)
+  const newEdges = buildConnectionDifference(currentEdges, previousEdges)
+  const brokenEdges = buildConnectionDifference(previousEdges, currentEdges)
+
   return {
     current: {
       referenceCount: currentReferences.length,
@@ -291,6 +434,15 @@ export function analyzeTrends(params: {
         }
         return left.documentId.localeCompare(right.documentId)
       }),
+    connectionChanges: {
+      newCount: newEdges.length,
+      brokenCount: brokenEdges.length,
+      newEdges,
+      brokenEdges,
+    },
+    communityTrends,
+    risingCommunities: communityTrends.filter(item => item.delta > 0),
+    dormantCommunities: communityTrends.filter(item => item.currentReferences === 0 || (item.delta < 0 && item.currentReferences <= 1)),
   }
 }
 
@@ -455,6 +607,263 @@ function createAdjacency(documentIds: string[]): Map<string, Set<string>> {
   return new Map(documentIds.map(documentId => [documentId, new Set<string>()]))
 }
 
+function buildAdjacencyFromReferences(
+  documentIds: string[],
+  references: NormalizedReference[],
+): Map<string, Set<string>> {
+  const adjacency = createAdjacency(documentIds)
+  for (const reference of references) {
+    adjacency.get(reference.sourceDocumentId)?.add(reference.targetDocumentId)
+    adjacency.get(reference.targetDocumentId)?.add(reference.sourceDocumentId)
+  }
+  return adjacency
+}
+
+function buildTouchIndex(
+  documentIds: string[],
+  references: NormalizedReference[],
+): Map<string, NormalizedReference[]> {
+  const touches = new Map<string, NormalizedReference[]>(documentIds.map(documentId => [documentId, []]))
+  for (const reference of references) {
+    touches.get(reference.sourceDocumentId)?.push(reference)
+    touches.get(reference.targetDocumentId)?.push(reference)
+  }
+  return touches
+}
+
+function buildConnectionEdgeMap(references: NormalizedReference[]): Map<string, ConnectionChangeItem> {
+  const edges = new Map<string, ConnectionChangeItem>()
+  for (const reference of references) {
+    const documentIds = [reference.sourceDocumentId, reference.targetDocumentId].sort()
+    const key = documentIds.join('|')
+    const existing = edges.get(key)
+    if (existing) {
+      existing.referenceCount += 1
+      continue
+    }
+    edges.set(key, {
+      documentIds,
+      referenceCount: 1,
+    })
+  }
+  return edges
+}
+
+function buildConnectionDifference(
+  source: Map<string, ConnectionChangeItem>,
+  excluded: Map<string, ConnectionChangeItem>,
+): ConnectionChangeItem[] {
+  return [...source.entries()]
+    .filter(([key]) => !excluded.has(key))
+    .map(([, item]) => item)
+    .sort((left, right) => {
+      if (right.referenceCount !== left.referenceCount) {
+        return right.referenceCount - left.referenceCount
+      }
+      return left.documentIds[0].localeCompare(right.documentIds[0]) || left.documentIds[1].localeCompare(right.documentIds[1])
+    })
+}
+
+function latestTimestamp(left: string, right: string): string {
+  return compareTimestamp(left, right) >= 0 ? left : right
+}
+
+function diffDays(now: Date, timestamp: string): number {
+  const value = parseTimestamp(timestamp)
+  if (!value) {
+    return Number.POSITIVE_INFINITY
+  }
+  return Math.floor((now.getTime() - value) / (24 * 60 * 60 * 1000))
+}
+
+function sortOrphans(orphans: OrphanItem[], sort: OrphanSort = 'updated-desc'): OrphanItem[] {
+  return [...orphans].sort((left, right) => {
+    if (sort === 'created-desc') {
+      return compareTimestamp(right.createdAt, left.createdAt) || left.documentId.localeCompare(right.documentId)
+    }
+    if (sort === 'title-asc') {
+      return left.title.localeCompare(right.title, 'zh-CN') || left.documentId.localeCompare(right.documentId)
+    }
+    return compareTimestamp(right.updatedAt, left.updatedAt) || left.documentId.localeCompare(right.documentId)
+  })
+}
+
+function collectTopTags(documents: NormalizedDocument[]): string[] {
+  const counts = new Map<string, number>()
+  for (const document of documents) {
+    for (const tag of document.tags) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    }
+  }
+
+  return [...counts.entries()]
+    .sort((left, right) => {
+      if (right[1] !== left[1]) {
+        return right[1] - left[1]
+      }
+      return left[0].localeCompare(right[0], 'zh-CN')
+    })
+    .slice(0, 3)
+    .map(([tag]) => tag)
+}
+
+function isTopicPageCandidate(document: NormalizedDocument): boolean {
+  const keywords = ['index', 'hub', 'map', 'overview', 'guide', '索引', '导航', '地图', '总览']
+  const title = document.title.toLowerCase()
+  const tags = document.tags.map(tag => tag.toLowerCase())
+
+  return keywords.some(keyword => title.includes(keyword.toLowerCase()) || tags.includes(keyword.toLowerCase()))
+}
+
+function buildPropagationNodes(params: {
+  documents: NormalizedDocument[]
+  adjacency: Map<string, Set<string>>
+  ranking: RankingItem[]
+  bridgeIds: Set<string>
+  communities: CommunityItem[]
+}): PropagationNodeItem[] {
+  const documentMap = new Map(params.documents.map(document => [document.id, document]))
+  const focusIds = buildPropagationFocusIds(params.ranking, params.bridgeIds, params.communities)
+  if (focusIds.length < 2) {
+    return []
+  }
+
+  const communityIdByDocument = new Map<string, string>()
+  for (const community of params.communities) {
+    for (const documentId of community.documentIds) {
+      communityIdByDocument.set(documentId, community.id)
+    }
+  }
+
+  const distances = new Map<string, Map<string, number>>()
+  for (const focusId of focusIds) {
+    distances.set(focusId, computeDistancesFromNode(params.adjacency, focusId))
+  }
+
+  const pathPairCounts = new Map<string, number>()
+  const focusCoverage = new Map<string, Set<string>>()
+  const communityCoverage = new Map<string, Set<string>>()
+
+  for (let leftIndex = 0; leftIndex < focusIds.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < focusIds.length; rightIndex += 1) {
+      const leftId = focusIds[leftIndex]
+      const rightId = focusIds[rightIndex]
+      const leftDistances = distances.get(leftId)!
+      const rightDistances = distances.get(rightId)!
+      const shortestDistance = leftDistances.get(rightId)
+
+      if (shortestDistance === undefined || shortestDistance < 2) {
+        continue
+      }
+
+      for (const candidate of params.documents) {
+        if (candidate.id === leftId || candidate.id === rightId) {
+          continue
+        }
+        const leftToCandidate = leftDistances.get(candidate.id)
+        const rightToCandidate = rightDistances.get(candidate.id)
+        if (leftToCandidate === undefined || rightToCandidate === undefined) {
+          continue
+        }
+        if (leftToCandidate + rightToCandidate !== shortestDistance) {
+          continue
+        }
+
+        pathPairCounts.set(candidate.id, (pathPairCounts.get(candidate.id) ?? 0) + 1)
+
+        const coveredFocusIds = focusCoverage.get(candidate.id) ?? new Set<string>()
+        coveredFocusIds.add(leftId)
+        coveredFocusIds.add(rightId)
+        focusCoverage.set(candidate.id, coveredFocusIds)
+
+        const coveredCommunities = communityCoverage.get(candidate.id) ?? new Set<string>()
+        const leftCommunityId = communityIdByDocument.get(leftId)
+        const rightCommunityId = communityIdByDocument.get(rightId)
+        if (leftCommunityId) {
+          coveredCommunities.add(leftCommunityId)
+        }
+        if (rightCommunityId) {
+          coveredCommunities.add(rightCommunityId)
+        }
+        communityCoverage.set(candidate.id, coveredCommunities)
+      }
+    }
+  }
+
+  return [...pathPairCounts.entries()]
+    .filter(([, pathPairCount]) => pathPairCount > 0)
+    .map(([documentId, pathPairCount]) => {
+      const document = documentMap.get(documentId)!
+      const focusDocumentCount = focusCoverage.get(documentId)?.size ?? 0
+      const communitySpan = communityCoverage.get(documentId)?.size ?? 0
+      const degree = params.adjacency.get(documentId)?.size ?? 0
+      return {
+        documentId,
+        title: document.title,
+        degree,
+        score: pathPairCount,
+        pathPairCount,
+        focusDocumentCount,
+        communitySpan,
+        bridgeRole: params.bridgeIds.has(documentId),
+      }
+    })
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score
+      }
+      if (right.communitySpan !== left.communitySpan) {
+        return right.communitySpan - left.communitySpan
+      }
+      if (right.degree !== left.degree) {
+        return right.degree - left.degree
+      }
+      return left.documentId.localeCompare(right.documentId)
+    })
+}
+
+function buildPropagationFocusIds(
+  ranking: RankingItem[],
+  bridgeIds: Set<string>,
+  communities: CommunityItem[],
+): string[] {
+  const ids = new Set<string>()
+  for (const item of ranking.slice(0, 12)) {
+    ids.add(item.documentId)
+  }
+  for (const bridgeId of bridgeIds) {
+    ids.add(bridgeId)
+  }
+  for (const community of communities) {
+    for (const hubDocumentId of community.hubDocumentIds) {
+      ids.add(hubDocumentId)
+    }
+  }
+  return [...ids].sort()
+}
+
+function computeDistancesFromNode(
+  adjacency: Map<string, Set<string>>,
+  sourceId: string,
+): Map<string, number> {
+  const distances = new Map<string, number>([[sourceId, 0]])
+  const queue = [sourceId]
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()!
+    const distance = distances.get(currentId) ?? 0
+    for (const neighbor of adjacency.get(currentId) ?? []) {
+      if (distances.has(neighbor)) {
+        continue
+      }
+      distances.set(neighbor, distance + 1)
+      queue.push(neighbor)
+    }
+  }
+
+  return distances
+}
+
 function findArticulationPoints(adjacency: Map<string, Set<string>>): Set<string> {
   const visited = new Set<string>()
   const discovery = new Map<string, number>()
@@ -583,6 +992,7 @@ function buildCommunities(
     }
 
     const sortedDocumentIds = [...component].sort()
+    const communityDocuments = sortedDocumentIds.map(documentId => documentMap.get(documentId)!)
     const hubDocumentIds = [...component]
       .sort((left, right) => {
         const degreeDiff = (adjacency.get(right)?.size ?? 0) - (adjacency.get(left)?.size ?? 0)
@@ -600,6 +1010,9 @@ function buildCommunities(
       documentIds: sortedDocumentIds,
       size: sortedDocumentIds.length,
       hubDocumentIds,
+      topTags: collectTopTags(communityDocuments),
+      notebookIds: [...new Set(communityDocuments.map(document => document.box))].sort(),
+      missingTopicPage: !communityDocuments.some(document => isTopicPageCandidate(document)),
     })
   }
 
@@ -613,7 +1026,8 @@ function buildCommunities(
 
 function buildSuggestions(
   ranking: RankingItem[],
-  orphans: BridgeItem[],
+  orphans: OrphanItem[],
+  dormantDocuments: DormantItem[],
   bridgeDocuments: BridgeItem[],
 ): SuggestionItem[] {
   const suggestions: SuggestionItem[] = []
@@ -632,7 +1046,18 @@ function buildSuggestions(
       type: 'repair-orphan',
       documentId: item.documentId,
       title: item.title,
-      reason: '当前分析窗口内没有文档级连接',
+      reason: item.hasSparseEvidence
+        ? `当前窗口内没有文档级连接，但历史上还有 ${item.historicalReferenceCount} 条零散引用证据`
+        : '当前分析窗口内没有文档级连接',
+    })
+  }
+
+  for (const item of dormantDocuments) {
+    suggestions.push({
+      type: 'archive-dormant',
+      documentId: item.documentId,
+      title: item.title,
+      reason: `${item.inactivityDays} 天未产生有效连接，适合归档或补齐索引`,
     })
   }
 

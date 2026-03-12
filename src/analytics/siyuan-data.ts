@@ -1,6 +1,10 @@
 import { lsNotebooks, sql } from '@/api'
 
 import type { DocumentRecord, ReferenceRecord } from './analysis'
+import {
+  buildInternalLinkReferences,
+  collectInternalLinkTargetIds,
+} from './internal-links'
 
 export interface NotebookOption {
   id: string
@@ -33,6 +37,18 @@ interface ReferenceRow {
   targetDocumentId: string
   content: string | null
   sourceUpdated: string | null
+}
+
+interface InternalLinkSourceRow {
+  id: string
+  rootId: string
+  markdown: string | null
+  updated: string | null
+}
+
+interface InternalLinkTargetRow {
+  id: string
+  rootId: string
 }
 
 const DOCUMENT_SQL = `
@@ -71,12 +87,30 @@ const REFERENCE_SQL = `
   ORDER BY sourceUpdated DESC
 `
 
+const INTERNAL_LINK_SOURCE_SQL = `
+  SELECT
+    id,
+    root_id AS rootId,
+    markdown,
+    updated
+  FROM blocks
+  WHERE COALESCE(markdown, '') LIKE '%siyuan://%'
+    AND COALESCE(root_id, '') <> ''
+`
+
 export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
-  const [documentRows, referenceRows, notebooksResponse] = await Promise.all([
+  const [documentRows, referenceRows, internalLinkRows, notebooksResponse] = await Promise.all([
     sql(DOCUMENT_SQL) as Promise<DocumentRow[]>,
     sql(REFERENCE_SQL) as Promise<ReferenceRow[]>,
+    sql(INTERNAL_LINK_SOURCE_SQL) as Promise<InternalLinkSourceRow[]>,
     lsNotebooks(),
   ])
+  const internalLinkTargetIds = collectInternalLinkTargetIds(internalLinkRows ?? [])
+  const internalLinkTargets = await loadInternalLinkTargets(internalLinkTargetIds)
+  const internalLinkReferences = buildInternalLinkReferences({
+    sourceRows: internalLinkRows ?? [],
+    targetRows: internalLinkTargets,
+  })
 
   return {
     documents: (documentRows ?? []).map(row => ({
@@ -97,7 +131,7 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
       targetDocumentId: row.targetDocumentId,
       content: row.content ?? '',
       sourceUpdated: row.sourceUpdated ?? '',
-    })),
+    })).concat(internalLinkReferences),
     notebooks: (notebooksResponse?.notebooks ?? []).map(notebook => ({
       id: notebook.id,
       name: notebook.name,
@@ -114,4 +148,34 @@ function parseTags(raw: string | null): string[] {
     .split(/[,\s#]+/)
     .map(tag => tag.trim())
     .filter(Boolean)
+}
+
+async function loadInternalLinkTargets(targetIds: string[]): Promise<InternalLinkTargetRow[]> {
+  if (targetIds.length === 0) {
+    return []
+  }
+
+  const targetRows: InternalLinkTargetRow[] = []
+  for (const chunk of chunkIds(targetIds, 200)) {
+    const rows = await sql(`
+      SELECT id, root_id AS rootId
+      FROM blocks
+      WHERE id IN (${chunk.map(quoteSql).join(', ')})
+    `) as InternalLinkTargetRow[]
+    targetRows.push(...(rows ?? []))
+  }
+
+  return targetRows
+}
+
+function chunkIds(ids: string[], size: number): string[][] {
+  const chunks: string[][] = []
+  for (let index = 0; index < ids.length; index += size) {
+    chunks.push(ids.slice(index, index + size))
+  }
+  return chunks
+}
+
+function quoteSql(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`
 }
