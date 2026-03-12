@@ -118,43 +118,63 @@
             <h2>{{ selectedSummaryDetail.title }}</h2>
             <p>{{ selectedSummaryDetail.description }}</p>
           </div>
-          <span class="meta-text">{{ selectedSummaryDetail.items.length }} 篇文档</span>
+          <div class="panel-header__actions">
+            <span class="meta-text">{{ selectedSummaryDetail.items.length }} 篇文档</span>
+            <button
+              class="panel-toggle"
+              type="button"
+              :aria-expanded="isPanelExpanded('summary-detail')"
+              :aria-label="isPanelExpanded('summary-detail') ? '折叠详情' : '展开详情'"
+              @click="togglePanel('summary-detail')"
+            >
+              {{ isPanelExpanded('summary-detail') ? '折叠' : '展开' }}
+              <span
+                class="panel-toggle__caret"
+                aria-hidden="true"
+              />
+            </button>
+          </div>
         </div>
 
         <div
-          v-if="selectedSummaryDetail.items.length"
-          class="summary-detail-list"
+          v-show="isPanelExpanded('summary-detail')"
+          class="summary-detail-body"
         >
-          <article
-            v-for="item in selectedSummaryDetail.items"
-            :key="`${selectedSummaryDetail.key}-${item.documentId}`"
-            class="summary-detail-item"
+          <div
+            v-if="selectedSummaryDetail.items.length"
+            class="summary-detail-list"
           >
-            <div class="summary-detail-item__header">
-              <button
-                class="summary-detail-item__title"
-                type="button"
-                @click="openDocument(item.documentId)"
-              >
-                {{ item.title }}
-              </button>
-              <span
-                v-if="item.badge"
-                class="badge"
-              >
-                {{ item.badge }}
-              </span>
-            </div>
-            <p class="summary-detail-item__meta">
-              {{ item.meta }}
-            </p>
-          </article>
-        </div>
-        <div
-          v-else
-          class="empty-state"
-        >
-          当前卡片下没有可展示的文档。
+            <article
+              v-for="item in selectedSummaryDetail.items"
+              :key="`${selectedSummaryDetail.key}-${item.documentId}`"
+              class="summary-detail-item"
+            >
+              <div class="summary-detail-item__header">
+                <button
+                  class="summary-detail-item__title"
+                  type="button"
+                  @click="openDocument(item.documentId)"
+                >
+                  {{ item.title }}
+                </button>
+                <span
+                  v-if="item.badge"
+                  class="badge"
+                >
+                  {{ item.badge }}
+                </span>
+              </div>
+              <p class="summary-detail-item__meta">
+                {{ item.meta }}
+              </p>
+            </article>
+          </div>
+          <div
+            v-else
+            class="empty-state"
+          >
+            当前卡片下没有可展示的文档。
+          </div>
         </div>
       </section>
 
@@ -165,46 +185,66 @@
               <h2>核心文档排行</h2>
               <p>按文档级被引用次数、引用文档数和最近活跃时间排序。</p>
             </div>
-            <span class="meta-text">最近刷新 {{ snapshotLabel }}</span>
+            <div class="panel-header__actions">
+              <span class="meta-text">最近刷新 {{ snapshotLabel }}</span>
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('ranking')"
+                :aria-label="isPanelExpanded('ranking') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('ranking')"
+              >
+                {{ isPanelExpanded('ranking') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="report.ranking.length"
-            class="ranking-list"
+            v-show="isPanelExpanded('ranking')"
+            class="panel-body"
           >
-            <article
-              v-for="item in report.ranking.slice(0, 12)"
-              :key="item.documentId"
-              class="ranking-item"
+            <div
+              v-if="report.ranking.length"
+              class="ranking-list"
             >
-              <button
-                class="ranking-item__title"
-                type="button"
-                @click="openDocument(item.documentId)"
+              <article
+                v-for="item in report.ranking.slice(0, 12)"
+                :key="item.documentId"
+                class="ranking-item"
               >
-                {{ resolveTitle(item.documentId) }}
-              </button>
-              <div class="ranking-item__meta">
-                <span>{{ item.inboundReferences }} 次引用</span>
-                <span>{{ item.distinctSourceDocuments }} 个来源文档</span>
-                <span>{{ formatTimestamp(item.lastActiveAt) }}</span>
-              </div>
-              <div class="ranking-item__actions">
                 <button
-                  class="ghost-button"
+                  class="ranking-item__title"
                   type="button"
-                  @click="selectEvidence(item.documentId)"
+                  @click="openDocument(item.documentId)"
                 >
-                  查看证据
+                  {{ resolveTitle(item.documentId) }}
                 </button>
-              </div>
-            </article>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前筛选条件下没有命中的文档级引用关系。
+                <div class="ranking-item__meta">
+                  <span>{{ item.inboundReferences }} 次引用</span>
+                  <span>{{ item.distinctSourceDocuments }} 个来源文档</span>
+                  <span>{{ formatTimestamp(item.lastActiveAt) }}</span>
+                </div>
+                <div class="ranking-item__actions">
+                  <button
+                    class="ghost-button"
+                    type="button"
+                    @click="selectEvidence(item.documentId)"
+                  >
+                    查看证据
+                  </button>
+                </div>
+              </article>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              当前筛选条件下没有命中的文档级引用关系。
+            </div>
           </div>
         </section>
 
@@ -214,33 +254,53 @@
               <h2>整理建议</h2>
               <p>把结构信号直接转成整理动作。</p>
             </div>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('suggestions')"
+                :aria-label="isPanelExpanded('suggestions') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('suggestions')"
+              >
+                {{ isPanelExpanded('suggestions') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="report.suggestions.length"
-            class="suggestion-list"
+            v-show="isPanelExpanded('suggestions')"
+            class="panel-body"
           >
-            <article
-              v-for="item in report.suggestions"
-              :key="`${item.type}-${item.documentId}`"
-              class="suggestion-item"
+            <div
+              v-if="report.suggestions.length"
+              class="suggestion-list"
             >
-              <span class="badge">{{ suggestionTypeLabel[item.type] }}</span>
-              <button
-                class="suggestion-item__title"
-                type="button"
-                @click="openDocument(item.documentId)"
+              <article
+                v-for="item in report.suggestions"
+                :key="`${item.type}-${item.documentId}`"
+                class="suggestion-item"
               >
-                {{ item.title }}
-              </button>
-              <p>{{ item.reason }}</p>
-            </article>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前没有需要优先处理的建议项。
+                <span class="badge">{{ suggestionTypeLabel[item.type] }}</span>
+                <button
+                  class="suggestion-item__title"
+                  type="button"
+                  @click="openDocument(item.documentId)"
+                >
+                  {{ item.title }}
+                </button>
+                <p>{{ item.reason }}</p>
+              </article>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              当前没有需要优先处理的建议项。
+            </div>
           </div>
         </section>
 
@@ -250,72 +310,92 @@
               <h2>主题社区</h2>
               <p>按桥接节点拆分后的文档簇，并补充标签语义与主题页缺口提示。</p>
             </div>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('communities')"
+                :aria-label="isPanelExpanded('communities') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('communities')"
+              >
+                {{ isPanelExpanded('communities') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="report.communities.length"
-            class="community-list"
+            v-show="isPanelExpanded('communities')"
+            class="panel-body"
           >
-            <article
-              v-for="community in report.communities"
-              :key="community.id"
-              :class="['community-item', { 'community-item--active': community.id === selectedCommunity?.id }]"
+            <div
+              v-if="report.communities.length"
+              class="community-list"
             >
-              <div class="community-item__header">
-                <button
-                  class="ghost-button"
-                  type="button"
-                  @click="selectCommunity(community.id)"
-                >
-                  {{ community.documentIds.length }} 篇文档
-                </button>
-                <span>核心文档：{{ community.hubDocumentIds.map(resolveTitle).join(' / ') }}</span>
-              </div>
-              <p class="community-item__meta">
-                标签语义：{{ community.topTags.join(' / ') || '未提取到高频标签' }}
-              </p>
-              <p class="community-item__meta">
-                分布笔记本：{{ community.notebookIds.map(resolveNotebookName).join(' / ') }}
-              </p>
-              <p
-                v-if="community.missingTopicPage"
-                class="community-item__warning"
+              <article
+                v-for="community in report.communities"
+                :key="community.id"
+                :class="['community-item', { 'community-item--active': community.id === selectedCommunity?.id }]"
               >
-                当前社区缺少明显的索引/总览页，适合补一篇主题页。
-              </p>
-              <div class="community-tags">
-                <button
-                  v-for="documentId in community.documentIds"
-                  :key="documentId"
-                  class="community-tag"
-                  type="button"
-                  @click="openDocument(documentId)"
+                <div class="community-item__header">
+                  <button
+                    class="ghost-button"
+                    type="button"
+                    @click="selectCommunity(community.id)"
+                  >
+                    {{ community.documentIds.length }} 篇文档
+                  </button>
+                  <span>核心文档：{{ community.hubDocumentIds.map(resolveTitle).join(' / ') }}</span>
+                </div>
+                <p class="community-item__meta">
+                  标签语义：{{ community.topTags.join(' / ') || '未提取到高频标签' }}
+                </p>
+                <p class="community-item__meta">
+                  分布笔记本：{{ community.notebookIds.map(resolveNotebookName).join(' / ') }}
+                </p>
+                <p
+                  v-if="community.missingTopicPage"
+                  class="community-item__warning"
                 >
-                  {{ resolveTitle(documentId) }}
-                </button>
-              </div>
-            </article>
-          </div>
-          <div
-            v-if="selectedCommunity && selectedCommunityTrend"
-            class="community-detail"
-          >
-            <div class="community-detail__header">
-              <strong>当前社区详情</strong>
-              <span>{{ selectedCommunityTrend.currentReferences }}/{{ selectedCommunityTrend.previousReferences }}，变化 {{ formatDelta(selectedCommunityTrend.delta) }}</span>
+                  当前社区缺少明显的索引/总览页，适合补一篇主题页。
+                </p>
+                <div class="community-tags">
+                  <button
+                    v-for="documentId in community.documentIds"
+                    :key="documentId"
+                    class="community-tag"
+                    type="button"
+                    @click="openDocument(documentId)"
+                  >
+                    {{ resolveTitle(documentId) }}
+                  </button>
+                </div>
+              </article>
             </div>
-            <p>
-              主题标签：{{ selectedCommunity.topTags.join(' / ') || '未提取到高频标签' }}
-            </p>
-            <p>
-              笔记本分布：{{ selectedCommunity.notebookIds.map(resolveNotebookName).join(' / ') }}
-            </p>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            还没有形成可解释的主题社区。
+            <div
+              v-if="selectedCommunity && selectedCommunityTrend"
+              class="community-detail"
+            >
+              <div class="community-detail__header">
+                <strong>当前社区详情</strong>
+                <span>{{ selectedCommunityTrend.currentReferences }}/{{ selectedCommunityTrend.previousReferences }}，变化 {{ formatDelta(selectedCommunityTrend.delta) }}</span>
+              </div>
+              <p>
+                主题标签：{{ selectedCommunity.topTags.join(' / ') || '未提取到高频标签' }}
+              </p>
+              <p>
+                笔记本分布：{{ selectedCommunity.notebookIds.map(resolveNotebookName).join(' / ') }}
+              </p>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              还没有形成可解释的主题社区。
+            </div>
           </div>
         </section>
 
@@ -325,110 +405,130 @@
               <h2>孤立与桥接</h2>
               <p>识别当前断裂内容、历史零散证据与长期沉没资料。</p>
             </div>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('orphan-bridge')"
+                :aria-label="isPanelExpanded('orphan-bridge') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('orphan-bridge')"
+              >
+                {{ isPanelExpanded('orphan-bridge') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
-          <div class="split-block">
-            <div>
-              <h3>孤立文档</h3>
-              <div
-                v-if="report.orphans.length"
-                class="mini-list"
-              >
-                <article
-                  v-for="item in report.orphans"
-                  :key="item.documentId"
-                  class="mini-list__entry"
+          <div
+            v-show="isPanelExpanded('orphan-bridge')"
+            class="panel-body"
+          >
+            <div class="split-block">
+              <div>
+                <h3>孤立文档</h3>
+                <div
+                  v-if="report.orphans.length"
+                  class="mini-list"
                 >
-                  <button
-                    class="mini-list__item"
-                    type="button"
-                    @click="openDocument(item.documentId)"
+                  <article
+                    v-for="item in report.orphans"
+                    :key="item.documentId"
+                    class="mini-list__entry"
                   >
-                    {{ item.title }}
-                  </button>
-                  <p class="mini-list__meta">
-                    最近更新时间：{{ formatTimestamp(item.updatedAt) }}
-                  </p>
-                  <p
-                    v-if="item.hasSparseEvidence"
-                    class="mini-list__meta"
-                  >
-                    历史上还有 {{ item.historicalReferenceCount }} 条零散证据，最后一次出现在 {{ formatTimestamp(item.lastHistoricalAt) }}
-                  </p>
-                </article>
-              </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有孤立文档。
-              </p>
-            </div>
-            <div>
-              <h3>桥接文档</h3>
-              <div
-                v-if="report.bridgeDocuments.length"
-                class="mini-list"
-              >
-                <article
-                  v-for="item in report.bridgeDocuments"
-                  :key="item.documentId"
-                  class="mini-list__entry"
+                    <button
+                      class="mini-list__item"
+                      type="button"
+                      @click="openDocument(item.documentId)"
+                    >
+                      {{ item.title }}
+                    </button>
+                    <p class="mini-list__meta">
+                      最近更新时间：{{ formatTimestamp(item.updatedAt) }}
+                    </p>
+                    <p
+                      v-if="item.hasSparseEvidence"
+                      class="mini-list__meta"
+                    >
+                      历史上还有 {{ item.historicalReferenceCount }} 条零散证据，最后一次出现在 {{ formatTimestamp(item.lastHistoricalAt) }}
+                    </p>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
                 >
-                  <button
-                    class="mini-list__item"
-                    type="button"
-                    @click="openDocument(item.documentId)"
-                  >
-                    {{ item.title }}
-                  </button>
-                  <p class="mini-list__meta">
-                    连接度：{{ item.degree }}
-                  </p>
-                </article>
+                  没有孤立文档。
+                </p>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有识别到桥接文档。
-              </p>
-            </div>
-            <div>
-              <h3>沉没文档</h3>
-              <div
-                v-if="report.dormantDocuments.length"
-                class="mini-list"
-              >
-                <article
-                  v-for="item in report.dormantDocuments"
-                  :key="item.documentId"
-                  class="mini-list__entry"
+              <div>
+                <h3>桥接文档</h3>
+                <div
+                  v-if="report.bridgeDocuments.length"
+                  class="mini-list"
                 >
-                  <button
-                    class="mini-list__item"
-                    type="button"
-                    @click="openDocument(item.documentId)"
+                  <article
+                    v-for="item in report.bridgeDocuments"
+                    :key="item.documentId"
+                    class="mini-list__entry"
                   >
-                    {{ item.title }}
-                  </button>
-                  <p class="mini-list__meta">
-                    {{ item.inactivityDays }} 天未产生连接，最近活动 {{ formatTimestamp(item.lastConnectedAt || item.updatedAt) }}
-                  </p>
-                  <p
-                    v-if="item.hasSparseEvidence"
-                    class="mini-list__meta"
-                  >
-                    仍保留 {{ item.historicalReferenceCount }} 条历史入链/出链记录。
-                  </p>
-                </article>
+                    <button
+                      class="mini-list__item"
+                      type="button"
+                      @click="openDocument(item.documentId)"
+                    >
+                      {{ item.title }}
+                    </button>
+                    <p class="mini-list__meta">
+                      连接度：{{ item.degree }}
+                    </p>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有识别到桥接文档。
+                </p>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有达到沉没阈值的文档。
-              </p>
+              <div>
+                <h3>沉没文档</h3>
+                <div
+                  v-if="report.dormantDocuments.length"
+                  class="mini-list"
+                >
+                  <article
+                    v-for="item in report.dormantDocuments"
+                    :key="item.documentId"
+                    class="mini-list__entry"
+                  >
+                    <button
+                      class="mini-list__item"
+                      type="button"
+                      @click="openDocument(item.documentId)"
+                    >
+                      {{ item.title }}
+                    </button>
+                    <p class="mini-list__meta">
+                      {{ item.inactivityDays }} 天未产生连接，最近活动 {{ formatTimestamp(item.lastConnectedAt || item.updatedAt) }}
+                    </p>
+                    <p
+                      v-if="item.hasSparseEvidence"
+                      class="mini-list__meta"
+                    >
+                      仍保留 {{ item.historicalReferenceCount }} 条历史入链/出链记录。
+                    </p>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有达到沉没阈值的文档。
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -439,166 +539,186 @@
               <h2>趋势观察</h2>
               <p>同时观察文档升降温、主题活跃度，以及新增/断裂连接。</p>
             </div>
-            <span class="meta-text">{{ trendLabel }}</span>
-          </div>
-
-          <div class="trend-stats">
-            <div>
-              <span>当前窗口</span>
-              <strong>{{ trends.current.referenceCount }}</strong>
-            </div>
-            <div>
-              <span>前一窗口</span>
-              <strong>{{ trends.previous.referenceCount }}</strong>
-            </div>
-            <div>
-              <span>新增连接</span>
-              <strong>{{ trends.connectionChanges.newCount }}</strong>
-            </div>
-            <div>
-              <span>断裂连接</span>
-              <strong>{{ trends.connectionChanges.brokenCount }}</strong>
+            <div class="panel-header__actions">
+              <span class="meta-text">{{ trendLabel }}</span>
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('trends')"
+                :aria-label="isPanelExpanded('trends') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('trends')"
+              >
+                {{ isPanelExpanded('trends') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
             </div>
           </div>
 
-          <div class="split-block">
-            <div>
-              <h3>升温文档</h3>
-              <div
-                v-if="trends.risingDocuments.length"
-                class="trend-list"
-              >
-                <article
-                  v-for="item in trends.risingDocuments.slice(0, 5)"
-                  :key="item.documentId"
-                  class="trend-item"
-                >
-                  <button
-                    type="button"
-                    @click="openDocument(item.documentId)"
-                  >
-                    {{ item.title }}
-                  </button>
-                  <span>{{ formatDelta(item.delta) }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
-                </article>
+          <div
+            v-show="isPanelExpanded('trends')"
+            class="panel-body"
+          >
+            <div class="trend-stats">
+              <div>
+                <span>当前窗口</span>
+                <strong>{{ trends.current.referenceCount }}</strong>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有明显升温文档。
-              </p>
-            </div>
-            <div>
-              <h3>降温文档</h3>
-              <div
-                v-if="trends.fallingDocuments.length"
-                class="trend-list"
-              >
-                <article
-                  v-for="item in trends.fallingDocuments.slice(0, 5)"
-                  :key="item.documentId"
-                  class="trend-item"
-                >
-                  <button
-                    type="button"
-                    @click="openDocument(item.documentId)"
-                  >
-                    {{ item.title }}
-                  </button>
-                  <span>{{ item.delta }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
-                </article>
+              <div>
+                <span>前一窗口</span>
+                <strong>{{ trends.previous.referenceCount }}</strong>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有明显降温文档。
-              </p>
+              <div>
+                <span>新增连接</span>
+                <strong>{{ trends.connectionChanges.newCount }}</strong>
+              </div>
+              <div>
+                <span>断裂连接</span>
+                <strong>{{ trends.connectionChanges.brokenCount }}</strong>
+              </div>
             </div>
-          </div>
 
-          <div class="split-block">
-            <div>
-              <h3>升温主题</h3>
-              <div
-                v-if="trends.risingCommunities.length"
-                class="trend-list"
-              >
-                <article
-                  v-for="community in trends.risingCommunities.slice(0, 3)"
-                  :key="community.communityId"
-                  class="trend-item"
+            <div class="split-block">
+              <div>
+                <h3>升温文档</h3>
+                <div
+                  v-if="trends.risingDocuments.length"
+                  class="trend-list"
                 >
-                  <button
-                    type="button"
-                    @click="selectCommunity(community.communityId)"
+                  <article
+                    v-for="item in trends.risingDocuments.slice(0, 5)"
+                    :key="item.documentId"
+                    class="trend-item"
                   >
-                    {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
-                  </button>
-                  <span>{{ formatDelta(community.delta) }} ({{ community.currentReferences }}/{{ community.previousReferences }})</span>
-                </article>
+                    <button
+                      type="button"
+                      @click="openDocument(item.documentId)"
+                    >
+                      {{ item.title }}
+                    </button>
+                    <span>{{ formatDelta(item.delta) }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有明显升温文档。
+                </p>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有明显升温主题。
-              </p>
+              <div>
+                <h3>降温文档</h3>
+                <div
+                  v-if="trends.fallingDocuments.length"
+                  class="trend-list"
+                >
+                  <article
+                    v-for="item in trends.fallingDocuments.slice(0, 5)"
+                    :key="item.documentId"
+                    class="trend-item"
+                  >
+                    <button
+                      type="button"
+                      @click="openDocument(item.documentId)"
+                    >
+                      {{ item.title }}
+                    </button>
+                    <span>{{ item.delta }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有明显降温文档。
+                </p>
+              </div>
             </div>
-            <div>
-              <h3>低活跃主题</h3>
-              <div
-                v-if="trends.dormantCommunities.length"
-                class="trend-list"
-              >
-                <article
-                  v-for="community in trends.dormantCommunities.slice(0, 3)"
-                  :key="community.communityId"
-                  class="trend-item"
+
+            <div class="split-block">
+              <div>
+                <h3>升温主题</h3>
+                <div
+                  v-if="trends.risingCommunities.length"
+                  class="trend-list"
                 >
-                  <button
-                    type="button"
-                    @click="selectCommunity(community.communityId)"
+                  <article
+                    v-for="community in trends.risingCommunities.slice(0, 3)"
+                    :key="community.communityId"
+                    class="trend-item"
                   >
-                    {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
-                  </button>
-                  <span>{{ community.currentReferences }}/{{ community.previousReferences }}</span>
-                </article>
-              </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有明显低活跃主题。
-              </p>
-            </div>
-            <div>
-              <h3>断裂连接</h3>
-              <div
-                v-if="trends.connectionChanges.brokenEdges.length"
-                class="trend-list"
-              >
-                <article
-                  v-for="edge in trends.connectionChanges.brokenEdges.slice(0, 3)"
-                  :key="edge.documentIds.join('-')"
-                  class="trend-item"
+                    <button
+                      type="button"
+                      @click="selectCommunity(community.communityId)"
+                    >
+                      {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                    </button>
+                    <span>{{ formatDelta(community.delta) }} ({{ community.currentReferences }}/{{ community.previousReferences }})</span>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
                 >
-                  <button
-                    type="button"
-                    @click="openDocument(edge.documentIds[0])"
-                  >
-                    {{ edge.documentIds.map(resolveTitle).join(' → ') }}
-                  </button>
-                  <span>{{ edge.referenceCount }} 条</span>
-                </article>
+                  没有明显升温主题。
+                </p>
               </div>
-              <p
-                v-else
-                class="empty-inline"
-              >
-                没有明显断裂连接。
-              </p>
+              <div>
+                <h3>低活跃主题</h3>
+                <div
+                  v-if="trends.dormantCommunities.length"
+                  class="trend-list"
+                >
+                  <article
+                    v-for="community in trends.dormantCommunities.slice(0, 3)"
+                    :key="community.communityId"
+                    class="trend-item"
+                  >
+                    <button
+                      type="button"
+                      @click="selectCommunity(community.communityId)"
+                    >
+                      {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                    </button>
+                    <span>{{ community.currentReferences }}/{{ community.previousReferences }}</span>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有明显低活跃主题。
+                </p>
+              </div>
+              <div>
+                <h3>断裂连接</h3>
+                <div
+                  v-if="trends.connectionChanges.brokenEdges.length"
+                  class="trend-list"
+                >
+                  <article
+                    v-for="edge in trends.connectionChanges.brokenEdges.slice(0, 3)"
+                    :key="edge.documentIds.join('-')"
+                    class="trend-item"
+                  >
+                    <button
+                      type="button"
+                      @click="openDocument(edge.documentIds[0])"
+                    >
+                      {{ edge.documentIds.map(resolveTitle).join(' → ') }}
+                    </button>
+                    <span>{{ edge.referenceCount }} 条</span>
+                  </article>
+                </div>
+                <p
+                  v-else
+                  class="empty-inline"
+                >
+                  没有明显断裂连接。
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -609,71 +729,91 @@
               <h2>关系传播路径</h2>
               <p>支持限定路径深度与范围，查看文档如何跨主题建立连接。</p>
             </div>
-          </div>
-
-          <div class="path-controls">
-            <label>
-              <span>范围</span>
-              <select v-model="pathScope">
-                <option value="focused">核心 + 桥接</option>
-                <option value="all">当前筛选全部文档</option>
-                <option value="community">当前社区</option>
-              </select>
-            </label>
-            <label>
-              <span>最大深度</span>
-              <select v-model="maxPathDepth">
-                <option :value="3">3</option>
-                <option :value="4">4</option>
-                <option :value="5">5</option>
-                <option :value="6">6</option>
-              </select>
-            </label>
-            <label>
-              <span>起点</span>
-              <select v-model="fromDocumentId">
-                <option
-                  v-for="document in pathOptions"
-                  :key="document.id"
-                  :value="document.id"
-                >
-                  {{ document.title }}
-                </option>
-              </select>
-            </label>
-            <label>
-              <span>终点</span>
-              <select v-model="toDocumentId">
-                <option
-                  v-for="document in pathOptions"
-                  :key="document.id"
-                  :value="document.id"
-                >
-                  {{ document.title }}
-                </option>
-              </select>
-            </label>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('paths')"
+                :aria-label="isPanelExpanded('paths') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('paths')"
+              >
+                {{ isPanelExpanded('paths') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="pathChain.length"
-            class="path-chain"
+            v-show="isPanelExpanded('paths')"
+            class="panel-body"
           >
-            <button
-              v-for="documentId in pathChain"
-              :key="documentId"
-              class="path-node"
-              type="button"
-              @click="openDocument(documentId)"
+            <div class="path-controls">
+              <label>
+                <span>范围</span>
+                <select v-model="pathScope">
+                  <option value="focused">核心 + 桥接</option>
+                  <option value="all">当前筛选全部文档</option>
+                  <option value="community">当前社区</option>
+                </select>
+              </label>
+              <label>
+                <span>最大深度</span>
+                <select v-model="maxPathDepth">
+                  <option :value="3">3</option>
+                  <option :value="4">4</option>
+                  <option :value="5">5</option>
+                  <option :value="6">6</option>
+                </select>
+              </label>
+              <label>
+                <span>起点</span>
+                <select v-model="fromDocumentId">
+                  <option
+                    v-for="document in pathOptions"
+                    :key="document.id"
+                    :value="document.id"
+                  >
+                    {{ document.title }}
+                  </option>
+                </select>
+              </label>
+              <label>
+                <span>终点</span>
+                <select v-model="toDocumentId">
+                  <option
+                    v-for="document in pathOptions"
+                    :key="document.id"
+                    :value="document.id"
+                  >
+                    {{ document.title }}
+                  </option>
+                </select>
+              </label>
+            </div>
+
+            <div
+              v-if="pathChain.length"
+              class="path-chain"
             >
-              {{ resolveTitle(documentId) }}
-            </button>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前筛选条件下未找到可解释路径。
+              <button
+                v-for="documentId in pathChain"
+                :key="documentId"
+                class="path-node"
+                type="button"
+                @click="openDocument(documentId)"
+              >
+                {{ resolveTitle(documentId) }}
+              </button>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              当前筛选条件下未找到可解释路径。
+            </div>
           </div>
         </section>
 
@@ -683,40 +823,60 @@
               <h2>高传播价值节点</h2>
               <p>统计哪些中间文档最常出现在核心文档、桥接文档和社区枢纽之间的最短路径上。</p>
             </div>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('propagation')"
+                :aria-label="isPanelExpanded('propagation') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('propagation')"
+              >
+                {{ isPanelExpanded('propagation') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="report.propagationNodes.length"
-            class="propagation-list"
+            v-show="isPanelExpanded('propagation')"
+            class="panel-body"
           >
-            <article
-              v-for="item in report.propagationNodes.slice(0, 8)"
-              :key="item.documentId"
-              class="propagation-item"
+            <div
+              v-if="report.propagationNodes.length"
+              class="propagation-list"
             >
-              <div class="propagation-item__header">
-                <button
-                  class="propagation-item__title"
-                  type="button"
-                  @click="selectEvidence(item.documentId)"
-                >
-                  {{ item.title }}
-                </button>
-                <span class="badge">{{ item.score }} 分</span>
-              </div>
-              <p class="propagation-item__meta">
-                参与 {{ item.pathPairCount }} 对关键文档的最短路径，覆盖 {{ item.focusDocumentCount }} 个焦点文档
-              </p>
-              <p class="propagation-item__meta">
-                社区跨度：{{ item.communitySpan || 1 }}{{ item.bridgeRole ? '，同时是桥接节点' : '' }}
-              </p>
-            </article>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前筛选条件下还没有明显的传播节点。
+              <article
+                v-for="item in report.propagationNodes.slice(0, 8)"
+                :key="item.documentId"
+                class="propagation-item"
+              >
+                <div class="propagation-item__header">
+                  <button
+                    class="propagation-item__title"
+                    type="button"
+                    @click="selectEvidence(item.documentId)"
+                  >
+                    {{ item.title }}
+                  </button>
+                  <span class="badge">{{ item.score }} 分</span>
+                </div>
+                <p class="propagation-item__meta">
+                  参与 {{ item.pathPairCount }} 对关键文档的最短路径，覆盖 {{ item.focusDocumentCount }} 个焦点文档
+                </p>
+                <p class="propagation-item__meta">
+                  社区跨度：{{ item.communitySpan || 1 }}{{ item.bridgeRole ? '，同时是桥接节点' : '' }}
+                </p>
+              </article>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              当前筛选条件下还没有明显的传播节点。
+            </div>
           </div>
         </section>
 
@@ -726,69 +886,89 @@
               <h2>文档详情</h2>
               <p>围绕当前选中文档汇总其社区位置、桥接角色与沉没风险。</p>
             </div>
+            <div class="panel-header__actions">
+              <button
+                class="panel-toggle"
+                type="button"
+                :aria-expanded="isPanelExpanded('document-detail')"
+                :aria-label="isPanelExpanded('document-detail') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('document-detail')"
+              >
+                {{ isPanelExpanded('document-detail') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
           </div>
 
           <div
-            v-if="selectedDocumentDetail"
-            class="detail-grid"
+            v-show="isPanelExpanded('document-detail')"
+            class="panel-body"
           >
-            <div class="detail-card">
-              <span>当前文档</span>
-              <strong>{{ resolveTitle(selectedDocumentDetail.documentId) }}</strong>
-            </div>
-            <div class="detail-card">
-              <span>所属社区</span>
-              <strong>{{ selectedDocumentDetail.community?.topTags.join(' / ') || '未归入主题社区' }}</strong>
-            </div>
-            <div class="detail-card">
-              <span>桥接角色</span>
-              <strong>{{ selectedDocumentDetail.bridge ? `是，连接度 ${selectedDocumentDetail.bridge.degree}` : '否' }}</strong>
+            <div
+              v-if="selectedDocumentDetail"
+              class="detail-grid"
+            >
+              <div class="detail-card">
+                <span>当前文档</span>
+                <strong>{{ resolveTitle(selectedDocumentDetail.documentId) }}</strong>
+              </div>
+              <div class="detail-card">
+                <span>所属社区</span>
+                <strong>{{ selectedDocumentDetail.community?.topTags.join(' / ') || '未归入主题社区' }}</strong>
+              </div>
+              <div class="detail-card">
+                <span>桥接角色</span>
+                <strong>{{ selectedDocumentDetail.bridge ? `是，连接度 ${selectedDocumentDetail.bridge.degree}` : '否' }}</strong>
+              </div>
+              <div
+                v-if="selectedDocumentDetail.propagation"
+                class="detail-card"
+              >
+                <span>传播价值</span>
+                <strong>
+                  {{ selectedDocumentDetail.propagation.score }} 分，参与 {{ selectedDocumentDetail.propagation.pathPairCount }} 对关键最短路径
+                </strong>
+              </div>
+              <div class="detail-card">
+                <span>趋势变化</span>
+                <strong>
+                  {{
+                    selectedDocumentDetail.trend
+                      ? `${formatDelta(selectedDocumentDetail.trend.delta)} (${selectedDocumentDetail.trend.currentReferences}/${selectedDocumentDetail.trend.previousReferences})`
+                      : '当前窗口无明显变化'
+                  }}
+                </strong>
+              </div>
+              <div
+                v-if="selectedDocumentDetail.orphan"
+                class="detail-card"
+              >
+                <span>孤立状态</span>
+                <strong>
+                  {{
+                    selectedDocumentDetail.orphan.hasSparseEvidence
+                      ? `孤立，但仍有 ${selectedDocumentDetail.orphan.historicalReferenceCount} 条历史证据`
+                      : '当前窗口内孤立'
+                  }}
+                </strong>
+              </div>
+              <div
+                v-if="selectedDocumentDetail.dormant"
+                class="detail-card"
+              >
+                <span>沉没风险</span>
+                <strong>{{ selectedDocumentDetail.dormant.inactivityDays }} 天未产生有效连接</strong>
+              </div>
             </div>
             <div
-              v-if="selectedDocumentDetail.propagation"
-              class="detail-card"
+              v-else
+              class="empty-state"
             >
-              <span>传播价值</span>
-              <strong>
-                {{ selectedDocumentDetail.propagation.score }} 分，参与 {{ selectedDocumentDetail.propagation.pathPairCount }} 对关键最短路径
-              </strong>
+              当前没有可展示的文档详情。
             </div>
-            <div class="detail-card">
-              <span>趋势变化</span>
-              <strong>
-                {{
-                  selectedDocumentDetail.trend
-                    ? `${formatDelta(selectedDocumentDetail.trend.delta)} (${selectedDocumentDetail.trend.currentReferences}/${selectedDocumentDetail.trend.previousReferences})`
-                    : '当前窗口无明显变化'
-                }}
-              </strong>
-            </div>
-            <div
-              v-if="selectedDocumentDetail.orphan"
-              class="detail-card"
-            >
-              <span>孤立状态</span>
-              <strong>
-                {{
-                  selectedDocumentDetail.orphan.hasSparseEvidence
-                    ? `孤立，但仍有 ${selectedDocumentDetail.orphan.historicalReferenceCount} 条历史证据`
-                    : '当前窗口内孤立'
-                }}
-              </strong>
-            </div>
-            <div
-              v-if="selectedDocumentDetail.dormant"
-              class="detail-card"
-            >
-              <span>沉没风险</span>
-              <strong>{{ selectedDocumentDetail.dormant.inactivityDays }} 天未产生有效连接</strong>
-            </div>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前没有可展示的文档详情。
           </div>
         </section>
 
@@ -798,47 +978,67 @@
               <h2>引用证据</h2>
               <p>解释为什么文档被识别为核心节点或连接节点。</p>
             </div>
-          </div>
-
-          <div
-            v-if="selectedEvidenceDocument"
-            class="evidence-header"
-          >
-            <strong>{{ resolveTitle(selectedEvidenceDocument) }}</strong>
-            <button
-              class="ghost-button"
-              type="button"
-              @click="openDocument(selectedEvidenceDocument)"
-            >
-              打开文档
-            </button>
-          </div>
-
-          <div
-            v-if="selectedEvidence.length"
-            class="evidence-list"
-          >
-            <article
-              v-for="item in selectedEvidence"
-              :key="item.id"
-              class="evidence-item"
-            >
+            <div class="panel-header__actions">
               <button
-                class="evidence-item__source"
+                class="panel-toggle"
                 type="button"
-                @click="openDocument(item.sourceDocumentId)"
+                :aria-expanded="isPanelExpanded('evidence')"
+                :aria-label="isPanelExpanded('evidence') ? '折叠详情' : '展开详情'"
+                @click="togglePanel('evidence')"
               >
-                {{ resolveTitle(item.sourceDocumentId) }}
+                {{ isPanelExpanded('evidence') ? '折叠' : '展开' }}
+                <span
+                  class="panel-toggle__caret"
+                  aria-hidden="true"
+                />
               </button>
-              <p>{{ item.content || '未读取到块级锚文本' }}</p>
-              <span>{{ formatTimestamp(item.sourceUpdated) }}</span>
-            </article>
+            </div>
           </div>
+
           <div
-            v-else
-            class="empty-state"
+            v-show="isPanelExpanded('evidence')"
+            class="panel-body"
           >
-            选择一篇核心文档后可查看原始引用证据。
+            <div
+              v-if="selectedEvidenceDocument"
+              class="evidence-header"
+            >
+              <strong>{{ resolveTitle(selectedEvidenceDocument) }}</strong>
+              <button
+                class="ghost-button"
+                type="button"
+                @click="openDocument(selectedEvidenceDocument)"
+              >
+                打开文档
+              </button>
+            </div>
+
+            <div
+              v-if="selectedEvidence.length"
+              class="evidence-list"
+            >
+              <article
+                v-for="item in selectedEvidence"
+                :key="item.id"
+                class="evidence-item"
+              >
+                <button
+                  class="evidence-item__source"
+                  type="button"
+                  @click="openDocument(item.sourceDocumentId)"
+                >
+                  {{ resolveTitle(item.sourceDocumentId) }}
+                </button>
+                <p>{{ item.content || '未读取到块级锚文本' }}</p>
+                <span>{{ formatTimestamp(item.sourceUpdated) }}</span>
+              </article>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              选择一篇核心文档后可查看原始引用证据。
+            </div>
           </div>
         </section>
       </div>
@@ -863,10 +1063,28 @@ import {
   type SummaryCardItem,
   type SummaryCardKey,
 } from '@/analytics/summary-details'
+import {
+  buildPanelCollapseState,
+  togglePanelCollapse,
+  type PanelCollapseState,
+} from '@/analytics/panel-collapse'
 import { loadAnalyticsSnapshot, type AnalyticsSnapshot } from '@/analytics/siyuan-data'
 
 type PathScope = 'focused' | 'all' | 'community'
 type SnapshotDocument = AnalyticsSnapshot['documents'][number]
+const panelKeys = [
+  'summary-detail',
+  'ranking',
+  'suggestions',
+  'communities',
+  'orphan-bridge',
+  'trends',
+  'paths',
+  'propagation',
+  'document-detail',
+  'evidence',
+] as const
+type PanelKey = typeof panelKeys[number]
 
 const props = defineProps<{
   plugin: Plugin
@@ -896,6 +1114,7 @@ const selectedCommunityId = ref('')
 const pathScope = ref<PathScope>('focused')
 const maxPathDepth = ref(6)
 const selectedSummaryCardKey = ref<SummaryCardKey>('documents')
+const panelCollapseState = ref<PanelCollapseState<PanelKey>>(buildPanelCollapseState(panelKeys))
 
 const filters = computed<AnalyticsFilters>(() => ({
   notebook: selectedNotebook.value || undefined,
@@ -1236,6 +1455,14 @@ function selectSummaryCard(cardKey: SummaryCardKey) {
   selectedSummaryCardKey.value = cardKey
 }
 
+function togglePanel(key: PanelKey) {
+  panelCollapseState.value = togglePanelCollapse(panelCollapseState.value, key)
+}
+
+function isPanelExpanded(key: PanelKey) {
+  return panelCollapseState.value[key] ?? true
+}
+
 function resolveTitle(documentId: string) {
   return documentMap.value.get(documentId)?.title || documentId
 }
@@ -1451,7 +1678,7 @@ input {
 }
 
 .layout-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   align-items: start;
 }
 
@@ -1461,7 +1688,7 @@ input {
 
 .panel--primary,
 .panel--evidence {
-  grid-column: span 2;
+  grid-column: span 1;
 }
 
 .panel-header {
@@ -1552,6 +1779,44 @@ input {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.summary-detail-item__header {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-toggle {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--b3-theme-primary) 10%, transparent);
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.panel-toggle__caret {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.panel-toggle[aria-expanded='false'] .panel-toggle__caret {
+  transform: rotate(-45deg);
 }
 
 .badge,
