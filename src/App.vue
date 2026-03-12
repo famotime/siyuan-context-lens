@@ -100,12 +100,12 @@
           v-for="card in summaryCards"
           :key="card.label"
           :class="['summary-card', 'summary-card--interactive', { 'summary-card--active': card.key === selectedSummaryCardKey }]"
+          :title="card.hint"
           type="button"
           @click="selectSummaryCard(card.key)"
         >
           <span class="summary-card__label">{{ card.label }}</span>
           <strong class="summary-card__value">{{ card.value }}</strong>
-          <span class="summary-card__hint">{{ card.hint }}</span>
         </button>
       </div>
 
@@ -1059,6 +1059,7 @@ import {
   type TimeRange,
 } from '@/analytics/analysis'
 import {
+  buildSummaryCards,
   buildSummaryDetailSections,
   type SummaryCardItem,
   type SummaryCardKey,
@@ -1203,50 +1204,10 @@ const summaryCards = computed<SummaryCardItem[]>(() => {
   if (!report.value || !trends.value) {
     return []
   }
-  return [
-    {
-      key: 'documents',
-      label: '文档样本',
-      value: report.value.summary.totalDocuments.toString(),
-      hint: '命中当前筛选条件的文档数',
-    },
-    {
-      key: 'references',
-      label: '活跃关系',
-      value: report.value.summary.totalReferences.toString(),
-      hint: '当前窗口内的文档级引用次数',
-    },
-    {
-      key: 'communities',
-      label: '主题社区',
-      value: report.value.summary.communityCount.toString(),
-      hint: '按桥接节点拆分后的主题簇',
-    },
-    {
-      key: 'orphans',
-      label: '孤立文档',
-      value: report.value.summary.orphanCount.toString(),
-      hint: '历史上从未形成过文档级连接',
-    },
-    {
-      key: 'dormant',
-      label: '沉没文档',
-      value: report.value.summary.dormantCount.toString(),
-      hint: `超过 ${dormantDays.value} 天未产生有效连接`,
-    },
-    {
-      key: 'bridges',
-      label: '桥接节点',
-      value: report.value.bridgeDocuments.length.toString(),
-      hint: '断开后会削弱社区连接的文档',
-    },
-    {
-      key: 'propagation',
-      label: '传播节点',
-      value: report.value.summary.propagationCount.toString(),
-      hint: '出现在关键路径上的高传播价值节点',
-    },
-  ]
+  return buildSummaryCards({
+    report: report.value,
+    dormantDays: dormantDays.value,
+  })
 })
 
 const summaryDetailSections = computed(() => {
@@ -1691,11 +1652,6 @@ input {
   line-height: 1;
   font-weight: 600;
   color: var(--b3-theme-primary);
-}
-
-.summary-card__hint {
-  color: var(--panel-muted);
-  font-size: 12px;
 }
 
 .layout-grid {

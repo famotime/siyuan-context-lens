@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildSummaryDetailSections } from './summary-details'
+import { buildSummaryCards, buildSummaryDetailSections } from './summary-details'
 
 const now = new Date('2026-03-12T00:00:00Z')
 
@@ -113,5 +113,22 @@ describe('buildSummaryDetailSections', () => {
     expect(docA?.meta).toBe('入链 0 / 出链 2')
     expect(docB?.meta).toBe('入链 2 / 出链 0')
     expect(docC?.meta).toBe('入链 1 / 出链 1')
+  })
+})
+
+describe('buildSummaryCards', () => {
+  it('builds summary cards with tooltip hints', () => {
+    const cards = buildSummaryCards({
+      report: report as any,
+      dormantDays: 45,
+    })
+
+    const dormant = cards.find(card => card.key === 'dormant')
+
+    expect(dormant).toEqual(expect.objectContaining({
+      label: '沉没文档',
+      value: report.summary.dormantCount.toString(),
+      hint: '超过 45 天未产生有效连接',
+    }))
   })
 })

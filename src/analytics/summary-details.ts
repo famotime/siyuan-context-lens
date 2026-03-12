@@ -36,6 +36,56 @@ export interface SummaryDetailSection {
   items: SummaryDetailItem[]
 }
 
+export function buildSummaryCards(params: {
+  report: ReferenceGraphReport
+  dormantDays: number
+}): SummaryCardItem[] {
+  return [
+    {
+      key: 'documents',
+      label: '文档样本',
+      value: params.report.summary.totalDocuments.toString(),
+      hint: '命中当前筛选条件的文档数',
+    },
+    {
+      key: 'references',
+      label: '活跃关系',
+      value: params.report.summary.totalReferences.toString(),
+      hint: '当前窗口内的文档级引用次数',
+    },
+    {
+      key: 'communities',
+      label: '主题社区',
+      value: params.report.summary.communityCount.toString(),
+      hint: '按桥接节点拆分后的主题簇',
+    },
+    {
+      key: 'orphans',
+      label: '孤立文档',
+      value: params.report.summary.orphanCount.toString(),
+      hint: '历史上从未形成过文档级连接',
+    },
+    {
+      key: 'dormant',
+      label: '沉没文档',
+      value: params.report.summary.dormantCount.toString(),
+      hint: `超过 ${params.dormantDays} 天未产生有效连接`,
+    },
+    {
+      key: 'bridges',
+      label: '桥接节点',
+      value: params.report.bridgeDocuments.length.toString(),
+      hint: '断开后会削弱社区连接的文档',
+    },
+    {
+      key: 'propagation',
+      label: '传播节点',
+      value: params.report.summary.propagationCount.toString(),
+      hint: '出现在关键路径上的高传播价值节点',
+    },
+  ]
+}
+
 export function buildSummaryDetailSections(params: {
   documents: DocumentRecord[]
   references: ReferenceRecord[]
