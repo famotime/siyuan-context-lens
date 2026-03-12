@@ -364,6 +364,12 @@
                   <p class="mini-list__meta">
                     {{ item.inactivityDays }} 天未产生连接，最近活动 {{ formatTimestamp(item.lastConnectedAt || item.updatedAt) }}
                   </p>
+                  <p
+                    v-if="item.hasSparseEvidence"
+                    class="mini-list__meta"
+                  >
+                    仍保留 {{ item.historicalReferenceCount }} 条历史入链/出链记录。
+                  </p>
                 </article>
               </div>
               <p
@@ -937,7 +943,7 @@ const summaryCards = computed(() => {
     {
       label: '孤立文档',
       value: report.value.summary.orphanCount.toString(),
-      hint: '当前窗口内无文档级连接',
+      hint: '历史上从未形成过文档级连接',
     },
     {
       label: '沉没文档',

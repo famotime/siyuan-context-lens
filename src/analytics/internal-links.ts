@@ -12,17 +12,20 @@ interface InternalLinkTargetRow {
   rootId: string
 }
 
-const SIYUAN_URL_PATTERN = /siyuan:\/\/[^\s<>"')\]]+/g
-const SIYUAN_BLOCK_ID_PATTERN = /\d{14}-[a-z0-9]{7}/gi
+interface MarkdownReferenceTarget {
+  targetBlockId: string
+  content: string
+}
+
+const SIYUAN_BLOCK_URL_PATTERN = /siyuan:\/\/blocks\/([^?\s<>"')\]#]+)/gi
+const BLOCK_REFERENCE_PATTERN = /\(\(\s*([^)\s"]+)(?:\s+"[^"]*")?\s*\)\)/g
 
 export function collectInternalLinkTargetIds(sourceRows: InternalLinkSourceRow[]): string[] {
   const targetIds = new Set<string>()
 
   for (const row of sourceRows) {
-    for (const url of extractSiyuanUrls(row.markdown ?? '')) {
-      for (const blockId of extractBlockIdsFromUrl(url)) {
-        targetIds.add(blockId)
-      }
+    for (const target of extractMarkdownReferenceTargets(row.markdown ?? '')) {
+      targetIds.add(target.targetBlockId)
     }
   }
 
@@ -33,30 +36,27 @@ export function buildInternalLinkReferences(params: {
   sourceRows: InternalLinkSourceRow[]
   targetRows: InternalLinkTargetRow[]
 }): ReferenceRecord[] {
-  const targetRootMap = new Map(params.targetRows.map(row => [row.id, row.rootId]))
+  const targetRootMap = new Map(params.targetRows.map(row => [row.id, row.rootId || row.id]))
   const references: ReferenceRecord[] = []
 
   for (const row of params.sourceRows) {
-    const urls = extractSiyuanUrls(row.markdown ?? '')
+    const sourceDocumentId = row.rootId || row.id
+    const targets = extractMarkdownReferenceTargets(row.markdown ?? '')
 
-    urls.forEach((url, urlIndex) => {
-      const blockIds = extractBlockIdsFromUrl(url)
+    targets.forEach((target, targetIndex) => {
+      const targetDocumentId = targetRootMap.get(target.targetBlockId)
+      if (!targetDocumentId || sourceDocumentId === targetDocumentId) {
+        return
+      }
 
-      blockIds.forEach((targetBlockId, blockIndex) => {
-        const targetDocumentId = targetRootMap.get(targetBlockId)
-        if (!targetDocumentId || row.rootId === targetDocumentId) {
-          return
-        }
-
-        references.push({
-          id: `siyuan-link:${row.id}:${targetBlockId}:${urlIndex}:${blockIndex}`,
-          sourceBlockId: row.id,
-          sourceDocumentId: row.rootId,
-          targetBlockId,
-          targetDocumentId,
-          content: url,
-          sourceUpdated: row.updated ?? '',
-        })
+      references.push({
+        id: `markdown-ref:${row.id}:${target.targetBlockId}:${targetIndex}`,
+        sourceBlockId: row.id,
+        sourceDocumentId,
+        targetBlockId: target.targetBlockId,
+        targetDocumentId,
+        content: target.content,
+        sourceUpdated: row.updated ?? '',
       })
     })
   }
@@ -64,10 +64,23 @@ export function buildInternalLinkReferences(params: {
   return references
 }
 
-function extractSiyuanUrls(markdown: string): string[] {
-  return markdown.match(SIYUAN_URL_PATTERN) ?? []
+function extractMarkdownReferenceTargets(markdown: string): MarkdownReferenceTarget[] {
+  return [
+    ...extractSiyuanBlockTargets(markdown),
+    ...extractBlockReferenceTargets(markdown),
+  ]
 }
 
-function extractBlockIdsFromUrl(url: string): string[] {
-  return url.match(SIYUAN_BLOCK_ID_PATTERN) ?? []
+function extractSiyuanBlockTargets(markdown: string): MarkdownReferenceTarget[] {
+  return [...markdown.matchAll(SIYUAN_BLOCK_URL_PATTERN)].map(match => ({
+    targetBlockId: match[1],
+    content: match[0],
+  }))
+}
+
+function extractBlockReferenceTargets(markdown: string): MarkdownReferenceTarget[] {
+  return [...markdown.matchAll(BLOCK_REFERENCE_PATTERN)].map(match => ({
+    targetBlockId: match[1],
+    content: match[0],
+  }))
 }

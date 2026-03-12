@@ -90,12 +90,14 @@ const REFERENCE_SQL = `
 const INTERNAL_LINK_SOURCE_SQL = `
   SELECT
     id,
-    root_id AS rootId,
+    COALESCE(NULLIF(root_id, ''), id) AS rootId,
     markdown,
     updated
   FROM blocks
-  WHERE COALESCE(markdown, '') LIKE '%siyuan://%'
-    AND COALESCE(root_id, '') <> ''
+  WHERE (
+      COALESCE(markdown, '') LIKE '%siyuan://blocks/%'
+      OR COALESCE(markdown, '') LIKE '%((%'
+    )
 `
 
 export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
@@ -123,7 +125,8 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
       created: row.created,
       updated: row.updated,
     })),
-    references: (referenceRows ?? []).map(row => ({
+    references: mergeReferences(
+      (referenceRows ?? []).map(row => ({
       id: row.id,
       sourceBlockId: row.sourceBlockId,
       sourceDocumentId: row.sourceDocumentId,
@@ -131,7 +134,9 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
       targetDocumentId: row.targetDocumentId,
       content: row.content ?? '',
       sourceUpdated: row.sourceUpdated ?? '',
-    })).concat(internalLinkReferences),
+      })),
+      internalLinkReferences,
+    ),
     notebooks: (notebooksResponse?.notebooks ?? []).map(notebook => ({
       id: notebook.id,
       name: notebook.name,
@@ -158,7 +163,7 @@ async function loadInternalLinkTargets(targetIds: string[]): Promise<InternalLin
   const targetRows: InternalLinkTargetRow[] = []
   for (const chunk of chunkIds(targetIds, 200)) {
     const rows = await sql(`
-      SELECT id, root_id AS rootId
+      SELECT id, COALESCE(NULLIF(root_id, ''), id) AS rootId
       FROM blocks
       WHERE id IN (${chunk.map(quoteSql).join(', ')})
     `) as InternalLinkTargetRow[]
@@ -178,4 +183,29 @@ function chunkIds(ids: string[], size: number): string[][] {
 
 function quoteSql(value: string): string {
   return `'${value.replaceAll("'", "''")}'`
+}
+
+function mergeReferences(primary: ReferenceRecord[], fallback: ReferenceRecord[]): ReferenceRecord[] {
+  const merged = [...primary]
+  const existingSignatures = new Set(primary.map(referenceSignature))
+
+  for (const reference of fallback) {
+    const signature = referenceSignature(reference)
+    if (existingSignatures.has(signature)) {
+      continue
+    }
+    existingSignatures.add(signature)
+    merged.push(reference)
+  }
+
+  return merged
+}
+
+function referenceSignature(reference: ReferenceRecord): string {
+  return [
+    reference.sourceDocumentId,
+    reference.sourceBlockId,
+    reference.targetDocumentId,
+    reference.targetBlockId,
+  ].join('::')
 }

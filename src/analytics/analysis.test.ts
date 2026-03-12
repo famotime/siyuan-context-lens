@@ -87,32 +87,33 @@ describe('analyzeReferenceGraph', () => {
     )
   })
 
-  it('keeps historical sparse evidence for documents that are orphaned in the current window', () => {
+  it('treats documents with historical inbound or outbound links as non-orphans', () => {
     const report = analyzeReferenceGraph({
       documents: [
         { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: ['topic'], created: '20260101090000', updated: '20260310120000' },
-        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260102090000', updated: '20260310120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260102090000', updated: '20260106120000' },
         { id: 'doc-c', box: 'box-1', path: '/c.sy', hpath: '/Gamma', title: 'Gamma', tags: ['archive'], created: '20260103090000', updated: '20260115120000' },
+        { id: 'doc-d', box: 'box-1', path: '/d.sy', hpath: '/Delta', title: 'Delta', tags: ['archive'], created: '20260104090000', updated: '20260115120000' },
       ],
       references: [
         { id: 'ref-old-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-c', targetBlockId: 'blk-c1', content: '[[Gamma]]', sourceUpdated: '20260105090000' },
+        { id: 'ref-old-2', sourceDocumentId: 'doc-b', sourceBlockId: 'blk-b1', targetDocumentId: 'doc-a', targetBlockId: 'blk-a2', content: '[[Alpha]]', sourceUpdated: '20260106090000' },
       ],
       now,
       timeRange: '7d',
     })
 
-    const orphanGamma = report.orphans.find(document => document.documentId === 'doc-c')
+    expect(report.orphans.map(document => document.documentId)).toEqual(['doc-d'])
+    expect(report.orphans.some(document => document.documentId === 'doc-a')).toBe(false)
+    expect(report.orphans.some(document => document.documentId === 'doc-b')).toBe(false)
+    expect(report.orphans.some(document => document.documentId === 'doc-c')).toBe(false)
 
-    expect(orphanGamma as any).toMatchObject({
+    const dormantGamma = (report as any).dormantDocuments.find((document: { documentId: string }) => document.documentId === 'doc-c')
+    expect(dormantGamma).toMatchObject({
       documentId: 'doc-c',
       hasSparseEvidence: true,
       historicalReferenceCount: 1,
       lastHistoricalAt: '20260105090000',
-    })
-    const dormantGamma = (report as any).dormantDocuments.find((document: { documentId: string }) => document.documentId === 'doc-c')
-
-    expect(dormantGamma).toMatchObject({
-      documentId: 'doc-c',
       inactivityDays: expect.any(Number),
     })
   })

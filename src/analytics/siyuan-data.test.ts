@@ -69,7 +69,7 @@ describe('loadAnalyticsSnapshot', () => {
         ]
       }
 
-      if (query.includes("LIKE '%siyuan://%'")) {
+      if (query.includes('%siyuan://blocks/%') || query.includes('%((%')) {
         return [
           {
             id: '20260311120004-srcblk2',
@@ -84,7 +84,7 @@ describe('loadAnalyticsSnapshot', () => {
         ]
       }
 
-      if (query.includes('SELECT id, root_id AS rootId')) {
+      if (query.includes("SELECT id, COALESCE(NULLIF(root_id, ''), id) AS rootId")) {
         return [
           {
             id: '20260311120005-tgtblk2',
@@ -127,5 +127,139 @@ describe('loadAnalyticsSnapshot', () => {
       ]),
     )
     expect(snapshot.references).toHaveLength(3)
+  })
+
+  it('parses block references from markdown when refs rows are missing', async () => {
+    apiMocks.sqlMock.mockImplementation(async (query: string) => {
+      if (query.includes('FROM refs r')) {
+        return []
+      }
+
+      if (query.includes("WHERE type = 'd'")) {
+        return [
+          {
+            id: '20260312100000-srcdoc1',
+            box: 'box-1',
+            path: '/a.sy',
+            hpath: '/A',
+            title: 'Source A',
+            tag: '#index',
+            created: '20260310120000',
+            updated: '20260312110000',
+          },
+          {
+            id: '20260312100001-tgtdoc1',
+            box: 'box-1',
+            path: '/b.sy',
+            hpath: '/B',
+            title: 'Target B',
+            tag: '#topic',
+            created: '20260310121000',
+            updated: '20260312110000',
+          },
+        ]
+      }
+
+      if (query.includes('%((%') || query.includes('%siyuan://blocks/%')) {
+        return [
+          {
+            id: '20260312100002-srcblk1',
+            rootId: '20260312100000-srcdoc1',
+            markdown: 'see ((20260312100003-tgtblk1 "skills"))',
+            updated: '20260312112000',
+          },
+        ]
+      }
+
+      if (query.includes("SELECT id, COALESCE(NULLIF(root_id, ''), id) AS rootId")) {
+        return [
+          {
+            id: '20260312100003-tgtblk1',
+            rootId: '20260312100001-tgtdoc1',
+          },
+        ]
+      }
+
+      return []
+    })
+
+    apiMocks.lsNotebooksMock.mockResolvedValue({ notebooks: [] })
+
+    const snapshot = await loadAnalyticsSnapshot()
+
+    expect(snapshot.references).toEqual([
+      expect.objectContaining({
+        sourceDocumentId: '20260312100000-srcdoc1',
+        targetDocumentId: '20260312100001-tgtdoc1',
+        targetBlockId: '20260312100003-tgtblk1',
+      }),
+    ])
+  })
+
+  it('falls back to the target block id when a document block has an empty root_id', async () => {
+    apiMocks.sqlMock.mockImplementation(async (query: string) => {
+      if (query.includes('FROM refs r')) {
+        return []
+      }
+
+      if (query.includes("WHERE type = 'd'")) {
+        return [
+          {
+            id: '20260312110000-srcdoc1',
+            box: 'box-1',
+            path: '/a.sy',
+            hpath: '/A',
+            title: 'Source A',
+            tag: null,
+            created: '20260310120000',
+            updated: '20260312110000',
+          },
+          {
+            id: '20260312110001-tgtdoc1',
+            box: 'box-1',
+            path: '/b.sy',
+            hpath: '/B',
+            title: 'Target B',
+            tag: null,
+            created: '20260310121000',
+            updated: '20260312110000',
+          },
+        ]
+      }
+
+      if (query.includes('%siyuan://blocks/%')) {
+        return [
+          {
+            id: '20260312110002-srcblk1',
+            rootId: '20260312110000-srcdoc1',
+            markdown: '[Target](siyuan://blocks/20260312110001-tgtdoc1)',
+            updated: '20260312112000',
+          },
+        ]
+      }
+
+      if (query.includes("SELECT id, COALESCE(NULLIF(root_id, ''), id) AS rootId")) {
+        return [
+          {
+            id: '20260312110001-tgtdoc1',
+            rootId: '',
+          },
+        ]
+      }
+
+      return []
+    })
+
+    apiMocks.lsNotebooksMock.mockResolvedValue({ notebooks: [] })
+
+    const snapshot = await loadAnalyticsSnapshot()
+
+    expect(snapshot.references).toEqual([
+      expect.objectContaining({
+        sourceDocumentId: '20260312110000-srcdoc1',
+        targetDocumentId: '20260312110001-tgtdoc1',
+        targetBlockId: '20260312110001-tgtdoc1',
+      }),
+    ])
   })
 })

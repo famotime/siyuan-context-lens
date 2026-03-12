@@ -264,7 +264,7 @@ export function analyzeReferenceGraph(params: {
     communities,
   })
 
-  const orphans = sortOrphans(documents
+  const disconnectedDocuments = documents
     .filter(document => (degrees.get(document.id) ?? 0) === 0)
     .map((document) => {
       const historicalReferences = [...(allTouchesByDocument.get(document.id) ?? [])]
@@ -282,9 +282,12 @@ export function analyzeReferenceGraph(params: {
         lastHistoricalAt,
         hasSparseEvidence: historicalReferenceCount > 0 && historicalReferenceCount <= 2,
       }
-    }), params.orphanSort)
+    })
 
-  const dormantDocuments = orphans
+  const orphans = sortOrphans(disconnectedDocuments
+    .filter(item => item.historicalReferenceCount === 0), params.orphanSort)
+
+  const dormantDocuments = disconnectedDocuments
     .map((item) => {
       const updatedAt = item.updatedAt || item.createdAt
       const lastRelevantAt = latestTimestamp(updatedAt, item.lastHistoricalAt)
@@ -312,7 +315,7 @@ export function analyzeReferenceGraph(params: {
       orphanCount: orphans.length,
       communityCount: communities.length,
       dormantCount: dormantDocuments.length,
-      sparseEvidenceCount: orphans.filter(item => item.hasSparseEvidence).length,
+      sparseEvidenceCount: disconnectedDocuments.filter(item => item.hasSparseEvidence).length,
       propagationCount: propagationNodes.length,
     },
     ranking,
