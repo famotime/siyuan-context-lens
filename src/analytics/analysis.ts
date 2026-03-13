@@ -717,7 +717,7 @@ function parseTimestamp(timestamp: string): number | null {
   const hour = Number.parseInt(timestamp.slice(8, 10) || '0', 10)
   const minute = Number.parseInt(timestamp.slice(10, 12) || '0', 10)
   const second = Number.parseInt(timestamp.slice(12, 14) || '0', 10)
-  return Date.UTC(year, month, day, hour, minute, second)
+  return new Date(year, month, day, hour, minute, second).getTime()
 }
 
 function compareTimestamp(left: string, right: string): number {

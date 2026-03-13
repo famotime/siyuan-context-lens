@@ -81,6 +81,19 @@ describe('analyzeReferenceGraph', () => {
     expect(extended.map(document => document.id)).toEqual(['doc-recent', 'doc-mid'])
   })
 
+  it('keeps recently edited disconnected documents in the sample for the current local time window', () => {
+    const filtered = filterDocumentsByTimeRange({
+      documents: [
+        { id: 'doc-local-recent', box: 'box-1', path: '/local-recent.sy', hpath: '/Local Recent', title: 'Local Recent', tags: [], created: '20260201090000', updated: '20260313213430' },
+      ],
+      references: [],
+      now: new Date('2026-03-13T22:02:45+08:00'),
+      timeRange: '7d',
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-local-recent'])
+  })
+
   it('uses time range filtered documents for all panel outputs', () => {
     const report = analyzeReferenceGraph({
       documents: [
