@@ -171,6 +171,47 @@ describe('useAnalyticsState', () => {
     })
   })
 
+  it('filters by selected tags as an OR condition', async () => {
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+      },
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    state.selectedTags.value = ['AI', 'note']
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual([
+      'doc-a',
+      'doc-b',
+      'doc-orphan',
+    ])
+  })
+
   it('re-sorts orphan detail items when orphan sort changes', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,

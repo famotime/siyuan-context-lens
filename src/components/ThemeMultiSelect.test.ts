@@ -36,4 +36,23 @@ describe('ThemeMultiSelect', () => {
 
     expect(html).toContain('未配置主题文档')
   })
+
+  it('renders a custom summary label for tag filters', async () => {
+    const app = createSSRApp({
+      render: () => h(ThemeMultiSelect, {
+        modelValue: ['AI', 'note'],
+        options: [
+          { value: 'AI', label: 'AI' },
+          { value: 'note', label: 'note' },
+        ],
+        allLabel: '全部标签',
+        emptyLabel: '暂无标签',
+        selectionUnit: '个标签',
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('已选 2 个标签')
+  })
 })

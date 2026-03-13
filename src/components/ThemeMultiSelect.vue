@@ -39,8 +39,8 @@
       >
         <label
           v-for="option in options"
-          :key="option.documentId"
-          class="theme-multi-select__option"
+          :key="resolveOptionKey(option)"
+          :class="['theme-multi-select__option', { 'theme-multi-select__option--selected': modelValue.includes(option.value) }]"
         >
           <input
             class="theme-multi-select__checkbox"
@@ -56,7 +56,7 @@
         v-else
         class="theme-multi-select__empty"
       >
-        未配置主题文档
+        {{ emptyLabel }}
       </div>
     </div>
   </div>
@@ -67,10 +67,22 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import type { ThemeOption } from '@/analytics/theme-documents'
 
-const props = defineProps<{
+type MultiSelectOption = Pick<ThemeOption, 'value' | 'label'> & {
+  documentId?: string
+  key?: string
+}
+
+const props = withDefaults(defineProps<{
   modelValue: string[]
-  options: ThemeOption[]
-}>()
+  options: MultiSelectOption[]
+  allLabel?: string
+  emptyLabel?: string
+  selectionUnit?: string
+}>(), {
+  allLabel: '全部主题',
+  emptyLabel: '未配置主题文档',
+  selectionUnit: '个主题',
+})
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[]]
@@ -81,12 +93,12 @@ const rootRef = ref<HTMLElement | null>(null)
 
 const summaryLabel = computed(() => {
   if (props.options.length === 0) {
-    return '未配置主题文档'
+    return props.emptyLabel
   }
   if (props.modelValue.length === 0) {
-    return '全部主题'
+    return props.allLabel
   }
-  return `已选 ${props.modelValue.length} 个主题`
+  return `已选 ${props.modelValue.length} ${props.selectionUnit}`
 })
 
 function toggleOpen() {
@@ -103,6 +115,10 @@ function toggleOption(value: string) {
 
 function clearSelection() {
   emit('update:modelValue', [])
+}
+
+function resolveOptionKey(option: MultiSelectOption) {
+  return option.key ?? option.documentId ?? option.value
 }
 
 function onDocumentClick(event: MouseEvent) {
@@ -144,6 +160,12 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   text-align: left;
+  transition: color 0.2s;
+}
+
+.theme-multi-select__trigger:hover,
+.theme-multi-select__trigger[aria-expanded='true'] {
+  color: var(--b3-theme-primary);
 }
 
 .theme-multi-select__summary {
@@ -161,6 +183,11 @@ onBeforeUnmount(() => {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+.theme-multi-select__trigger[aria-expanded='true'] .theme-multi-select__caret {
+  transform: rotate(225deg);
 }
 
 .theme-multi-select__dropdown {
@@ -169,11 +196,16 @@ onBeforeUnmount(() => {
   left: 0;
   right: 0;
   z-index: 10;
-  border: 1px solid var(--panel-border);
-  border-radius: 12px;
-  background: var(--surface-card-strong);
-  box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.24);
+  border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 14%, var(--panel-border));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--b3-theme-primary) 6%, transparent), transparent 44%),
+    var(--surface-card-strong);
+  box-shadow:
+    0 18px 36px -18px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, var(--b3-theme-background) 52%, transparent);
   overflow: hidden;
+  backdrop-filter: blur(12px);
 }
 
 .theme-multi-select__actions {
@@ -189,6 +221,12 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   font-size: 12px;
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.theme-multi-select__action:hover {
+  background: color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
 }
 
 .theme-multi-select__options {
@@ -203,18 +241,25 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 8px 10px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
+  border: 1px solid transparent;
 }
 
 .theme-multi-select__option:hover {
   background: var(--surface-card-soft);
 }
 
+.theme-multi-select__option--selected {
+  background: color-mix(in srgb, var(--b3-theme-primary) 10%, var(--surface-card-soft));
+  border-color: color-mix(in srgb, var(--b3-theme-primary) 22%, transparent);
+}
+
 .theme-multi-select__checkbox {
   margin: 0;
+  accent-color: var(--b3-theme-primary);
 }
 
 .theme-multi-select__empty {

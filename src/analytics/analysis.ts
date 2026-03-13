@@ -37,6 +37,7 @@ export interface ReferenceRecord {
 export interface AnalyticsFilters {
   notebook?: string
   tag?: string
+  tags?: string[]
   keyword?: string
   themeNames?: string[]
 }
@@ -653,6 +654,9 @@ function matchesFilters(document: NormalizedDocument, filters?: AnalyticsFilters
     return false
   }
   if (filters.tag && !document.tags.includes(filters.tag)) {
+    return false
+  }
+  if (filters.tags?.length && !filters.tags.some(tag => document.tags.includes(tag))) {
     return false
   }
   if (filters.keyword) {

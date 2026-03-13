@@ -94,6 +94,20 @@ describe('analyzeReferenceGraph', () => {
     expect(filtered.map(document => document.id)).toEqual(['doc-local-recent'])
   })
 
+  it('matches documents when any selected tag is present', () => {
+    const filtered = filterDocumentsByTimeRange({
+      documents: [...documents],
+      references: [...references],
+      now,
+      timeRange: 'all',
+      filters: {
+        tags: ['index', 'research'],
+      },
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-a', 'doc-b', 'doc-c'])
+  })
+
   it('uses time range filtered documents for all panel outputs', () => {
     const report = analyzeReferenceGraph({
       documents: [

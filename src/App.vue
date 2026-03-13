@@ -22,41 +22,28 @@
       <div class="filter-panel__row filter-panel__row--meta">
         <label class="filter-item">
           <span>时间窗口</span>
-          <select v-model="timeRange">
-            <option
-              v-for="option in timeRangeOptions"
-              :key="option.value"
-              :value="option.value"
-            >
-              {{ option.label }}
-            </option>
-          </select>
+          <FilterSelect
+            v-model="timeRange"
+            :options="timeRangeFilterOptions"
+          />
         </label>
         <label class="filter-item">
           <span>笔记本</span>
-          <select v-model="selectedNotebook">
-            <option value="">全部笔记本</option>
-            <option
-              v-for="notebook in notebookOptions"
-              :key="notebook.id"
-              :value="notebook.id"
-            >
-              {{ notebook.name }}
-            </option>
-          </select>
+          <FilterSelect
+            v-model="selectedNotebook"
+            :options="notebookFilterOptions"
+            empty-label="暂无笔记本"
+          />
         </label>
         <label class="filter-item">
           <span>标签</span>
-          <select v-model="selectedTag">
-            <option value="">全部标签</option>
-            <option
-              v-for="tag in tagOptions"
-              :key="tag"
-              :value="tag"
-            >
-              {{ tag }}
-            </option>
-          </select>
+          <ThemeMultiSelect
+            v-model="selectedTags"
+            :options="tagFilterOptions"
+            all-label="全部标签"
+            empty-label="暂无标签"
+            selection-unit="个标签"
+          />
         </label>
       </div>
 
@@ -529,6 +516,7 @@ import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import DormantDetailPanel from '@/components/DormantDetailPanel.vue'
 import DocumentTitle from '@/components/DocumentTitle.vue'
+import FilterSelect from '@/components/FilterSelect.vue'
 import OrphanDetailPanel from '@/components/OrphanDetailPanel.vue'
 import RankingPanel from '@/components/RankingPanel.vue'
 import SuggestionCallout from '@/components/SuggestionCallout.vue'
@@ -561,7 +549,7 @@ const {
   timeRange,
   timeRangeOptions,
   selectedNotebook,
-  selectedTag,
+  selectedTags,
   selectedThemes,
   themeOptions,
   keyword,
@@ -632,6 +620,25 @@ const visibleSummaryCards = computed(() => {
     return true
   })
 })
+
+const timeRangeFilterOptions = computed(() => timeRangeOptions.value.map(option => ({
+  value: option.value,
+  label: option.label,
+})))
+
+const notebookFilterOptions = computed(() => [
+  { value: '', label: '全部笔记本' },
+  ...notebookOptions.value.map(notebook => ({
+    value: notebook.id,
+    label: notebook.name,
+  })),
+])
+
+const tagFilterOptions = computed(() => tagOptions.value.map(tag => ({
+  value: tag,
+  label: tag,
+  key: tag,
+})))
 
 watch(visibleSummaryCards, (cards) => {
   if (cards.length === 0) {

@@ -86,7 +86,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const snapshot = ref<AnalyticsSnapshot | null>(null)
   const timeRange = ref<TimeRange>('7d')
   const selectedNotebook = ref('')
-  const selectedTag = ref('')
+  const selectedTags = ref<string[]>([])
   const selectedThemes = ref<string[]>([])
   const keyword = ref('')
   const orphanSort = ref<OrphanSort>('updated-desc')
@@ -110,7 +110,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
 
   const filters = computed<AnalyticsFilters>(() => ({
     notebook: selectedNotebook.value || undefined,
-    tag: selectedTag.value || undefined,
+    tags: selectedTags.value.length ? [...selectedTags.value] : undefined,
     themeNames: selectedThemes.value.length ? [...selectedThemes.value] : undefined,
     keyword: keyword.value || undefined,
   }))
@@ -462,6 +462,11 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     selectedThemes.value = selectedThemes.value.filter(themeName => allowedThemes.has(themeName))
   }, { immediate: true })
 
+  watch(tagOptions, (options) => {
+    const allowedTags = new Set(options)
+    selectedTags.value = selectedTags.value.filter(tag => allowedTags.has(tag))
+  }, { immediate: true })
+
   watch([activeDocumentId, sampleDocumentIds], ([documentId, documentIds]) => {
     if (documentId && documentIds.has(documentId)) {
       selectedEvidenceDocument.value = documentId
@@ -709,6 +714,13 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       .filter(Boolean)
   }
 
+  const selectedTag = computed({
+    get: () => selectedTags.value[0] ?? '',
+    set: (value: string) => {
+      selectedTags.value = value ? [value] : []
+    },
+  })
+
   return {
     loading,
     errorMessage,
@@ -716,6 +728,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     timeRange,
     timeRangeOptions,
     selectedNotebook,
+    selectedTags,
     selectedTag,
     selectedThemes,
     themeOptions,
