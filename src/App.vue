@@ -57,14 +57,6 @@
           </option>
         </select>
       </label>
-      <label class="filter-item">
-        <span>沉没阈值</span>
-        <select v-model="dormantDays">
-          <option :value="30">30 天</option>
-          <option :value="90">90 天</option>
-          <option :value="180">180 天</option>
-        </select>
-      </label>
       <label class="filter-item filter-item--wide">
         <span>主题/关键词</span>
         <input
@@ -141,6 +133,14 @@
               :orphan-sort="orphanSort"
               :open-document="openDocument"
               :on-update-orphan-sort="(value) => { orphanSort.value = value }"
+            />
+          </template>
+          <template v-else-if="selectedSummaryDetail.key === 'dormant'">
+            <DormantDetailPanel
+              :items="selectedSummaryDetail.items"
+              :dormant-days="dormantDays"
+              :open-document="openDocument"
+              :on-update-dormant-days="(value) => { dormantDays.value = value }"
             />
           </template>
           <template v-else-if="selectedSummaryDetail.kind === 'list'">
@@ -508,6 +508,7 @@ import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import { SUGGESTION_TYPE_LABELS } from '@/analytics/ui-copy'
+import DormantDetailPanel from '@/components/DormantDetailPanel.vue'
 import OrphanDetailPanel from '@/components/OrphanDetailPanel.vue'
 import RankingPanel from '@/components/RankingPanel.vue'
 import { useAnalyticsState } from '@/composables/use-analytics'
