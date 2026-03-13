@@ -9,7 +9,14 @@ describe('DormantDetailPanel', () => {
     const app = createSSRApp({
       render: () => h(DormantDetailPanel, {
         items: [
-          { documentId: 'doc-a', title: 'Alpha', meta: 'meta' },
+          {
+            documentId: 'doc-a',
+            title: 'Alpha',
+            meta: 'meta',
+            suggestions: [
+              { label: '归档沉没', text: '建议归档或补齐索引入口。' },
+            ],
+          },
         ],
         dormantDays: 30,
         onUpdateDormantDays: vi.fn(),
@@ -22,5 +29,7 @@ describe('DormantDetailPanel', () => {
     expect(html).toContain('沉没阈值')
     expect(html).toContain('30 天')
     expect(html).toContain('Alpha')
+    expect(html).toContain('归档沉没')
+    expect(html).toContain('建议归档或补齐索引入口。')
   })
 })

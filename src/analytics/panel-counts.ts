@@ -2,7 +2,6 @@ import type { ReferenceGraphReport, TrendReport } from './analysis'
 
 export interface PanelCounts {
   ranking: number
-  suggestions: number
   communities: number
   orphanBridge: number
   trends: number
@@ -18,7 +17,6 @@ export function buildPanelCounts(params: {
   trends: TrendReport | null
   pathChain: string[]
 }): PanelCounts {
-  const suggestions = new Set(params.report.suggestions.map(item => item.documentId))
   const communityDocuments = new Set(params.report.communities.flatMap(community => community.documentIds))
   const orphanBridgeDocuments = new Set([
     ...params.report.orphans.map(item => item.documentId),
@@ -37,7 +35,6 @@ export function buildPanelCounts(params: {
 
   return {
     ranking: Math.min(params.report.ranking.length, RANKING_LIMIT),
-    suggestions: suggestions.size,
     communities: communityDocuments.size,
     orphanBridge: orphanBridgeDocuments.size,
     trends: trendsDocuments.size,

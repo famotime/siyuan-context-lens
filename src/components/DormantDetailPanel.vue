@@ -40,6 +40,7 @@
         <p class="summary-detail-item__meta">
           {{ item.meta }}
         </p>
+        <SuggestionCallout :suggestions="item.suggestions ?? []" />
       </article>
     </div>
     <div
@@ -53,6 +54,7 @@
 
 <script setup lang="ts">
 import type { SummaryDetailItem } from '@/analytics/summary-details'
+import SuggestionCallout from './SuggestionCallout.vue'
 
 const props = defineProps<{
   items: SummaryDetailItem[]

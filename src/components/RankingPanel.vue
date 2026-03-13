@@ -153,6 +153,7 @@
               </div>
             </div>
           </div>
+          <SuggestionCallout :suggestions="item.suggestions ?? []" />
         </article>
       </div>
       <div
@@ -166,13 +167,14 @@
 </template>
 
 <script setup lang="ts">
-import type { RankingItem } from '@/analytics/analysis'
+import type { RankingDetailItem } from '@/analytics/summary-details'
 import type { LinkAssociations } from '@/analytics/link-associations'
+import SuggestionCallout from './SuggestionCallout.vue'
 
 type LinkDirection = 'outbound' | 'inbound'
 
 const props = withDefaults(defineProps<{
-  ranking: RankingItem[]
+  ranking: RankingDetailItem[]
   panelCount: number
   snapshotLabel: string
   isExpanded: boolean

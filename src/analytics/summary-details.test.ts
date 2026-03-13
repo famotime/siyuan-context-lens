@@ -43,7 +43,12 @@ const report = {
   propagationNodes: [
     { documentId: 'doc-a', title: 'Alpha', degree: 1, score: 2, pathPairCount: 2, focusDocumentCount: 2, communitySpan: 1, bridgeRole: true },
   ],
-  suggestions: [],
+  suggestions: [
+    { type: 'promote-hub', documentId: 'doc-b', title: 'Beta', reason: '被 2 个文档引用，共 2 次' },
+    { type: 'repair-orphan', documentId: 'doc-c', title: 'Gamma', reason: '当前分析窗口内没有文档级连接' },
+    { type: 'archive-dormant', documentId: 'doc-c', title: 'Gamma', reason: '11 天未产生有效连接，适合归档或补齐索引' },
+    { type: 'maintain-bridge', documentId: 'doc-a', title: 'Alpha', reason: '连接 1 条关系，移除后会打断社区连通性' },
+  ],
   evidenceByDocument: {},
 } as const
 
@@ -97,21 +102,52 @@ describe('buildSummaryDetailSections', () => {
 
     expect(sections.orphans.kind).toBe('list')
     expect(sections.orphans.items).toEqual([
-      expect.objectContaining({ documentId: 'doc-c', title: 'Gamma' }),
+      expect.objectContaining({
+        documentId: 'doc-c',
+        title: 'Gamma',
+        suggestions: [
+          expect.objectContaining({ label: '补齐链接', text: '当前分析窗口内没有文档级连接' }),
+        ],
+      }),
     ])
     expect(sections.dormant.items).toEqual([
-      expect.objectContaining({ documentId: 'doc-c', title: 'Gamma' }),
+      expect.objectContaining({
+        documentId: 'doc-c',
+        title: 'Gamma',
+        suggestions: [
+          expect.objectContaining({ label: '归档沉没', text: '11 天未产生有效连接，适合归档或补齐索引' }),
+        ],
+      }),
     ])
     expect(sections.bridges.items).toEqual([
-      expect.objectContaining({ documentId: 'doc-a', title: 'Alpha' }),
+      expect.objectContaining({
+        documentId: 'doc-a',
+        title: 'Alpha',
+        suggestions: [
+          expect.objectContaining({ label: '重点维护', text: '连接 1 条关系，移除后会打断社区连通性' }),
+        ],
+      }),
     ])
     expect(sections.propagation.kind).toBe('propagation')
     expect(sections.propagation.items).toEqual([
-      expect.objectContaining({ documentId: 'doc-a', badge: '2 分' }),
+      expect.objectContaining({
+        documentId: 'doc-a',
+        badge: '2 分',
+        suggestions: [
+          expect.objectContaining({ label: '传播优化' }),
+        ],
+      }),
     ])
 
     expect(sections.ranking.kind).toBe('ranking')
-    expect(sections.suggestions.kind).toBe('suggestions')
+    expect(sections.ranking.ranking).toEqual([
+      expect.objectContaining({
+        documentId: 'doc-b',
+        suggestions: [
+          expect.objectContaining({ label: '升级为主题页', text: '被 2 个文档引用，共 2 次' }),
+        ],
+      }),
+    ])
     expect(sections.trends.kind).toBe('trends')
   })
 
@@ -173,7 +209,7 @@ describe('buildSummaryCards', () => {
     }))
   })
 
-  it('adds cards for ranking, suggestions and trends', () => {
+  it('adds cards for ranking and trends without standalone suggestions', () => {
     const cards = buildSummaryCards({
       report: report as any,
       dormantDays: 30,
@@ -181,7 +217,7 @@ describe('buildSummaryCards', () => {
     })
 
     expect(cards.find(card => card.key === 'ranking')?.value).toBe('1')
-    expect(cards.find(card => card.key === 'suggestions')?.value).toBe('0')
+    expect(cards.some(card => card.key === 'suggestions')).toBe(false)
     expect(cards.find(card => card.key === 'trends')?.value).toBe('2')
   })
 })

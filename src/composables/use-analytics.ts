@@ -287,10 +287,13 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     if (detail.kind === 'ranking') {
       return detail.ranking.length
     }
-    if (detail.kind === 'suggestions') {
-      return detail.suggestions.length
+    if (detail.kind === 'propagation') {
+      return detail.items.length
     }
-    return detail.trends.risingDocuments.length + detail.trends.fallingDocuments.length
+    if (detail.kind === 'trends') {
+      return detail.trends.risingDocuments.length + detail.trends.fallingDocuments.length
+    }
+    return 0
   })
 
   const pathOptions = computed(() => {
@@ -367,7 +370,6 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     if (!report.value) {
       return {
         ranking: 0,
-        suggestions: 0,
         communities: 0,
         orphanBridge: 0,
         trends: 0,

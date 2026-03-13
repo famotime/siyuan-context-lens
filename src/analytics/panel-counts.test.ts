@@ -34,7 +34,6 @@ describe('buildPanelCounts', () => {
       'orphanBridge',
       'propagation',
       'ranking',
-      'suggestions',
       'trends',
     ])
   })
@@ -83,11 +82,7 @@ describe('buildPanelCounts', () => {
         communitySpan: 1,
         bridgeRole: false,
       })),
-      suggestions: [
-        { type: 'promote-hub', documentId: 'doc-a', title: 'A', reason: 'Reason' },
-        { type: 'repair-orphan', documentId: 'doc-a', title: 'A', reason: 'Reason' },
-        { type: 'maintain-bridge', documentId: 'doc-c', title: 'C', reason: 'Reason' },
-      ],
+      suggestions: [],
       evidenceByDocument: {},
     } as any
 
@@ -126,7 +121,6 @@ describe('buildPanelCounts', () => {
     })
 
     expect(counts.ranking).toBe(12)
-    expect(counts.suggestions).toBe(2)
     expect(counts.communities).toBe(3)
     expect(counts.orphanBridge).toBe(3)
     expect(counts.trends).toBe(10)

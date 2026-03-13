@@ -4,17 +4,16 @@ import {
   type RankingItem,
   type ReferenceGraphReport,
   type ReferenceRecord,
-  type SuggestionItem,
   type TimeRange,
   type TrendReport,
   filterDocumentsByTimeRange,
 } from './analysis'
+import { SUGGESTION_TYPE_LABELS } from './ui-copy'
 
 export type SummaryCardKey =
   | 'documents'
   | 'references'
   | 'ranking'
-  | 'suggestions'
   | 'trends'
   | 'communities'
   | 'orphans'
@@ -34,9 +33,19 @@ export interface SummaryDetailItem {
   title: string
   meta: string
   badge?: string
+  suggestions?: DetailSuggestion[]
 }
 
-type ListDetailSectionKey = Exclude<SummaryCardKey, 'ranking' | 'suggestions' | 'trends' | 'propagation'>
+export interface DetailSuggestion {
+  label: string
+  text: string
+}
+
+export interface RankingDetailItem extends RankingItem {
+  suggestions?: DetailSuggestion[]
+}
+
+type ListDetailSectionKey = Exclude<SummaryCardKey, 'ranking' | 'trends' | 'propagation'>
 
 export type SummaryDetailSection =
   | {
@@ -51,14 +60,7 @@ export type SummaryDetailSection =
     title: string
     description: string
     kind: 'ranking'
-    ranking: RankingItem[]
-  }
-  | {
-    key: 'suggestions'
-    title: string
-    description: string
-    kind: 'suggestions'
-    suggestions: SuggestionItem[]
+    ranking: RankingDetailItem[]
   }
   | {
     key: 'trends'
@@ -103,12 +105,6 @@ export function buildSummaryCards(params: {
       label: '核心文档',
       value: params.report.ranking.length.toString(),
       hint: '当前窗口内被引用的核心文档数',
-    },
-    {
-      key: 'suggestions',
-      label: '整理建议',
-      value: params.report.suggestions.length.toString(),
-      hint: '当前筛选下待处理的整理建议数',
     },
     {
       key: 'trends',
@@ -174,6 +170,7 @@ export function buildSummaryDetailSections(params: {
     timeRange: params.timeRange,
   })
   const activeCounts = buildActiveDocumentCounts(activeReferences)
+  const suggestionMap = buildSuggestionMap(params.report)
 
   return {
     documents: {
@@ -215,14 +212,10 @@ export function buildSummaryDetailSections(params: {
       title: '核心文档详情',
       description: '被引用频次最高的核心文档。',
       kind: 'ranking',
-      ranking: params.report.ranking,
-    },
-    suggestions: {
-      key: 'suggestions',
-      title: '整理建议详情',
-      description: '结构信号对应的可执行整理动作。',
-      kind: 'suggestions',
-      suggestions: params.report.suggestions,
+      ranking: params.report.ranking.map(item => ({
+        ...item,
+        suggestions: resolveSuggestions(suggestionMap, item.documentId, 'promote-hub'),
+      })),
     },
     trends: {
       key: 'trends',
@@ -263,6 +256,7 @@ export function buildSummaryDetailSections(params: {
         documentId: item.documentId,
         title: item.title,
         meta: `最近更新 ${formatCompactDate(item.updatedAt)} · 创建于 ${formatCompactDate(item.createdAt)}`,
+        suggestions: resolveSuggestions(suggestionMap, item.documentId, 'repair-orphan'),
       })),
     },
     dormant: {
@@ -275,6 +269,7 @@ export function buildSummaryDetailSections(params: {
         title: item.title,
         meta: `${item.inactivityDays} 天未活跃 · 最近连接 ${formatCompactDate(item.lastConnectedAt || item.updatedAt)}`,
         badge: item.hasSparseEvidence ? `${item.historicalReferenceCount} 条历史连接` : undefined,
+        suggestions: resolveSuggestions(suggestionMap, item.documentId, 'archive-dormant'),
       })),
     },
     bridges: {
@@ -286,6 +281,7 @@ export function buildSummaryDetailSections(params: {
         documentId: item.documentId,
         title: item.title,
         meta: `连接度 ${item.degree}`,
+        suggestions: resolveSuggestions(suggestionMap, item.documentId, 'maintain-bridge'),
       })),
     },
     propagation: {
@@ -298,8 +294,43 @@ export function buildSummaryDetailSections(params: {
         title: item.title,
         meta: `覆盖 ${item.focusDocumentCount} 个焦点文档 · 社区跨度 ${item.communitySpan || 1}`,
         badge: `${item.score} 分`,
+        suggestions: [buildPropagationSuggestion(item)],
       })),
     },
+  }
+}
+
+function buildSuggestionMap(report: ReferenceGraphReport): Map<string, Array<{ type: ReferenceGraphReport['suggestions'][number]['type'], suggestion: DetailSuggestion }>> {
+  const map = new Map<string, Array<{ type: ReferenceGraphReport['suggestions'][number]['type'], suggestion: DetailSuggestion }>>()
+  for (const item of report.suggestions) {
+    const suggestions = map.get(item.documentId) ?? []
+    suggestions.push({
+      type: item.type,
+      suggestion: {
+        label: SUGGESTION_TYPE_LABELS[item.type],
+        text: item.reason,
+      },
+    })
+    map.set(item.documentId, suggestions)
+  }
+  return map
+}
+
+function resolveSuggestions(
+  suggestionMap: Map<string, Array<{ type: ReferenceGraphReport['suggestions'][number]['type'], suggestion: DetailSuggestion }>>,
+  documentId: string,
+  type: ReferenceGraphReport['suggestions'][number]['type'],
+): DetailSuggestion[] {
+  return (suggestionMap.get(documentId) ?? [])
+    .filter(item => item.type === type)
+    .map(item => item.suggestion)
+}
+
+function buildPropagationSuggestion(item: ReferenceGraphReport['propagationNodes'][number]): DetailSuggestion {
+  const bridgeHint = item.bridgeRole ? '，同时承担社区桥接角色' : ''
+  return {
+    label: '传播优化',
+    text: `位于 ${item.pathPairCount} 条关键最短路径上，覆盖 ${item.focusDocumentCount} 个焦点文档${bridgeHint}，建议补充路径说明与上下游导航。`,
   }
 }
 

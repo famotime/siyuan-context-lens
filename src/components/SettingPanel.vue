@@ -68,13 +68,6 @@
         </label>
         <label class="setting-item setting-item--nested">
           <span class="setting-item__text">
-            <strong>整理建议卡片</strong>
-            <span>展示待处理建议并联动详情</span>
-          </span>
-          <input type="checkbox" v-model="config.showSuggestions" class="b3-switch">
-        </label>
-        <label class="setting-item setting-item--nested">
-          <span class="setting-item__text">
             <strong>趋势观察卡片</strong>
             <span>展示趋势变化并联动详情</span>
           </span>

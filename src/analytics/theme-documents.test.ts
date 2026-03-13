@@ -6,7 +6,6 @@ import type { PluginConfig } from '@/types/config'
 const config: PluginConfig = {
   showSummaryCards: true,
   showRanking: true,
-  showSuggestions: true,
   showCommunities: true,
   showOrphanBridge: true,
   showTrends: true,

@@ -40,24 +40,25 @@
         <p class="summary-detail-item__meta">
           {{ item.meta }}
         </p>
-        <div
-          v-if="item.themeSuggestions?.length"
-          class="orphan-detail__theme-section"
-        >
-          <span class="orphan-detail__theme-label">建议与主题文档建立链接：</span>
-          <div class="orphan-detail__themes">
-            <button
-              v-for="suggestion in item.themeSuggestions"
-              :key="`${item.documentId}-${suggestion.themeDocumentId}`"
-              :class="['orphan-detail__theme-tag', { 'orphan-detail__theme-tag--active': isThemeSuggestionActive(item.documentId, suggestion.themeDocumentId) }]"
-              type="button"
-              :title="`${suggestion.themeDocumentTitle} · 匹配 ${suggestion.matchCount} 次`"
-              @click="onToggleThemeSuggestion(item.documentId, suggestion.themeDocumentId)"
-            >
-              <span class="orphan-detail__theme-name">{{ suggestion.themeName }}</span>
-            </button>
+        <SuggestionCallout :suggestions="buildSuggestionCalloutItems(item)">
+          <div
+            v-if="item.themeSuggestions?.length"
+            class="orphan-detail__theme-section"
+          >
+            <div class="orphan-detail__themes">
+              <button
+                v-for="suggestion in item.themeSuggestions"
+                :key="`${item.documentId}-${suggestion.themeDocumentId}`"
+                :class="['orphan-detail__theme-tag', { 'orphan-detail__theme-tag--active': isThemeSuggestionActive(item.documentId, suggestion.themeDocumentId) }]"
+                type="button"
+                :title="`${suggestion.themeDocumentTitle} · 匹配 ${suggestion.matchCount} 次`"
+                @click="onToggleThemeSuggestion(item.documentId, suggestion.themeDocumentId)"
+              >
+                <span class="orphan-detail__theme-name">{{ suggestion.themeName }}</span>
+              </button>
+            </div>
           </div>
-        </div>
+        </SuggestionCallout>
       </article>
     </div>
     <div
@@ -71,8 +72,9 @@
 
 <script setup lang="ts">
 import type { OrphanSort } from '@/analytics/analysis'
-import type { SummaryDetailItem } from '@/analytics/summary-details'
+import type { DetailSuggestion, SummaryDetailItem } from '@/analytics/summary-details'
 import type { ThemeDocumentMatch } from '@/analytics/theme-documents'
+import SuggestionCallout from './SuggestionCallout.vue'
 
 const props = defineProps<{
   items: Array<SummaryDetailItem & { themeSuggestions?: ThemeDocumentMatch[] }>
@@ -86,6 +88,25 @@ const props = defineProps<{
 function onSortChange(event: Event) {
   const value = (event.target as HTMLSelectElement).value as OrphanSort
   props.onUpdateOrphanSort(value)
+}
+
+function buildSuggestionCalloutItems(item: SummaryDetailItem & { themeSuggestions?: ThemeDocumentMatch[] }): DetailSuggestion[] {
+  const suggestions = item.suggestions ?? []
+  if (!item.themeSuggestions?.length) {
+    return suggestions
+  }
+
+  return suggestions.map((suggestion) => {
+    if (suggestion.label !== '补齐链接') {
+      return suggestion
+    }
+
+    const text = suggestion.text.replace(/[。；，,\s]*$/, '')
+    return {
+      ...suggestion,
+      text: `${text}，建议优先连接以下主题文档：`,
+    }
+  })
 }
 </script>
 
@@ -160,19 +181,8 @@ function onSortChange(event: Event) {
 }
 
 .orphan-detail__theme-section {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.orphan-detail__theme-label {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--b3-theme-on-background) 52%, transparent);
-  white-space: nowrap;
+  display: grid;
+  gap: 6px;
 }
 
 .orphan-detail__themes {

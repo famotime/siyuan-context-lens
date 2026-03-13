@@ -2,8 +2,8 @@
   <div class="reference-analytics">
     <div class="hero">
       <div>
-        <p class="eyebrow">Reference Analytics</p>
-        <h1>引用网络分析器</h1>
+        <p class="eyebrow">Context lens</p>
+        <h1>脉络镜</h1>
         <p class="hero-copy">
           用文档级引用网络识别核心节点、主题社区、孤立内容和可执行整理动作。
         </p>
@@ -185,6 +185,7 @@
                 <p class="summary-detail-item__meta">
                   {{ item.meta }}
                 </p>
+                <SuggestionCallout :suggestions="item.suggestions ?? []" />
               </article>
             </div>
             <div
@@ -222,6 +223,7 @@
                 <p class="summary-detail-item__meta">
                   {{ item.meta }}
                 </p>
+                <SuggestionCallout :suggestions="item.suggestions ?? []" />
               </article>
             </div>
             <div
@@ -321,34 +323,6 @@
               :is-syncing="isSyncing"
               :sync-association="syncAssociation"
             />
-          </template>
-          <template v-else-if="selectedSummaryDetail.kind === 'suggestions'">
-            <div
-              v-if="selectedSummaryDetail.suggestions.length"
-              class="suggestion-list"
-            >
-              <article
-                v-for="item in selectedSummaryDetail.suggestions"
-                :key="`${item.type}-${item.documentId}`"
-                class="suggestion-item"
-              >
-                <span class="badge">{{ SUGGESTION_TYPE_LABELS[item.type] }}</span>
-                <button
-                  class="suggestion-item__title"
-                  type="button"
-                  @click="openDocument(item.documentId)"
-                >
-                  {{ item.title }}
-                </button>
-                <p>{{ item.reason }}</p>
-              </article>
-            </div>
-            <div
-              v-else
-              class="empty-state"
-            >
-              当前没有需要优先处理的建议项。
-            </div>
           </template>
           <template v-else-if="selectedSummaryDetail.kind === 'trends'">
             <div class="trend-stats">
@@ -521,10 +495,10 @@
 import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
-import { SUGGESTION_TYPE_LABELS } from '@/analytics/ui-copy'
 import DormantDetailPanel from '@/components/DormantDetailPanel.vue'
 import OrphanDetailPanel from '@/components/OrphanDetailPanel.vue'
 import RankingPanel from '@/components/RankingPanel.vue'
+import SuggestionCallout from '@/components/SuggestionCallout.vue'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import { useAnalyticsState } from '@/composables/use-analytics'
 import { appendBlock, deleteBlock, getBlockKramdown, getChildBlocks, prependBlock, updateBlock } from '@/api'
@@ -608,9 +582,6 @@ const visibleSummaryCards = computed(() => {
   return summaryCards.value.filter((card) => {
     if (card.key === 'ranking') {
       return props.config.showRanking
-    }
-    if (card.key === 'suggestions') {
-      return props.config.showSuggestions
     }
     if (card.key === 'trends') {
       return props.config.showTrends
@@ -868,7 +839,6 @@ input {
   white-space: nowrap;
 }
 
-.suggestion-list,
 .community-list,
 .propagation-list,
 .summary-detail-list {
@@ -876,7 +846,6 @@ input {
   gap: 12px;
 }
 
-.suggestion-item,
 .community-item,
 .propagation-item,
 .summary-detail-item {
@@ -887,14 +856,12 @@ input {
   transition: background-color 0.2s;
 }
 
-.suggestion-item:hover,
 .community-item:hover,
 .propagation-item:hover,
 .summary-detail-item:hover {
   background: var(--surface-card-soft);
 }
 
-.suggestion-item__title,
 .propagation-item__title,
 .summary-detail-item__title,
 .trend-item button,
@@ -911,14 +878,12 @@ input {
   transition: color 0.15s;
 }
 
-.suggestion-item__title:hover,
 .propagation-item__title:hover,
 .summary-detail-item__title:hover,
 .trend-item button:hover {
   color: color-mix(in srgb, var(--b3-theme-primary) 70%, transparent);
 }
 
-.suggestion-item__title,
 .propagation-item__title,
 .summary-detail-item__title {
   font-weight: 600;

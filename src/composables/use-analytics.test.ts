@@ -30,14 +30,13 @@ describe('useAnalyticsState', () => {
   it('refreshes snapshot and updates derived states', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
-      config: {
-        showSummaryCards: true,
-        showRanking: true,
-        showSuggestions: true,
-        showCommunities: true,
-        showOrphanBridge: true,
-        showTrends: true,
-        showPropagation: true,
+        config: {
+          showSummaryCards: true,
+          showRanking: true,
+          showCommunities: true,
+          showOrphanBridge: true,
+          showTrends: true,
+          showPropagation: true,
         themeNotebookId: 'box-1',
         themeDocumentPath: '/专题',
         themeNamePrefix: '主题-',
@@ -69,14 +68,13 @@ describe('useAnalyticsState', () => {
   it('uses default snapshot loader when not provided', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
-      config: {
-        showSummaryCards: true,
-        showRanking: true,
-        showSuggestions: true,
-        showCommunities: true,
-        showOrphanBridge: true,
-        showTrends: true,
-        showPropagation: true,
+        config: {
+          showSummaryCards: true,
+          showRanking: true,
+          showCommunities: true,
+          showOrphanBridge: true,
+          showTrends: true,
+          showPropagation: true,
         themeNotebookId: 'box-1',
         themeDocumentPath: '/专题',
         themeNamePrefix: '主题-',
@@ -107,14 +105,13 @@ describe('useAnalyticsState', () => {
 
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
-      config: {
-        showSummaryCards: true,
-        showRanking: true,
-        showSuggestions: true,
-        showCommunities: true,
-        showOrphanBridge: true,
-        showTrends: true,
-        showPropagation: true,
+        config: {
+          showSummaryCards: true,
+          showRanking: true,
+          showCommunities: true,
+          showOrphanBridge: true,
+          showTrends: true,
+          showPropagation: true,
         themeNotebookId: 'box-1',
         themeDocumentPath: '/专题',
         themeNamePrefix: '主题-',
@@ -177,14 +174,13 @@ describe('useAnalyticsState', () => {
   it('re-sorts orphan detail items when orphan sort changes', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
-      config: {
-        showSummaryCards: true,
-        showRanking: true,
-        showSuggestions: true,
-        showCommunities: true,
-        showOrphanBridge: true,
-        showTrends: true,
-        showPropagation: true,
+        config: {
+          showSummaryCards: true,
+          showRanking: true,
+          showCommunities: true,
+          showOrphanBridge: true,
+          showTrends: true,
+          showPropagation: true,
         themeNotebookId: 'box-1',
         themeDocumentPath: '/专题',
         themeNamePrefix: '主题-',

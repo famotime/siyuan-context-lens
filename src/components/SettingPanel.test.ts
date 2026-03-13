@@ -17,7 +17,6 @@ describe('SettingPanel', () => {
         config: {
           showSummaryCards: true,
           showRanking: true,
-          showSuggestions: true,
           showCommunities: true,
           showOrphanBridge: true,
           showTrends: true,
@@ -36,5 +35,6 @@ describe('SettingPanel', () => {
     expect(html).toContain('主题文档路径')
     expect(html).toContain('名称前缀')
     expect(html).toContain('名称后缀')
+    expect(html).not.toContain('整理建议卡片')
   })
 })
