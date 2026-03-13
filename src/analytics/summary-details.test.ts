@@ -117,6 +117,17 @@ describe('buildSummaryDetailSections', () => {
 })
 
 describe('buildSummaryCards', () => {
+  it('uses provided document count when available', () => {
+    const cards = buildSummaryCards({
+      report: report as any,
+      dormantDays: 30,
+      documentCount: 2,
+    })
+
+    const documents = cards.find(card => card.key === 'documents')
+    expect(documents?.value).toBe('2')
+  })
+
   it('builds summary cards with tooltip hints', () => {
     const cards = buildSummaryCards({
       report: report as any,

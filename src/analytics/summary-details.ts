@@ -1,9 +1,10 @@
-import type {
-  AnalyticsFilters,
-  DocumentRecord,
-  ReferenceGraphReport,
-  ReferenceRecord,
-  TimeRange,
+import {
+  type AnalyticsFilters,
+  type DocumentRecord,
+  type ReferenceGraphReport,
+  type ReferenceRecord,
+  type TimeRange,
+  filterDocumentsByTimeRange,
 } from './analysis'
 
 export type SummaryCardKey =
@@ -39,12 +40,13 @@ export interface SummaryDetailSection {
 export function buildSummaryCards(params: {
   report: ReferenceGraphReport
   dormantDays: number
+  documentCount?: number
 }): SummaryCardItem[] {
   return [
     {
       key: 'documents',
       label: '文档样本',
-      value: params.report.summary.totalDocuments.toString(),
+      value: (params.documentCount ?? params.report.summary.totalDocuments).toString(),
       hint: '命中当前筛选条件的文档数',
     },
     {
@@ -95,7 +97,13 @@ export function buildSummaryDetailSections(params: {
   filters?: AnalyticsFilters
   dormantDays: number
 }): Record<SummaryCardKey, SummaryDetailSection> {
-  const filteredDocuments = filterDocuments(params.documents, params.filters)
+  const filteredDocuments = filterDocumentsByTimeRange({
+    documents: params.documents,
+    references: params.references,
+    now: params.now,
+    timeRange: params.timeRange,
+    filters: params.filters,
+  })
   const documentMap = new Map(filteredDocuments.map(document => [document.id, document]))
   const activeReferences = filterActiveReferences({
     references: params.references,
@@ -196,28 +204,6 @@ export function buildSummaryDetailSections(params: {
   }
 }
 
-function filterDocuments(documents: DocumentRecord[], filters?: AnalyticsFilters): DocumentRecord[] {
-  return documents.filter((document) => {
-    if (!filters) {
-      return true
-    }
-    if (filters.notebook && document.box !== filters.notebook) {
-      return false
-    }
-    const tags = normalizeTags(document.tags)
-    if (filters.tag && !tags.includes(filters.tag)) {
-      return false
-    }
-    if (filters.keyword) {
-      const haystack = `${resolveTitle(document)} ${document.hpath} ${tags.join(' ')}`.toLowerCase()
-      if (!haystack.includes(filters.keyword.toLowerCase())) {
-        return false
-      }
-    }
-    return true
-  })
-}
-
 function filterActiveReferences(params: {
   references: ReferenceRecord[]
   documentMap: Map<string, DocumentRecord>
@@ -274,19 +260,6 @@ function buildActiveDocumentCounts(references: ReferenceRecord[]): Map<string, {
 
 function resolveTitle(document: DocumentRecord): string {
   return document.title || document.name || document.content || document.hpath || document.id
-}
-
-function normalizeTags(tags?: readonly string[] | string): string[] {
-  if (!tags) {
-    return []
-  }
-  if (Array.isArray(tags)) {
-    return tags.map(tag => tag.trim()).filter(Boolean)
-  }
-  return tags
-    .split(/[,\s#]+/)
-    .map(tag => tag.trim())
-    .filter(Boolean)
 }
 
 function parseTimestamp(timestamp: string): number | null {

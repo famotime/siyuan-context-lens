@@ -1,4 +1,6 @@
-export type TimeRange = '7d' | '30d' | '90d' | 'all'
+export type TimeRange = '3d' | '7d' | '30d' | '60d' | '90d' | 'all'
+
+export const TIME_RANGE_OPTIONS: TimeRange[] = ['all', '3d', '7d', '30d', '60d', '90d']
 
 export interface DocumentRecord {
   id: string
@@ -163,6 +165,55 @@ export interface TrendReport {
   dormantCommunities: CommunityTrendItem[]
 }
 
+export function filterDocumentsByTimeRange(params: {
+  documents: DocumentRecord[]
+  references: ReferenceRecord[]
+  now: Date
+  timeRange: TimeRange
+  filters?: AnalyticsFilters
+}): DocumentRecord[] {
+  const normalizedDocuments = normalizeDocuments(params.documents)
+  const filteredDocuments = normalizedDocuments.filter(document => matchesFilters(document, params.filters))
+  const documentById = new Map(params.documents.map(document => [document.id, document]))
+
+  if (params.timeRange === 'all') {
+    return filteredDocuments
+      .map(document => documentById.get(document.id))
+      .filter((document): document is DocumentRecord => Boolean(document))
+  }
+
+  const allowedIds = new Set(filteredDocuments.map(document => document.id))
+  const filteredReferences = normalizeReferences(params.references).filter((reference) => {
+    if (reference.sourceDocumentId === reference.targetDocumentId) {
+      return false
+    }
+    return allowedIds.has(reference.sourceDocumentId) && allowedIds.has(reference.targetDocumentId)
+  })
+  const activeReferences = filteredReferences.filter(reference => isReferenceInTimeRange(reference.sourceUpdated, params.now, params.timeRange))
+  const activeDocumentIds = new Set<string>()
+  for (const reference of activeReferences) {
+    activeDocumentIds.add(reference.sourceDocumentId)
+    activeDocumentIds.add(reference.targetDocumentId)
+  }
+
+  const windowDocumentIds = new Set(
+    filteredDocuments
+      .filter((document) => {
+        if (activeDocumentIds.has(document.id)) {
+          return true
+        }
+        const timestamp = resolveDocumentTimestamp(document)
+        if (!timestamp) {
+          return false
+        }
+        return isInTrailingWindow(timestamp, params.now, Number.parseInt(params.timeRange, 10))
+      })
+      .map(document => document.id),
+  )
+
+  return params.documents.filter(document => windowDocumentIds.has(document.id))
+}
+
 export function analyzeReferenceGraph(params: {
   documents: DocumentRecord[]
   references: ReferenceRecord[]
@@ -172,7 +223,14 @@ export function analyzeReferenceGraph(params: {
   orphanSort?: OrphanSort
   dormantDays?: number
 }): ReferenceGraphReport {
-  const documents = normalizeDocuments(params.documents).filter(document => matchesFilters(document, params.filters))
+  const documentRecords = filterDocumentsByTimeRange({
+    documents: params.documents,
+    references: params.references,
+    now: params.now,
+    timeRange: params.timeRange,
+    filters: params.filters,
+  })
+  const documents = normalizeDocuments(documentRecords)
   const documentMap = new Map(documents.map(document => [document.id, document]))
   const allReferences = normalizeReferences(params.references).filter((reference) => {
     if (reference.sourceDocumentId === reference.targetDocumentId) {
@@ -344,9 +402,17 @@ export function analyzeTrends(params: {
   references: ReferenceRecord[]
   now: Date
   days: number
+  timeRange: TimeRange
   filters?: AnalyticsFilters
 }): TrendReport {
-  const documents = normalizeDocuments(params.documents).filter(document => matchesFilters(document, params.filters))
+  const documentRecords = filterDocumentsByTimeRange({
+    documents: params.documents,
+    references: params.references,
+    now: params.now,
+    timeRange: params.timeRange,
+    filters: params.filters,
+  })
+  const documents = normalizeDocuments(documentRecords)
   const documentMap = new Map(documents.map(document => [document.id, document]))
   const references = normalizeReferences(params.references).filter((reference) => {
     if (!documentMap.has(reference.sourceDocumentId) || !documentMap.has(reference.targetDocumentId)) {
@@ -469,8 +535,22 @@ export function findReferencePath(params: {
   toDocumentId: string
   maxDepth?: number
   filters?: AnalyticsFilters
+  now?: Date
+  timeRange?: TimeRange
 }): string[] {
-  const documents = normalizeDocuments(params.documents).filter(document => matchesFilters(document, params.filters))
+  const documentRecords = params.now && params.timeRange
+    ? filterDocumentsByTimeRange({
+        documents: params.documents,
+        references: params.references,
+        now: params.now,
+        timeRange: params.timeRange,
+        filters: params.filters,
+      })
+    : params.documents.filter((document) => {
+        const normalized = normalizeDocuments([document])[0]
+        return matchesFilters(normalized, params.filters)
+      })
+  const documents = normalizeDocuments(documentRecords)
   const documentIds = new Set(documents.map(document => document.id))
   if (!documentIds.has(params.fromDocumentId) || !documentIds.has(params.toDocumentId)) {
     return []
@@ -482,6 +562,9 @@ export function findReferencePath(params: {
       continue
     }
     if (!documentIds.has(reference.sourceDocumentId) || !documentIds.has(reference.targetDocumentId)) {
+      continue
+    }
+    if (params.now && params.timeRange && !isReferenceInTimeRange(reference.sourceUpdated, params.now, params.timeRange)) {
       continue
     }
     adjacency.get(reference.sourceDocumentId)?.add(reference.targetDocumentId)
@@ -571,6 +654,15 @@ function matchesFilters(document: NormalizedDocument, filters?: AnalyticsFilters
     }
   }
   return true
+}
+
+function resolveDocumentTimestamp(document: NormalizedDocument): string {
+  const updated = document.updated ?? ''
+  const created = document.created ?? ''
+  if (updated && created) {
+    return latestTimestamp(updated, created)
+  }
+  return updated || created || ''
 }
 
 function isReferenceInTimeRange(timestamp: string, now: Date, timeRange: TimeRange): boolean {

@@ -22,10 +22,13 @@
       <label class="filter-item">
         <span>时间窗口</span>
         <select v-model="timeRange">
-          <option value="all">全部时间</option>
-          <option value="7d">近 7 天</option>
-          <option value="30d">近 30 天</option>
-          <option value="90d">近 90 天</option>
+          <option
+            v-for="option in timeRangeOptions"
+            :key="option.value"
+            :value="option.value"
+          >
+            {{ option.label }}
+          </option>
         </select>
       </label>
       <label class="filter-item">
@@ -186,6 +189,7 @@
               <p>按文档级被引用次数、引用文档数和最近活跃时间排序。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.ranking }} 篇文档</span>
               <span class="meta-text">最近刷新 {{ snapshotLabel }}</span>
               <button
                 class="panel-toggle"
@@ -255,6 +259,7 @@
               <p>把结构信号直接转成整理动作。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.suggestions }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -311,6 +316,7 @@
               <p>按桥接节点拆分后的文档簇，并补充标签语义与主题页缺口提示。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.communities }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -406,6 +412,7 @@
               <p>识别当前断裂内容、历史零散证据与长期沉没资料。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.orphanBridge }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -540,6 +547,7 @@
               <p>同时观察文档升降温、主题活跃度，以及新增/断裂连接。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.trends }} 篇文档</span>
               <span class="meta-text">{{ trendLabel }}</span>
               <button
                 class="panel-toggle"
@@ -730,6 +738,7 @@
               <p>支持限定路径深度与范围，查看文档如何跨主题建立连接。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.paths }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -824,6 +833,7 @@
               <p>统计哪些中间文档最常出现在核心文档、桥接文档和社区枢纽之间的最短路径上。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.propagation }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -884,9 +894,10 @@
           <div class="panel-header">
             <div>
               <h2>文档详情</h2>
-              <p>围绕当前选中文档汇总其社区位置、桥接角色与沉没风险。</p>
+              <p>{{ DOCUMENT_DETAIL_DESCRIPTION }}</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.documentDetail }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -979,6 +990,7 @@
               <p>解释为什么文档被识别为核心节点或连接节点。</p>
             </div>
             <div class="panel-header__actions">
+              <span class="meta-text">{{ panelCounts.evidence }} 篇文档</span>
               <button
                 class="panel-toggle"
                 type="button"
@@ -1047,23 +1059,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import {
   analyzeReferenceGraph,
   analyzeTrends,
   findReferencePath,
+  filterDocumentsByTimeRange,
   type AnalyticsFilters,
   type OrphanSort,
   type TimeRange,
 } from '@/analytics/analysis'
+import { createActiveDocumentSync } from '@/analytics/active-document'
+import { buildPanelCounts } from '@/analytics/panel-counts'
+import { DOCUMENT_DETAIL_DESCRIPTION } from '@/analytics/ui-copy'
 import {
   buildSummaryCards,
   buildSummaryDetailSections,
   type SummaryCardItem,
   type SummaryCardKey,
 } from '@/analytics/summary-details'
+import { buildTimeRangeOptions } from '@/analytics/time-range'
 import {
   buildPanelCollapseState,
   togglePanelCollapse,
@@ -1104,7 +1121,7 @@ const suggestionTypeLabel = {
 const loading = ref(false)
 const errorMessage = ref('')
 const snapshot = ref<AnalyticsSnapshot | null>(null)
-const timeRange = ref<TimeRange>('all')
+const timeRange = ref<TimeRange>('7d')
 const selectedNotebook = ref('')
 const selectedTag = ref('')
 const keyword = ref('')
@@ -1114,11 +1131,15 @@ const analysisNow = ref(new Date())
 const fromDocumentId = ref('')
 const toDocumentId = ref('')
 const selectedEvidenceDocument = ref('')
+const activeDocumentId = ref('')
 const selectedCommunityId = ref('')
 const pathScope = ref<PathScope>('focused')
 const maxPathDepth = ref(6)
 const selectedSummaryCardKey = ref<SummaryCardKey>('documents')
 const panelCollapseState = ref<PanelCollapseState<PanelKey>>(buildPanelCollapseState(panelKeys))
+let disposeActiveDocumentSync: (() => void) | null = null
+
+const timeRangeOptions = computed(() => buildTimeRangeOptions())
 
 const filters = computed<AnalyticsFilters>(() => ({
   notebook: selectedNotebook.value || undefined,
@@ -1142,8 +1163,19 @@ const documentMap = computed(() => {
 })
 
 const filteredDocuments = computed(() => {
-  return (snapshot.value?.documents ?? []).filter(document => matchesCurrentFilters(document))
+  if (!snapshot.value) {
+    return []
+  }
+  return filterDocumentsByTimeRange({
+    documents: snapshot.value.documents,
+    references: snapshot.value.references,
+    now: analysisNow.value,
+    timeRange: timeRange.value,
+    filters: filters.value,
+  })
 })
+
+const sampleDocumentIds = computed(() => new Set(filteredDocuments.value.map(document => document.id)))
 
 const report = computed(() => {
   if (!snapshot.value) {
@@ -1178,6 +1210,7 @@ const trends = computed(() => {
     references: snapshot.value.references,
     now: analysisNow.value,
     days: trendDays.value,
+    timeRange: timeRange.value,
     filters: filters.value,
   })
 })
@@ -1207,6 +1240,7 @@ const summaryCards = computed<SummaryCardItem[]>(() => {
   return buildSummaryCards({
     report: report.value,
     dormantDays: dormantDays.value,
+    documentCount: filteredDocuments.value.length,
   })
 })
 
@@ -1278,6 +1312,8 @@ const pathChain = computed(() => {
     toDocumentId: toDocumentId.value,
     maxDepth: maxPathDepth.value,
     filters: filters.value,
+    now: analysisNow.value,
+    timeRange: timeRange.value,
   })
 })
 
@@ -1312,6 +1348,29 @@ const selectedDocumentDetail = computed(() => {
     community,
     trend,
   }
+})
+
+const panelCounts = computed(() => {
+  if (!report.value) {
+    return {
+      ranking: 0,
+      suggestions: 0,
+      communities: 0,
+      orphanBridge: 0,
+      trends: 0,
+      paths: 0,
+      propagation: 0,
+      documentDetail: 0,
+      evidence: 0,
+    }
+  }
+  return buildPanelCounts({
+    report: report.value,
+    trends: trends.value,
+    pathChain: pathChain.value,
+    hasSelectedDocumentDetail: Boolean(selectedDocumentDetail.value),
+    hasSelectedEvidence: Boolean(selectedEvidenceDocument.value),
+  })
 })
 
 const snapshotLabel = computed(() => {
@@ -1354,7 +1413,7 @@ watch(report, (nextReport) => {
 
   if (!preferredDocumentId) {
     selectedEvidenceDocument.value = ''
-  } else if (!documentMap.value.has(selectedEvidenceDocument.value)) {
+  } else if (!sampleDocumentIds.value.has(selectedEvidenceDocument.value)) {
     selectedEvidenceDocument.value = preferredDocumentId
   }
 
@@ -1371,6 +1430,16 @@ watch(summaryCards, (cards) => {
     selectedSummaryCardKey.value = cards[0].key
   }
 }, { immediate: true })
+
+watch([activeDocumentId, sampleDocumentIds], ([documentId, documentIds]) => {
+  if (documentId && documentIds.has(documentId)) {
+    selectedEvidenceDocument.value = documentId
+    return
+  }
+  if (selectedEvidenceDocument.value && !documentIds.has(selectedEvidenceDocument.value)) {
+    selectedEvidenceDocument.value = ''
+  }
+})
 
 watch([report, selectedEvidenceDocument], ([nextReport, documentId]) => {
   if (!nextReport || !documentId) {
@@ -1389,7 +1458,18 @@ watch(pathScope, (scope) => {
 })
 
 onMounted(() => {
+  disposeActiveDocumentSync = createActiveDocumentSync({
+    eventBus: props.plugin.eventBus,
+    onDocumentId: (documentId) => {
+      activeDocumentId.value = documentId
+    },
+  })
   refresh()
+})
+
+onBeforeUnmount(() => {
+  disposeActiveDocumentSync?.()
+  disposeActiveDocumentSync = null
 })
 
 async function refresh() {
@@ -1454,23 +1534,6 @@ function formatTimestamp(timestamp?: string) {
 
 function formatDelta(delta: number) {
   return delta > 0 ? `+${delta}` : delta.toString()
-}
-
-function matchesCurrentFilters(document: SnapshotDocument) {
-  if (filters.value.notebook && document.box !== filters.value.notebook) {
-    return false
-  }
-  const tags = normalizeTags(document.tags)
-  if (filters.value.tag && !tags.includes(filters.value.tag)) {
-    return false
-  }
-  if (filters.value.keyword) {
-    const haystack = `${document.title ?? ''} ${document.hpath} ${tags.join(' ')}`.toLowerCase()
-    if (!haystack.includes(filters.value.keyword.toLowerCase())) {
-      return false
-    }
-  }
-  return true
 }
 
 function normalizeTags(tags?: readonly string[] | string) {

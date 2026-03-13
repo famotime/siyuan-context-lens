@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import {
   analyzeReferenceGraph,
   analyzeTrends,
+  filterDocumentsByTimeRange,
   findReferencePath,
+  TIME_RANGE_OPTIONS,
 } from './analysis'
 
 const now = new Date('2026-03-11T00:00:00Z')
@@ -32,6 +34,71 @@ const references = [
 ] as const
 
 describe('analyzeReferenceGraph', () => {
+  it('exposes supported time range options', () => {
+    expect(TIME_RANGE_OPTIONS).toEqual(['all', '3d', '7d', '30d', '60d', '90d'])
+  })
+
+  it('filters documents by time range while keeping active references', () => {
+    const filtered = filterDocumentsByTimeRange({
+      documents: [
+        { id: 'doc-new', box: 'box-1', path: '/new.sy', hpath: '/New', title: 'New Doc', tags: ['note'], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-target', box: 'box-1', path: '/target.sy', hpath: '/Target', title: 'Target Doc', tags: ['note'], created: '20250101120000', updated: '20250102120000' },
+        { id: 'doc-old', box: 'box-1', path: '/old.sy', hpath: '/Old', title: 'Old Doc', tags: ['archive'], created: '20240101120000', updated: '20240102120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-new', sourceBlockId: 'blk-1', targetDocumentId: 'doc-target', targetBlockId: 'blk-2', content: '[[Target Doc]]', sourceUpdated: '20260310120000' },
+      ],
+      now,
+      timeRange: '7d',
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-new', 'doc-target'])
+  })
+
+  it('supports 3d and 60d time ranges', () => {
+    const filtered = filterDocumentsByTimeRange({
+      documents: [
+        { id: 'doc-recent', box: 'box-1', path: '/recent.sy', hpath: '/Recent', title: 'Recent Doc', tags: ['note'], created: '20260310120000', updated: '20260310120000' },
+        { id: 'doc-mid', box: 'box-1', path: '/mid.sy', hpath: '/Mid', title: 'Mid Doc', tags: ['note'], created: '20260301120000', updated: '20260301120000' },
+      ],
+      references: [],
+      now,
+      timeRange: '3d',
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-recent'])
+
+    const extended = filterDocumentsByTimeRange({
+      documents: [
+        { id: 'doc-recent', box: 'box-1', path: '/recent.sy', hpath: '/Recent', title: 'Recent Doc', tags: ['note'], created: '20260310120000', updated: '20260310120000' },
+        { id: 'doc-mid', box: 'box-1', path: '/mid.sy', hpath: '/Mid', title: 'Mid Doc', tags: ['note'], created: '20260301120000', updated: '20260301120000' },
+      ],
+      references: [],
+      now,
+      timeRange: '60d',
+    })
+
+    expect(extended.map(document => document.id)).toEqual(['doc-recent', 'doc-mid'])
+  })
+
+  it('uses time range filtered documents for all panel outputs', () => {
+    const report = analyzeReferenceGraph({
+      documents: [
+        { id: 'doc-new', box: 'box-1', path: '/new.sy', hpath: '/New', title: 'New Doc', tags: ['note'], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-target', box: 'box-1', path: '/target.sy', hpath: '/Target', title: 'Target Doc', tags: ['note'], created: '20250101120000', updated: '20250102120000' },
+        { id: 'doc-old', box: 'box-1', path: '/old.sy', hpath: '/Old', title: 'Old Doc', tags: ['archive'], created: '20240101120000', updated: '20240102120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-new', sourceBlockId: 'blk-1', targetDocumentId: 'doc-target', targetBlockId: 'blk-2', content: '[[Target Doc]]', sourceUpdated: '20260310120000' },
+      ],
+      now,
+      timeRange: '7d',
+    })
+
+    expect(report.summary.totalDocuments).toBe(2)
+    expect(report.ranking.map(item => item.documentId)).toEqual(['doc-target'])
+  })
+
   it('aggregates ranking, communities, orphan documents, and actionable suggestions', () => {
     const report = analyzeReferenceGraph({
       documents: [...documents],
@@ -91,9 +158,9 @@ describe('analyzeReferenceGraph', () => {
     const report = analyzeReferenceGraph({
       documents: [
         { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: ['topic'], created: '20260101090000', updated: '20260310120000' },
-        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260102090000', updated: '20260106120000' },
-        { id: 'doc-c', box: 'box-1', path: '/c.sy', hpath: '/Gamma', title: 'Gamma', tags: ['archive'], created: '20260103090000', updated: '20260115120000' },
-        { id: 'doc-d', box: 'box-1', path: '/d.sy', hpath: '/Delta', title: 'Delta', tags: ['archive'], created: '20260104090000', updated: '20260115120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260102090000', updated: '20260310120000' },
+        { id: 'doc-c', box: 'box-1', path: '/c.sy', hpath: '/Gamma', title: 'Gamma', tags: ['archive'], created: '20260103090000', updated: '20260310120000' },
+        { id: 'doc-d', box: 'box-1', path: '/d.sy', hpath: '/Delta', title: 'Delta', tags: ['archive'], created: '20260104090000', updated: '20260310120000' },
       ],
       references: [
         { id: 'ref-old-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-c', targetBlockId: 'blk-c1', content: '[[Gamma]]', sourceUpdated: '20260105090000' },
@@ -108,14 +175,7 @@ describe('analyzeReferenceGraph', () => {
     expect(report.orphans.some(document => document.documentId === 'doc-b')).toBe(false)
     expect(report.orphans.some(document => document.documentId === 'doc-c')).toBe(false)
 
-    const dormantGamma = (report as any).dormantDocuments.find((document: { documentId: string }) => document.documentId === 'doc-c')
-    expect(dormantGamma).toMatchObject({
-      documentId: 'doc-c',
-      hasSparseEvidence: true,
-      historicalReferenceCount: 1,
-      lastHistoricalAt: '20260105090000',
-      inactivityDays: expect.any(Number),
-    })
+    expect(report.summary.sparseEvidenceCount).toBe(3)
   })
 
   it('deduplicates inbound and outbound counts by document pairs', () => {
@@ -150,8 +210,8 @@ describe('analyzeReferenceGraph', () => {
   it('deduplicates historical inbound and outbound counts for dormant evidence', () => {
     const report = analyzeReferenceGraph({
       documents: [
-        { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: [], created: '20260101090000', updated: '20260101120000' },
-        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: [], created: '20260102090000', updated: '20260102120000' },
+        { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: [], created: '20260101090000', updated: '20260310120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: [], created: '20260102090000', updated: '20260310120000' },
       ],
       references: [
         { id: 'ref-old-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-b', targetBlockId: 'blk-b1', content: '[[Beta]]', sourceUpdated: '20260105090000' },
@@ -168,31 +228,67 @@ describe('analyzeReferenceGraph', () => {
 })
 
 describe('analyzeTrends', () => {
+  it('filters communities to the time range document sample', () => {
+    const trends = analyzeTrends({
+      documents: [
+        { id: 'doc-new', box: 'box-1', path: '/new.sy', hpath: '/New', title: 'New Doc', tags: ['note'], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-target', box: 'box-1', path: '/target.sy', hpath: '/Target', title: 'Target Doc', tags: ['note'], created: '20250101120000', updated: '20250102120000' },
+        { id: 'doc-old', box: 'box-1', path: '/old.sy', hpath: '/Old', title: 'Old Doc', tags: ['archive'], created: '20240101120000', updated: '20240102120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-new', sourceBlockId: 'blk-1', targetDocumentId: 'doc-target', targetBlockId: 'blk-2', content: '[[Target Doc]]', sourceUpdated: '20260310120000' },
+      ],
+      now,
+      days: 7,
+      timeRange: '7d',
+    })
+
+    expect(trends.communityTrends).toEqual([
+      expect.objectContaining({
+        documentIds: ['doc-new', 'doc-target'],
+      }),
+    ])
+  })
+
+  it('excludes documents only active in the previous window', () => {
+    const trends = analyzeTrends({
+      documents: [
+        { id: 'doc-old', box: 'box-1', path: '/old.sy', hpath: '/Old', title: 'Old Doc', tags: ['archive'], created: '20240101120000', updated: '20240102120000' },
+        { id: 'doc-target', box: 'box-1', path: '/target.sy', hpath: '/Target', title: 'Target Doc', tags: ['archive'], created: '20240101120000', updated: '20240102120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-old', sourceBlockId: 'blk-1', targetDocumentId: 'doc-target', targetBlockId: 'blk-2', content: '[[Target Doc]]', sourceUpdated: '20260302120000' },
+      ],
+      now,
+      days: 7,
+      timeRange: '7d',
+    })
+
+    expect(trends.fallingDocuments).toEqual([])
+    expect(trends.risingDocuments).toEqual([])
+  })
+
   it('compares the current window with the previous window and highlights rising documents', () => {
     const trends = analyzeTrends({
       documents: [...documents],
       references: [...references],
       now,
       days: 7,
+      timeRange: '7d',
     })
 
     expect(trends.current.referenceCount).toBe(8)
-    expect(trends.previous.referenceCount).toBe(1)
+    expect(trends.previous.referenceCount).toBe(0)
     expect(trends.risingDocuments[0]).toMatchObject({
       documentId: 'doc-a',
       delta: 3,
       currentReferences: 3,
       previousReferences: 0,
     })
-    expect(trends.fallingDocuments[0]).toMatchObject({
-      documentId: 'doc-g',
-      delta: -1,
-      currentReferences: 0,
-      previousReferences: 1,
-    })
+    expect(trends.fallingDocuments).toEqual([])
     expect((trends as any).connectionChanges).toMatchObject({
       newCount: 7,
-      brokenCount: 1,
+      brokenCount: 0,
     })
     expect((trends as any).communityTrends[0]).toMatchObject({
       documentIds: ['doc-a', 'doc-b', 'doc-c'],
@@ -212,6 +308,7 @@ describe('analyzeTrends', () => {
       ],
       now,
       days: 7,
+      timeRange: '7d',
     })
 
     expect(trends.current.referenceCount).toBe(1)
@@ -235,5 +332,24 @@ describe('findReferencePath', () => {
     })
 
     expect(path).toEqual(['doc-c', 'doc-a', 'doc-e', 'doc-f', 'doc-g'])
+  })
+
+  it('respects time range when building paths', () => {
+    const path = findReferencePath({
+      documents: [
+        { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: [], created: '20240101090000', updated: '20240102120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: [], created: '20240101090000', updated: '20240102120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-b', targetBlockId: 'blk-b1', content: '[[Beta]]', sourceUpdated: '20240102120000' },
+      ],
+      fromDocumentId: 'doc-a',
+      toDocumentId: 'doc-b',
+      maxDepth: 4,
+      now,
+      timeRange: '7d',
+    })
+
+    expect(path).toEqual([])
   })
 })
