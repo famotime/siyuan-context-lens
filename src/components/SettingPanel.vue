@@ -2,64 +2,60 @@
   <div class="setting-panel">
     <div class="setting-group">
       <div class="setting-header">
-        <h3>分析概览</h3>
-        <p>控制顶部统计卡片及其关联详情的显示。</p>
+        <h3>统计卡片</h3>
+        <p>控制顶部卡片以及点击后的详情展示。</p>
       </div>
       <label class="setting-item">
         <span class="setting-item__text">
           <strong>顶部统计卡片</strong>
+          <span>显示所有指标卡片并支持点击联动详情</span>
         </span>
         <input type="checkbox" v-model="config.showSummaryCards" class="b3-switch">
       </label>
-    </div>
-
-    <div class="setting-group">
-      <div class="setting-header">
-        <h3>核心价值发现</h3>
-        <p>识别网络中的核心组件、孤立断层和趋势变化。</p>
-      </div>
-      
-      <div class="setting-item-wrapper">
-        <label class="setting-item">
+      <div class="setting-item-wrapper" v-if="config.showSummaryCards">
+        <label class="setting-item setting-item--nested">
           <span class="setting-item__text">
-            <strong>核心文档排行</strong>
-            <span>按多维度展示引用最多的文档</span>
+            <strong>核心文档排行卡片</strong>
+            <span>展示核心文档数量并联动详情</span>
           </span>
           <input type="checkbox" v-model="config.showRanking" class="b3-switch">
         </label>
+        <label class="setting-item setting-item--nested">
+          <span class="setting-item__text">
+            <strong>整理建议卡片</strong>
+            <span>展示待处理建议并联动详情</span>
+          </span>
+          <input type="checkbox" v-model="config.showSuggestions" class="b3-switch">
+        </label>
+        <label class="setting-item setting-item--nested">
+          <span class="setting-item__text">
+            <strong>趋势观察卡片</strong>
+            <span>展示趋势变化并联动详情</span>
+          </span>
+          <input type="checkbox" v-model="config.showTrends" class="b3-switch">
+        </label>
+        <label class="setting-item setting-item--nested">
+          <span class="setting-item__text">
+            <strong>主题社区卡片</strong>
+            <span>展示社区规模并联动详情</span>
+          </span>
+          <input type="checkbox" v-model="config.showCommunities" class="b3-switch">
+        </label>
+        <label class="setting-item setting-item--nested">
+          <span class="setting-item__text">
+            <strong>孤立与桥接卡片</strong>
+            <span>孤立、沉没与桥接文档汇总</span>
+          </span>
+          <input type="checkbox" v-model="config.showOrphanBridge" class="b3-switch">
+        </label>
+        <label class="setting-item setting-item--nested">
+          <span class="setting-item__text">
+            <strong>传播节点卡片</strong>
+            <span>高传播价值节点汇总</span>
+          </span>
+          <input type="checkbox" v-model="config.showPropagation" class="b3-switch">
+        </label>
       </div>
-
-      <label class="setting-item">
-        <span class="setting-item__text">
-          <strong>整理建议</strong>
-          <span>将结构分析转化为可执行的动作建议</span>
-        </span>
-        <input type="checkbox" v-model="config.showSuggestions" class="b3-switch">
-      </label>
-
-      <label class="setting-item">
-        <span class="setting-item__text">
-          <strong>主题社区</strong>
-          <span>基于节点连接关系发现的文档簇</span>
-        </span>
-        <input type="checkbox" v-model="config.showCommunities" class="b3-switch">
-      </label>
-
-      <label class="setting-item">
-        <span class="setting-item__text">
-          <strong>孤立与桥接</strong>
-          <span>断裂内容、零散证据与长期沉没资料</span>
-        </span>
-        <input type="checkbox" v-model="config.showOrphanBridge" class="b3-switch">
-      </label>
-
-      <label class="setting-item">
-        <span class="setting-item__text">
-          <strong>趋势观察</strong>
-          <span>对比近期的文档活跃度、连接建立与断开趋势</span>
-        </span>
-        <input type="checkbox" v-model="config.showTrends" class="b3-switch">
-      </label>
     </div>
 
     <div class="setting-group">
@@ -68,30 +64,12 @@
         <p>探索文档之间的关联路径与隐性传导价值。</p>
       </div>
 
-      <div class="setting-item-wrapper">
-        <label class="setting-item">
-          <span class="setting-item__text">
-            <strong>关系传播路径</strong>
-            <span>查看两篇文档间的最短连接路径</span>
-          </span>
-          <input type="checkbox" v-model="config.showPaths" class="b3-switch">
-        </label>
-
-        <label class="setting-item setting-item--nested" v-if="config.showPaths">
-          <span class="setting-item__text">
-            <strong>高传播价值节点</strong>
-            <span>跨主题路径中频繁出现的关键节点</span>
-          </span>
-          <input type="checkbox" v-model="config.showPropagation" class="b3-switch">
-        </label>
-      </div>
-      
       <label class="setting-item">
         <span class="setting-item__text">
-          <strong>文档详情</strong>
-          <span>选中特定文档后展示其在全量网络中的角色与风险</span>
+          <strong>关系传播路径</strong>
+          <span>查看两篇文档间的最短连接路径</span>
         </span>
-        <input type="checkbox" v-model="config.showDocumentDetail" class="b3-switch">
+        <input type="checkbox" v-model="config.showPaths" class="b3-switch">
       </label>
     </div>
   </div>

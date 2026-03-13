@@ -47,6 +47,26 @@ const report = {
   evidenceByDocument: {},
 } as const
 
+const trends = {
+  current: { referenceCount: 2 },
+  previous: { referenceCount: 1 },
+  risingDocuments: [
+    { documentId: 'doc-a', title: 'Alpha', currentReferences: 2, previousReferences: 0, delta: 2 },
+  ],
+  fallingDocuments: [
+    { documentId: 'doc-b', title: 'Beta', currentReferences: 0, previousReferences: 1, delta: -1 },
+  ],
+  connectionChanges: {
+    newCount: 1,
+    brokenCount: 0,
+    newEdges: [],
+    brokenEdges: [],
+  },
+  communityTrends: [],
+  risingCommunities: [],
+  dormantCommunities: [],
+} as const
+
 describe('buildSummaryDetailSections', () => {
   it('builds active relationship details from current-window participants', () => {
     const sections = buildSummaryDetailSections({
@@ -71,9 +91,11 @@ describe('buildSummaryDetailSections', () => {
       report: report as any,
       now,
       timeRange: 'all',
+      trends: trends as any,
       dormantDays: 30,
     })
 
+    expect(sections.orphans.kind).toBe('list')
     expect(sections.orphans.items).toEqual([
       expect.objectContaining({ documentId: 'doc-c', title: 'Gamma' }),
     ])
@@ -86,6 +108,10 @@ describe('buildSummaryDetailSections', () => {
     expect(sections.propagation.items).toEqual([
       expect.objectContaining({ documentId: 'doc-a', badge: '2 分' }),
     ])
+
+    expect(sections.ranking.kind).toBe('ranking')
+    expect(sections.suggestions.kind).toBe('suggestions')
+    expect(sections.trends.kind).toBe('trends')
   })
 
   it('deduplicates inbound and outbound counts by document pairs', () => {
@@ -103,6 +129,7 @@ describe('buildSummaryDetailSections', () => {
       report: report as any,
       now,
       timeRange: '7d',
+      trends: trends as any,
       dormantDays: 30,
     })
 
@@ -122,6 +149,7 @@ describe('buildSummaryCards', () => {
       report: report as any,
       dormantDays: 30,
       documentCount: 2,
+      trends: trends as any,
     })
 
     const documents = cards.find(card => card.key === 'documents')
@@ -132,6 +160,7 @@ describe('buildSummaryCards', () => {
     const cards = buildSummaryCards({
       report: report as any,
       dormantDays: 45,
+      trends: trends as any,
     })
 
     const dormant = cards.find(card => card.key === 'dormant')
@@ -141,5 +170,17 @@ describe('buildSummaryCards', () => {
       value: report.summary.dormantCount.toString(),
       hint: '超过 45 天未产生有效连接',
     }))
+  })
+
+  it('adds cards for ranking, suggestions and trends', () => {
+    const cards = buildSummaryCards({
+      report: report as any,
+      dormantDays: 30,
+      trends: trends as any,
+    })
+
+    expect(cards.find(card => card.key === 'ranking')?.value).toBe('1')
+    expect(cards.find(card => card.key === 'suggestions')?.value).toBe('0')
+    expect(cards.find(card => card.key === 'trends')?.value).toBe('2')
   })
 })

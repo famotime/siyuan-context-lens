@@ -7,7 +7,6 @@ export interface PluginConfig {
   showTrends: boolean
   showPaths: boolean
   showPropagation: boolean
-  showDocumentDetail: boolean
 }
 
 export const DEFAULT_CONFIG: PluginConfig = {
@@ -19,5 +18,4 @@ export const DEFAULT_CONFIG: PluginConfig = {
   showTrends: true,
   showPaths: true,
   showPropagation: true,
-  showDocumentDetail: true,
 }

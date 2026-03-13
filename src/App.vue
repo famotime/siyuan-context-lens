@@ -98,9 +98,9 @@
     </div>
 
     <template v-else-if="report && trends">
-      <div v-if="config.showSummaryCards" class="summary-grid">
+      <div v-if="visibleSummaryCards.length" class="summary-grid">
         <button
-          v-for="card in summaryCards"
+          v-for="card in visibleSummaryCards"
           :key="card.label"
           :class="['summary-card', 'summary-card--interactive', { 'summary-card--active': card.key === selectedSummaryCardKey }]"
           :title="card.hint"
@@ -113,7 +113,7 @@
       </div>
 
       <section
-        v-if="config.showSummaryCards && selectedSummaryDetail"
+        v-if="visibleSummaryCards.length && selectedSummaryDetail"
         class="panel"
       >
         <div class="panel-header">
@@ -122,7 +122,7 @@
             <p>{{ selectedSummaryDetail.description }}</p>
           </div>
           <div class="panel-header__actions">
-            <span class="meta-text">{{ selectedSummaryDetail.items.length }} 篇文档</span>
+            <span class="meta-text">{{ selectedSummaryCount }} 篇文档</span>
             <button
               class="panel-toggle"
               type="button"
@@ -143,98 +143,70 @@
           v-show="isPanelExpanded('summary-detail')"
           class="summary-detail-body"
         >
-          <div
-            v-if="selectedSummaryDetail.items.length"
-            class="summary-detail-list"
-          >
-            <article
-              v-for="item in selectedSummaryDetail.items"
-              :key="`${selectedSummaryDetail.key}-${item.documentId}`"
-              class="summary-detail-item"
-            >
-              <div class="summary-detail-item__header">
-                <button
-                  class="summary-detail-item__title"
-                  type="button"
-                  @click="openDocument(item.documentId)"
-                >
-                  {{ item.title }}
-                </button>
-                <span
-                  v-if="item.badge"
-                  class="badge"
-                >
-                  {{ item.badge }}
-                </span>
-              </div>
-              <p class="summary-detail-item__meta">
-                {{ item.meta }}
-              </p>
-            </article>
-          </div>
-          <div
-            v-else
-            class="empty-state"
-          >
-            当前卡片下没有可展示的文档。
-          </div>
-        </div>
-      </section>
-
-      <div class="layout-grid">
-        <RankingPanel
-          v-if="config.showRanking"
-          :ranking="report.ranking"
-          :panel-count="panelCounts.ranking"
-          :snapshot-label="snapshotLabel"
-          :is-expanded="isPanelExpanded('ranking')"
-          :on-toggle-panel="() => togglePanel('ranking')"
-          :resolve-title="resolveTitle"
-          :format-timestamp="formatTimestamp"
-          :open-document="openDocument"
-          :toggle-link-panel="toggleLinkPanel"
-          :is-link-panel-expanded="isLinkPanelExpanded"
-          :resolve-link-associations="resolveLinkAssociations"
-          :toggle-link-group="toggleLinkGroup"
-          :is-link-group-expanded="isLinkGroupExpanded"
-          :is-syncing="isSyncing"
-          :sync-association="syncAssociation"
-        />
-
-        <section v-if="config.showSuggestions" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>整理建议</h2>
-              <p>把结构信号直接转成整理动作。</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.suggestions }} 篇文档</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('suggestions')"
-                :aria-label="isPanelExpanded('suggestions') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('suggestions')"
-              >
-                {{ isPanelExpanded('suggestions') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('suggestions')"
-            class="panel-body"
-          >
+          <template v-if="selectedSummaryDetail.kind === 'list'">
             <div
-              v-if="report.suggestions.length"
+              v-if="selectedSummaryDetail.items.length"
+              class="summary-detail-list"
+            >
+              <article
+                v-for="item in selectedSummaryDetail.items"
+                :key="`${selectedSummaryDetail.key}-${item.documentId}`"
+                class="summary-detail-item"
+              >
+                <div class="summary-detail-item__header">
+                  <button
+                    class="summary-detail-item__title"
+                    type="button"
+                    @click="openDocument(item.documentId)"
+                  >
+                    {{ item.title }}
+                  </button>
+                  <span
+                    v-if="item.badge"
+                    class="badge"
+                  >
+                    {{ item.badge }}
+                  </span>
+                </div>
+                <p class="summary-detail-item__meta">
+                  {{ item.meta }}
+                </p>
+              </article>
+            </div>
+            <div
+              v-else
+              class="empty-state"
+            >
+              当前卡片下没有可展示的文档。
+            </div>
+          </template>
+          <template v-else-if="selectedSummaryDetail.kind === 'ranking'">
+            <RankingPanel
+              variant="detail"
+              :ranking="selectedSummaryDetail.ranking"
+              :panel-count="selectedSummaryDetail.ranking.length"
+              :snapshot-label="snapshotLabel"
+              :is-expanded="true"
+              :on-toggle-panel="() => {}"
+              :resolve-title="resolveTitle"
+              :format-timestamp="formatTimestamp"
+              :open-document="openDocument"
+              :toggle-link-panel="toggleLinkPanel"
+              :is-link-panel-expanded="isLinkPanelExpanded"
+              :resolve-link-associations="resolveLinkAssociations"
+              :toggle-link-group="toggleLinkGroup"
+              :is-link-group-expanded="isLinkGroupExpanded"
+              :is-syncing="isSyncing"
+              :sync-association="syncAssociation"
+            />
+          </template>
+          <template v-else-if="selectedSummaryDetail.kind === 'suggestions'">
+            <div
+              v-if="selectedSummaryDetail.suggestions.length"
               class="suggestion-list"
             >
               <article
-                v-for="item in report.suggestions"
+                v-for="item in selectedSummaryDetail.suggestions"
                 :key="`${item.type}-${item.documentId}`"
                 class="suggestion-item"
               >
@@ -255,285 +227,24 @@
             >
               当前没有需要优先处理的建议项。
             </div>
-          </div>
-        </section>
-
-        <section v-if="config.showCommunities" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>主题社区</h2>
-              <p>按桥接节点拆分后的文档簇，并补充标签语义与主题页缺口提示。</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.communities }} 篇文档</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('communities')"
-                :aria-label="isPanelExpanded('communities') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('communities')"
-              >
-                {{ isPanelExpanded('communities') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('communities')"
-            class="panel-body"
-          >
-            <div
-              v-if="report.communities.length"
-              class="community-list"
-            >
-              <article
-                v-for="community in report.communities"
-                :key="community.id"
-                :class="['community-item', { 'community-item--active': community.id === selectedCommunity?.id }]"
-              >
-                <div class="community-item__header">
-                  <button
-                    class="ghost-button"
-                    type="button"
-                    @click="selectCommunity(community.id)"
-                  >
-                    {{ community.documentIds.length }} 篇文档
-                  </button>
-                  <span>核心文档：{{ community.hubDocumentIds.map(resolveTitle).join(' / ') }}</span>
-                </div>
-                <p class="community-item__meta">
-                  标签语义：{{ community.topTags.join(' / ') || '未提取到高频标签' }}
-                </p>
-                <p class="community-item__meta">
-                  分布笔记本：{{ community.notebookIds.map(resolveNotebookName).join(' / ') }}
-                </p>
-                <p
-                  v-if="community.missingTopicPage"
-                  class="community-item__warning"
-                >
-                  当前社区缺少明显的索引/总览页，适合补一篇主题页。
-                </p>
-                <div class="community-tags">
-                  <button
-                    v-for="documentId in community.documentIds"
-                    :key="documentId"
-                    class="community-tag"
-                    type="button"
-                    @click="openDocument(documentId)"
-                  >
-                    {{ resolveTitle(documentId) }}
-                  </button>
-                </div>
-              </article>
-            </div>
-            <div
-              v-if="selectedCommunity && selectedCommunityTrend"
-              class="community-detail"
-            >
-              <div class="community-detail__header">
-                <strong>当前社区详情</strong>
-                <span>{{ selectedCommunityTrend.currentReferences }}/{{ selectedCommunityTrend.previousReferences }}，变化 {{ formatDelta(selectedCommunityTrend.delta) }}</span>
-              </div>
-              <p>
-                主题标签：{{ selectedCommunity.topTags.join(' / ') || '未提取到高频标签' }}
-              </p>
-              <p>
-                笔记本分布：{{ selectedCommunity.notebookIds.map(resolveNotebookName).join(' / ') }}
-              </p>
-            </div>
-            <div
-              v-else
-              class="empty-state"
-            >
-              还没有形成可解释的主题社区。
-            </div>
-          </div>
-        </section>
-
-        <section v-if="config.showOrphanBridge" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>孤立与桥接</h2>
-              <p>识别当前断裂内容、历史零散证据与长期沉没资料。</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.orphanBridge }} 篇文档</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('orphan-bridge')"
-                :aria-label="isPanelExpanded('orphan-bridge') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('orphan-bridge')"
-              >
-                {{ isPanelExpanded('orphan-bridge') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('orphan-bridge')"
-            class="panel-body"
-          >
-            <div class="split-block">
-              <div>
-                <h3>孤立文档</h3>
-                <div
-                  v-if="report.orphans.length"
-                  class="mini-list"
-                >
-                  <article
-                    v-for="item in report.orphans"
-                    :key="item.documentId"
-                    class="mini-list__entry"
-                  >
-                    <button
-                      class="mini-list__item"
-                      type="button"
-                      @click="openDocument(item.documentId)"
-                    >
-                      {{ item.title }}
-                    </button>
-                    <p class="mini-list__meta">
-                      最近更新时间：{{ formatTimestamp(item.updatedAt) }}
-                    </p>
-                    <p
-                      v-if="item.hasSparseEvidence"
-                      class="mini-list__meta"
-                    >
-                      历史上还有 {{ item.historicalReferenceCount }} 条零散证据，最后一次出现在 {{ formatTimestamp(item.lastHistoricalAt) }}
-                    </p>
-                  </article>
-                </div>
-                <p
-                  v-else
-                  class="empty-inline"
-                >
-                  没有孤立文档。
-                </p>
-              </div>
-              <div>
-                <h3>桥接文档</h3>
-                <div
-                  v-if="report.bridgeDocuments.length"
-                  class="mini-list"
-                >
-                  <article
-                    v-for="item in report.bridgeDocuments"
-                    :key="item.documentId"
-                    class="mini-list__entry"
-                  >
-                    <button
-                      class="mini-list__item"
-                      type="button"
-                      @click="openDocument(item.documentId)"
-                    >
-                      {{ item.title }}
-                    </button>
-                    <p class="mini-list__meta">
-                      连接度：{{ item.degree }}
-                    </p>
-                  </article>
-                </div>
-                <p
-                  v-else
-                  class="empty-inline"
-                >
-                  没有识别到桥接文档。
-                </p>
-              </div>
-              <div>
-                <h3>沉没文档</h3>
-                <div
-                  v-if="report.dormantDocuments.length"
-                  class="mini-list"
-                >
-                  <article
-                    v-for="item in report.dormantDocuments"
-                    :key="item.documentId"
-                    class="mini-list__entry"
-                  >
-                    <button
-                      class="mini-list__item"
-                      type="button"
-                      @click="openDocument(item.documentId)"
-                    >
-                      {{ item.title }}
-                    </button>
-                    <p class="mini-list__meta">
-                      {{ item.inactivityDays }} 天未产生连接，最近活动 {{ formatTimestamp(item.lastConnectedAt || item.updatedAt) }}
-                    </p>
-                    <p
-                      v-if="item.hasSparseEvidence"
-                      class="mini-list__meta"
-                    >
-                      仍保留 {{ item.historicalReferenceCount }} 条历史入链/出链记录。
-                    </p>
-                  </article>
-                </div>
-                <p
-                  v-else
-                  class="empty-inline"
-                >
-                  没有达到沉没阈值的文档。
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="config.showTrends" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>趋势观察</h2>
-              <p>同时观察文档升降温、主题活跃度，以及新增/断裂连接。</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.trends }} 篇文档</span>
-              <span class="meta-text">{{ trendLabel }}</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('trends')"
-                :aria-label="isPanelExpanded('trends') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('trends')"
-              >
-                {{ isPanelExpanded('trends') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('trends')"
-            class="panel-body"
-          >
+          </template>
+          <template v-else-if="selectedSummaryDetail.kind === 'trends'">
             <div class="trend-stats">
               <div>
                 <span>当前窗口</span>
-                <strong>{{ trends.current.referenceCount }}</strong>
+                <strong>{{ selectedSummaryDetail.trends.current.referenceCount }}</strong>
               </div>
               <div>
                 <span>前一窗口</span>
-                <strong>{{ trends.previous.referenceCount }}</strong>
+                <strong>{{ selectedSummaryDetail.trends.previous.referenceCount }}</strong>
               </div>
               <div>
                 <span>新增连接</span>
-                <strong>{{ trends.connectionChanges.newCount }}</strong>
+                <strong>{{ selectedSummaryDetail.trends.connectionChanges.newCount }}</strong>
               </div>
               <div>
                 <span>断裂连接</span>
-                <strong>{{ trends.connectionChanges.brokenCount }}</strong>
+                <strong>{{ selectedSummaryDetail.trends.connectionChanges.brokenCount }}</strong>
               </div>
             </div>
 
@@ -541,11 +252,11 @@
               <div>
                 <h3>升温文档</h3>
                 <div
-                  v-if="trends.risingDocuments.length"
+                  v-if="selectedSummaryDetail.trends.risingDocuments.length"
                   class="trend-list"
                 >
                   <article
-                    v-for="item in trends.risingDocuments.slice(0, 5)"
+                    v-for="item in selectedSummaryDetail.trends.risingDocuments.slice(0, 5)"
                     :key="item.documentId"
                     class="trend-item"
                   >
@@ -568,11 +279,11 @@
               <div>
                 <h3>降温文档</h3>
                 <div
-                  v-if="trends.fallingDocuments.length"
+                  v-if="selectedSummaryDetail.trends.fallingDocuments.length"
                   class="trend-list"
                 >
                   <article
-                    v-for="item in trends.fallingDocuments.slice(0, 5)"
+                    v-for="item in selectedSummaryDetail.trends.fallingDocuments.slice(0, 5)"
                     :key="item.documentId"
                     class="trend-item"
                   >
@@ -598,11 +309,11 @@
               <div>
                 <h3>升温主题</h3>
                 <div
-                  v-if="trends.risingCommunities.length"
+                  v-if="selectedSummaryDetail.trends.risingCommunities.length"
                   class="trend-list"
                 >
                   <article
-                    v-for="community in trends.risingCommunities.slice(0, 3)"
+                    v-for="community in selectedSummaryDetail.trends.risingCommunities.slice(0, 3)"
                     :key="community.communityId"
                     class="trend-item"
                   >
@@ -625,11 +336,11 @@
               <div>
                 <h3>低活跃主题</h3>
                 <div
-                  v-if="trends.dormantCommunities.length"
+                  v-if="selectedSummaryDetail.trends.dormantCommunities.length"
                   class="trend-list"
                 >
                   <article
-                    v-for="community in trends.dormantCommunities.slice(0, 3)"
+                    v-for="community in selectedSummaryDetail.trends.dormantCommunities.slice(0, 3)"
                     :key="community.communityId"
                     class="trend-item"
                   >
@@ -652,11 +363,11 @@
               <div>
                 <h3>断裂连接</h3>
                 <div
-                  v-if="trends.connectionChanges.brokenEdges.length"
+                  v-if="selectedSummaryDetail.trends.connectionChanges.brokenEdges.length"
                   class="trend-list"
                 >
                   <article
-                    v-for="edge in trends.connectionChanges.brokenEdges.slice(0, 3)"
+                    v-for="edge in selectedSummaryDetail.trends.connectionChanges.brokenEdges.slice(0, 3)"
                     :key="edge.documentIds.join('-')"
                     class="trend-item"
                   >
@@ -677,9 +388,11 @@
                 </p>
               </div>
             </div>
-          </div>
-        </section>
+          </template>
+        </div>
+      </section>
 
+      <div class="layout-grid">
         <section v-if="config.showPaths" class="panel">
           <div class="panel-header">
             <div>
@@ -774,173 +487,16 @@
             </div>
           </div>
         </section>
-
-        <section v-if="config.showPropagation" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>高传播价值节点</h2>
-              <p>统计哪些中间文档最常出现在核心文档、桥接文档和社区枢纽之间的最短路径上。</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.propagation }} 篇文档</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('propagation')"
-                :aria-label="isPanelExpanded('propagation') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('propagation')"
-              >
-                {{ isPanelExpanded('propagation') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('propagation')"
-            class="panel-body"
-          >
-            <div
-              v-if="report.propagationNodes.length"
-              class="propagation-list"
-            >
-              <article
-                v-for="item in report.propagationNodes.slice(0, 8)"
-                :key="item.documentId"
-                class="propagation-item"
-              >
-                <div class="propagation-item__header">
-                  <button
-                    class="propagation-item__title"
-                    type="button"
-                    @click="selectEvidence(item.documentId)"
-                  >
-                    {{ item.title }}
-                  </button>
-                  <span class="badge">{{ item.score }} 分</span>
-                </div>
-                <p class="propagation-item__meta">
-                  参与 {{ item.pathPairCount }} 对关键文档的最短路径，覆盖 {{ item.focusDocumentCount }} 个焦点文档
-                </p>
-                <p class="propagation-item__meta">
-                  社区跨度：{{ item.communitySpan || 1 }}{{ item.bridgeRole ? '，同时是桥接节点' : '' }}
-                </p>
-              </article>
-            </div>
-            <div
-              v-else
-              class="empty-state"
-            >
-              当前筛选条件下还没有明显的传播节点。
-            </div>
-          </div>
-        </section>
-
-        <section v-if="config.showDocumentDetail" class="panel">
-          <div class="panel-header">
-            <div>
-              <h2>文档详情</h2>
-              <p>{{ DOCUMENT_DETAIL_DESCRIPTION }}</p>
-            </div>
-            <div class="panel-header__actions">
-              <span class="meta-text">{{ panelCounts.documentDetail }} 篇文档</span>
-              <button
-                class="panel-toggle"
-                type="button"
-                :aria-expanded="isPanelExpanded('document-detail')"
-                :aria-label="isPanelExpanded('document-detail') ? '折叠详情' : '展开详情'"
-                @click="togglePanel('document-detail')"
-              >
-                {{ isPanelExpanded('document-detail') ? '折叠' : '展开' }}
-                <span
-                  class="panel-toggle__caret"
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-          </div>
-
-          <div
-            v-show="isPanelExpanded('document-detail')"
-            class="panel-body"
-          >
-            <div
-              v-if="selectedDocumentDetail"
-              class="detail-grid"
-            >
-              <div class="detail-card">
-                <span>当前文档</span>
-                <strong>{{ resolveTitle(selectedDocumentDetail.documentId) }}</strong>
-              </div>
-              <div class="detail-card">
-                <span>所属社区</span>
-                <strong>{{ selectedDocumentDetail.community?.topTags.join(' / ') || '未归入主题社区' }}</strong>
-              </div>
-              <div class="detail-card">
-                <span>桥接角色</span>
-                <strong>{{ selectedDocumentDetail.bridge ? `是，连接度 ${selectedDocumentDetail.bridge.degree}` : '否' }}</strong>
-              </div>
-              <div
-                v-if="selectedDocumentDetail.propagation"
-                class="detail-card"
-              >
-                <span>传播价值</span>
-                <strong>
-                  {{ selectedDocumentDetail.propagation.score }} 分，参与 {{ selectedDocumentDetail.propagation.pathPairCount }} 对关键最短路径
-                </strong>
-              </div>
-              <div class="detail-card">
-                <span>趋势变化</span>
-                <strong>
-                  {{
-                    selectedDocumentDetail.trend
-                      ? `${formatDelta(selectedDocumentDetail.trend.delta)} (${selectedDocumentDetail.trend.currentReferences}/${selectedDocumentDetail.trend.previousReferences})`
-                      : '当前窗口无明显变化'
-                  }}
-                </strong>
-              </div>
-              <div
-                v-if="selectedDocumentDetail.orphan"
-                class="detail-card"
-              >
-                <span>孤立状态</span>
-                <strong>
-                  {{
-                    selectedDocumentDetail.orphan.hasSparseEvidence
-                      ? `孤立，但仍有 ${selectedDocumentDetail.orphan.historicalReferenceCount} 条历史证据`
-                      : '当前窗口内孤立'
-                  }}
-                </strong>
-              </div>
-              <div
-                v-if="selectedDocumentDetail.dormant"
-                class="detail-card"
-              >
-                <span>沉没风险</span>
-                <strong>{{ selectedDocumentDetail.dormant.inactivityDays }} 天未产生有效连接</strong>
-              </div>
-            </div>
-            <div
-              v-else
-              class="empty-state"
-            >
-              当前没有可展示的文档详情。
-            </div>
-          </div>
-        </section>
-
       </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
-import { DOCUMENT_DETAIL_DESCRIPTION, SUGGESTION_TYPE_LABELS } from '@/analytics/ui-copy'
+import { SUGGESTION_TYPE_LABELS } from '@/analytics/ui-copy'
 import RankingPanel from '@/components/RankingPanel.vue'
 import { useAnalyticsState } from '@/composables/use-analytics'
 import { appendBlock, prependBlock } from '@/api'
@@ -978,14 +534,13 @@ const {
   tagOptions,
   report,
   trends,
-  trendLabel,
   selectedCommunity,
   selectedCommunityTrend,
   summaryCards,
   selectedSummaryDetail,
+  selectedSummaryCount,
   pathOptions,
   pathChain,
-  selectedDocumentDetail,
   panelCounts,
   snapshotLabel,
   refresh,
@@ -1007,6 +562,42 @@ const {
   formatTimestamp,
   formatDelta,
 } = analytics
+
+const visibleSummaryCards = computed(() => {
+  if (!props.config.showSummaryCards) {
+    return []
+  }
+  return summaryCards.value.filter((card) => {
+    if (card.key === 'ranking') {
+      return props.config.showRanking
+    }
+    if (card.key === 'suggestions') {
+      return props.config.showSuggestions
+    }
+    if (card.key === 'trends') {
+      return props.config.showTrends
+    }
+    if (card.key === 'communities') {
+      return props.config.showCommunities
+    }
+    if (card.key === 'propagation') {
+      return props.config.showPropagation
+    }
+    if (card.key === 'orphans' || card.key === 'dormant' || card.key === 'bridges') {
+      return props.config.showOrphanBridge
+    }
+    return true
+  })
+})
+
+watch(visibleSummaryCards, (cards) => {
+  if (cards.length === 0) {
+    return
+  }
+  if (!cards.some(card => card.key === selectedSummaryCardKey.value)) {
+    selectSummaryCard(cards[0].key)
+  }
+}, { immediate: true })
 </script>
 
 <style lang="scss" scoped>

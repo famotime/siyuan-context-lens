@@ -22,14 +22,7 @@ export type PathScope = 'focused' | 'all' | 'community'
 
 const panelKeys = [
   'summary-detail',
-  'ranking',
-  'suggestions',
-  'communities',
-  'orphan-bridge',
-  'trends',
   'paths',
-  'propagation',
-  'document-detail',
 ] as const
 
 type PanelKey = typeof panelKeys[number]
@@ -197,6 +190,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       report: report.value,
       dormantDays: dormantDays.value,
       documentCount: filteredDocuments.value.length,
+      trends: trends.value,
     })
   })
 
@@ -211,6 +205,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       report: report.value,
       now: analysisNow.value,
       timeRange: timeRange.value,
+      trends: trends.value,
       filters: filters.value,
       dormantDays: dormantDays.value,
     })
@@ -218,6 +213,23 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
 
   const selectedSummaryDetail = computed(() => {
     return summaryDetailSections.value?.[selectedSummaryCardKey.value] ?? null
+  })
+
+  const selectedSummaryCount = computed(() => {
+    const detail = selectedSummaryDetail.value
+    if (!detail) {
+      return 0
+    }
+    if (detail.kind === 'list') {
+      return detail.items.length
+    }
+    if (detail.kind === 'ranking') {
+      return detail.ranking.length
+    }
+    if (detail.kind === 'suggestions') {
+      return detail.suggestions.length
+    }
+    return detail.trends.risingDocuments.length + detail.trends.fallingDocuments.length
   })
 
   const pathOptions = computed(() => {
@@ -620,6 +632,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     summaryCards,
     summaryDetailSections,
     selectedSummaryDetail,
+    selectedSummaryCount,
     pathOptions,
     pathChain,
     selectedDocumentDetail,

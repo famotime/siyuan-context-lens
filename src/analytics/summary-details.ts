@@ -1,15 +1,21 @@
 import {
   type AnalyticsFilters,
   type DocumentRecord,
+  type RankingItem,
   type ReferenceGraphReport,
   type ReferenceRecord,
+  type SuggestionItem,
   type TimeRange,
+  type TrendReport,
   filterDocumentsByTimeRange,
 } from './analysis'
 
 export type SummaryCardKey =
   | 'documents'
   | 'references'
+  | 'ranking'
+  | 'suggestions'
+  | 'trends'
   | 'communities'
   | 'orphans'
   | 'dormant'
@@ -30,18 +36,48 @@ export interface SummaryDetailItem {
   badge?: string
 }
 
-export interface SummaryDetailSection {
-  key: SummaryCardKey
-  title: string
-  description: string
-  items: SummaryDetailItem[]
-}
+type ListDetailSectionKey = Exclude<SummaryCardKey, 'ranking' | 'suggestions' | 'trends'>
+
+export type SummaryDetailSection =
+  | {
+    key: ListDetailSectionKey
+    title: string
+    description: string
+    kind: 'list'
+    items: SummaryDetailItem[]
+  }
+  | {
+    key: 'ranking'
+    title: string
+    description: string
+    kind: 'ranking'
+    ranking: RankingItem[]
+  }
+  | {
+    key: 'suggestions'
+    title: string
+    description: string
+    kind: 'suggestions'
+    suggestions: SuggestionItem[]
+  }
+  | {
+    key: 'trends'
+    title: string
+    description: string
+    kind: 'trends'
+    trends: TrendReport
+  }
 
 export function buildSummaryCards(params: {
   report: ReferenceGraphReport
   dormantDays: number
   documentCount?: number
+  trends?: TrendReport | null
 }): SummaryCardItem[] {
+  const trendCount = params.trends
+    ? params.trends.risingDocuments.length + params.trends.fallingDocuments.length
+    : 0
+
   return [
     {
       key: 'documents',
@@ -54,6 +90,24 @@ export function buildSummaryCards(params: {
       label: '活跃关系',
       value: params.report.summary.totalReferences.toString(),
       hint: '当前窗口内的文档级引用次数',
+    },
+    {
+      key: 'ranking',
+      label: '核心文档',
+      value: params.report.ranking.length.toString(),
+      hint: '当前窗口内被引用的核心文档数',
+    },
+    {
+      key: 'suggestions',
+      label: '整理建议',
+      value: params.report.suggestions.length.toString(),
+      hint: '当前筛选下待处理的整理建议数',
+    },
+    {
+      key: 'trends',
+      label: '趋势观察',
+      value: trendCount.toString(),
+      hint: '当前窗口内出现变化的文档数',
     },
     {
       key: 'communities',
@@ -94,6 +148,7 @@ export function buildSummaryDetailSections(params: {
   report: ReferenceGraphReport
   now: Date
   timeRange: TimeRange
+  trends?: TrendReport | null
   filters?: AnalyticsFilters
   dormantDays: number
 }): Record<SummaryCardKey, SummaryDetailSection> {
@@ -118,6 +173,7 @@ export function buildSummaryDetailSections(params: {
       key: 'documents',
       title: '文档样本详情',
       description: '当前筛选条件命中的文档。',
+      kind: 'list',
       items: filteredDocuments
         .sort((left, right) => compareTimestamp(right.updated ?? '', left.updated ?? '') || resolveTitle(left).localeCompare(resolveTitle(right), 'zh-CN'))
         .map(document => ({
@@ -130,6 +186,7 @@ export function buildSummaryDetailSections(params: {
       key: 'references',
       title: '活跃关系详情',
       description: '当前时间窗口内参与文档级连接的文档。',
+      kind: 'list',
       items: [...activeCounts.entries()]
         .map(([documentId, counts]) => {
           const document = documentMap.get(documentId)
@@ -146,10 +203,41 @@ export function buildSummaryDetailSections(params: {
         .filter((item): item is SummaryDetailItem => item !== null)
         .sort((left, right) => extractBadgeNumber(right.badge) - extractBadgeNumber(left.badge) || left.title.localeCompare(right.title, 'zh-CN')),
     },
+    ranking: {
+      key: 'ranking',
+      title: '核心文档详情',
+      description: '被引用频次最高的核心文档。',
+      kind: 'ranking',
+      ranking: params.report.ranking,
+    },
+    suggestions: {
+      key: 'suggestions',
+      title: '整理建议详情',
+      description: '结构信号对应的可执行整理动作。',
+      kind: 'suggestions',
+      suggestions: params.report.suggestions,
+    },
+    trends: {
+      key: 'trends',
+      title: '趋势观察详情',
+      description: '当前窗口与前一窗口的活跃变化对比。',
+      kind: 'trends',
+      trends: params.trends ?? {
+        current: { referenceCount: 0 },
+        previous: { referenceCount: 0 },
+        risingDocuments: [],
+        fallingDocuments: [],
+        connectionChanges: { newCount: 0, brokenCount: 0, newEdges: [], brokenEdges: [] },
+        communityTrends: [],
+        risingCommunities: [],
+        dormantCommunities: [],
+      },
+    },
     communities: {
       key: 'communities',
       title: '主题社区详情',
       description: '已归入主题社区的文档。',
+      kind: 'list',
       items: params.report.communities.flatMap(community => {
         return community.documentIds.map((documentId) => ({
           documentId,
@@ -163,6 +251,7 @@ export function buildSummaryDetailSections(params: {
       key: 'orphans',
       title: '孤立文档详情',
       description: '历史上从未形成过文档级连接的文档。',
+      kind: 'list',
       items: params.report.orphans.map(item => ({
         documentId: item.documentId,
         title: item.title,
@@ -173,6 +262,7 @@ export function buildSummaryDetailSections(params: {
       key: 'dormant',
       title: '沉没文档详情',
       description: `超过 ${params.dormantDays} 天未产生有效连接，但可能保留历史入链/出链。`,
+      kind: 'list',
       items: params.report.dormantDocuments.map(item => ({
         documentId: item.documentId,
         title: item.title,
@@ -184,6 +274,7 @@ export function buildSummaryDetailSections(params: {
       key: 'bridges',
       title: '桥接节点详情',
       description: '断开后会削弱社区连通性的关键文档。',
+      kind: 'list',
       items: params.report.bridgeDocuments.map(item => ({
         documentId: item.documentId,
         title: item.title,
@@ -194,6 +285,7 @@ export function buildSummaryDetailSections(params: {
       key: 'propagation',
       title: '传播节点详情',
       description: '高频出现在关键最短路径上的文档。',
+      kind: 'list',
       items: params.report.propagationNodes.map(item => ({
         documentId: item.documentId,
         title: item.title,

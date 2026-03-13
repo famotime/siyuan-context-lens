@@ -1,6 +1,6 @@
 <template>
-  <section class="panel panel--primary">
-    <div class="panel-header">
+  <component :is="variant === 'panel' ? 'section' : 'div'" :class="variant === 'panel' ? 'panel panel--primary' : 'ranking-detail'">
+    <div v-if="variant === 'panel'" class="panel-header">
       <div>
         <h2>核心文档排行</h2>
         <p>按文档级被引用次数、引用文档数和最近活跃时间排序。</p>
@@ -25,7 +25,7 @@
     </div>
 
     <div
-      v-show="isExpanded"
+      v-show="variant === 'detail' || isExpanded"
       class="panel-body"
     >
       <div
@@ -162,7 +162,7 @@
         当前筛选条件下没有命中的文档级引用关系。
       </div>
     </div>
-  </section>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -171,7 +171,7 @@ import type { LinkAssociations } from '@/analytics/link-associations'
 
 type LinkDirection = 'outbound' | 'inbound'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   ranking: RankingItem[]
   panelCount: number
   snapshotLabel: string
@@ -187,7 +187,10 @@ const props = defineProps<{
   isLinkGroupExpanded: (documentId: string, direction: LinkDirection) => boolean
   isSyncing: (coreDocumentId: string, targetDocumentId: string, direction: LinkDirection) => boolean
   syncAssociation: (coreDocumentId: string, targetDocumentId: string, direction: LinkDirection) => void
-}>()
+  variant?: 'panel' | 'detail'
+}>(), {
+  variant: 'panel',
+})
 </script>
 
 <style scoped>
@@ -201,6 +204,10 @@ const props = defineProps<{
 
 .panel--primary {
   grid-column: span 1;
+}
+
+.ranking-detail {
+  display: block;
 }
 
 .panel-header {
