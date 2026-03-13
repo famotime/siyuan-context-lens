@@ -342,9 +342,10 @@
               </div>
             </div>
 
-            <div class="split-block">
-              <div>
-                <h3>升温文档</h3>
+            <div class="trend-grid">
+              <section class="trend-section-card trend-section-card--warm">
+                <p class="trend-section-card__eyebrow">Document Heat</p>
+                <h3 class="trend-section-card__title">升温文档</h3>
                 <div
                   v-if="selectedSummaryDetail.trends.risingDocuments.length"
                   class="trend-list"
@@ -352,27 +353,33 @@
                   <article
                     v-for="item in selectedSummaryDetail.trends.risingDocuments.slice(0, 5)"
                     :key="item.documentId"
-                    class="trend-item"
+                    class="trend-record"
                   >
-                    <DocumentTitle
-                      variant="compact"
-                      :document-id="item.documentId"
-                      :title="item.title"
-                      :open-document="openDocument"
-                      :is-theme-document="themeDocumentIds.has(item.documentId)"
-                    />
-                    <span>{{ formatDelta(item.delta) }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
+                    <div class="trend-record__header">
+                      <DocumentTitle
+                        :document-id="item.documentId"
+                        :title="item.title"
+                        :open-document="openDocument"
+                        :is-theme-document="themeDocumentIds.has(item.documentId)"
+                      />
+                      <span class="trend-record__delta trend-record__delta--positive">{{ formatDelta(item.delta) }}</span>
+                    </div>
+                    <p class="trend-record__meta">
+                      当前窗口 {{ item.currentReferences }} · 前一窗口 {{ item.previousReferences }}
+                    </p>
                   </article>
                 </div>
                 <p
                   v-else
-                  class="empty-inline"
+                  class="trend-section-card__empty"
                 >
                   没有明显升温文档。
                 </p>
-              </div>
-              <div>
-                <h3>降温文档</h3>
+              </section>
+
+              <section class="trend-section-card trend-section-card--cool">
+                <p class="trend-section-card__eyebrow">Document Cooling</p>
+                <h3 class="trend-section-card__title">降温文档</h3>
                 <div
                   v-if="selectedSummaryDetail.trends.fallingDocuments.length"
                   class="trend-list"
@@ -380,30 +387,33 @@
                   <article
                     v-for="item in selectedSummaryDetail.trends.fallingDocuments.slice(0, 5)"
                     :key="item.documentId"
-                    class="trend-item"
+                    class="trend-record"
                   >
-                    <DocumentTitle
-                      variant="compact"
-                      :document-id="item.documentId"
-                      :title="item.title"
-                      :open-document="openDocument"
-                      :is-theme-document="themeDocumentIds.has(item.documentId)"
-                    />
-                    <span>{{ item.delta }} ({{ item.currentReferences }}/{{ item.previousReferences }})</span>
+                    <div class="trend-record__header">
+                      <DocumentTitle
+                        :document-id="item.documentId"
+                        :title="item.title"
+                        :open-document="openDocument"
+                        :is-theme-document="themeDocumentIds.has(item.documentId)"
+                      />
+                      <span class="trend-record__delta trend-record__delta--negative">{{ formatDelta(item.delta) }}</span>
+                    </div>
+                    <p class="trend-record__meta">
+                      当前窗口 {{ item.currentReferences }} · 前一窗口 {{ item.previousReferences }}
+                    </p>
                   </article>
                 </div>
                 <p
                   v-else
-                  class="empty-inline"
+                  class="trend-section-card__empty"
                 >
                   没有明显降温文档。
                 </p>
-              </div>
-            </div>
+              </section>
 
-            <div class="split-block">
-              <div>
-                <h3>升温主题</h3>
+              <section class="trend-section-card trend-section-card--accent">
+                <p class="trend-section-card__eyebrow">Community Lift</p>
+                <h3 class="trend-section-card__title">升温主题</h3>
                 <div
                   v-if="selectedSummaryDetail.trends.risingCommunities.length"
                   class="trend-list"
@@ -411,26 +421,34 @@
                   <article
                     v-for="community in selectedSummaryDetail.trends.risingCommunities.slice(0, 3)"
                     :key="community.communityId"
-                    class="trend-item"
+                    class="trend-record"
                   >
-                    <button
-                      type="button"
-                      @click="selectCommunity(community.communityId)"
-                    >
-                      {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
-                    </button>
-                    <span>{{ formatDelta(community.delta) }} ({{ community.currentReferences }}/{{ community.previousReferences }})</span>
+                    <div class="trend-record__header">
+                      <button
+                        class="trend-record__button"
+                        type="button"
+                        @click="selectCommunity(community.communityId)"
+                      >
+                        {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                      </button>
+                      <span class="trend-record__delta trend-record__delta--positive">{{ formatDelta(community.delta) }}</span>
+                    </div>
+                    <p class="trend-record__meta">
+                      当前窗口 {{ community.currentReferences }} · 前一窗口 {{ community.previousReferences }}
+                    </p>
                   </article>
                 </div>
                 <p
                   v-else
-                  class="empty-inline"
+                  class="trend-section-card__empty"
                 >
                   没有明显升温主题。
                 </p>
-              </div>
-              <div>
-                <h3>低活跃主题</h3>
+              </section>
+
+              <section class="trend-section-card trend-section-card--muted">
+                <p class="trend-section-card__eyebrow">Community Idle</p>
+                <h3 class="trend-section-card__title">低活跃主题</h3>
                 <div
                   v-if="selectedSummaryDetail.trends.dormantCommunities.length"
                   class="trend-list"
@@ -438,26 +456,34 @@
                   <article
                     v-for="community in selectedSummaryDetail.trends.dormantCommunities.slice(0, 3)"
                     :key="community.communityId"
-                    class="trend-item"
+                    class="trend-record"
                   >
-                    <button
-                      type="button"
-                      @click="selectCommunity(community.communityId)"
-                    >
-                      {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
-                    </button>
-                    <span>{{ community.currentReferences }}/{{ community.previousReferences }}</span>
+                    <div class="trend-record__header">
+                      <button
+                        class="trend-record__button"
+                        type="button"
+                        @click="selectCommunity(community.communityId)"
+                      >
+                        {{ community.topTags.join(' / ') || community.documentIds.map(resolveTitle).join(' / ') }}
+                      </button>
+                      <span class="trend-record__badge">低活跃</span>
+                    </div>
+                    <p class="trend-record__meta">
+                      当前窗口 {{ community.currentReferences }} · 前一窗口 {{ community.previousReferences }}
+                    </p>
                   </article>
                 </div>
                 <p
                   v-else
-                  class="empty-inline"
+                  class="trend-section-card__empty"
                 >
                   没有明显低活跃主题。
                 </p>
-              </div>
-              <div>
-                <h3>断裂连接</h3>
+              </section>
+
+              <section class="trend-section-card trend-section-card--neutral">
+                <p class="trend-section-card__eyebrow">Broken Paths</p>
+                <h3 class="trend-section-card__title">断裂连接</h3>
                 <div
                   v-if="selectedSummaryDetail.trends.connectionChanges.brokenEdges.length"
                   class="trend-list"
@@ -465,24 +491,30 @@
                   <article
                     v-for="edge in selectedSummaryDetail.trends.connectionChanges.brokenEdges.slice(0, 3)"
                     :key="edge.documentIds.join('-')"
-                    class="trend-item"
+                    class="trend-record"
                   >
-                    <button
-                      type="button"
-                      @click="openDocument(edge.documentIds[0])"
-                    >
-                      {{ edge.documentIds.map(resolveTitle).join(' → ') }}
-                    </button>
-                    <span>{{ edge.referenceCount }} 条</span>
+                    <div class="trend-record__header">
+                      <button
+                        class="trend-record__button"
+                        type="button"
+                        @click="openDocument(edge.documentIds[0])"
+                      >
+                        {{ edge.documentIds.map(resolveTitle).join(' → ') }}
+                      </button>
+                      <span class="trend-record__badge">{{ edge.referenceCount }} 条</span>
+                    </div>
+                    <p class="trend-record__meta">
+                      点击打开路径起点文档，回溯断裂前后的关联关系。
+                    </p>
                   </article>
                 </div>
                 <p
                   v-else
-                  class="empty-inline"
+                  class="trend-section-card__empty"
                 >
                   没有明显断裂连接。
                 </p>
-              </div>
+              </section>
             </div>
           </template>
         </div>
@@ -829,9 +861,7 @@ input {
 }
 
 .panel-header p,
-.meta-text,
-.empty-inline,
-.trend-item span {
+.meta-text {
   color: var(--panel-muted);
   font-size: 13px;
 }
@@ -865,7 +895,6 @@ input {
 }
 
 .propagation-item__title,
-.trend-item button,
 .mini-list__item,
 .community-tag,
 .path-node {
@@ -879,8 +908,7 @@ input {
   transition: color 0.15s;
 }
 
-.propagation-item__title:hover,
-.trend-item button:hover {
+.propagation-item__title:hover {
   color: color-mix(in srgb, var(--b3-theme-primary) 70%, transparent);
 }
 
@@ -893,9 +921,7 @@ input {
 .community-detail__header,
 .propagation-item__header,
 .summary-detail-item__header,
-.path-controls,
-.trend-stats,
-.split-block {
+.path-controls {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -982,20 +1008,6 @@ input {
   background: color-mix(in srgb, var(--surface-chip-cool) 80%, var(--b3-theme-primary));
 }
 
-.split-block {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  align-items: start;
-  gap: 16px;
-}
-
-.split-block h3 {
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--b3-theme-primary);
-}
-
 .mini-list,
 .trend-list {
   display: grid;
@@ -1011,8 +1023,7 @@ input {
   border: 1px solid var(--panel-border);
 }
 
-.mini-list__item,
-.trend-item button {
+.mini-list__item {
   padding: 8px 12px;
   border-radius: 8px;
   background: var(--surface-card-soft);
@@ -1020,8 +1031,7 @@ input {
   transition: background-color 0.2s;
 }
 
-.mini-list__item:hover,
-.trend-item button:hover {
+.mini-list__item:hover {
   background: var(--surface-card-strong);
 }
 
@@ -1057,17 +1067,27 @@ input {
   gap: 8px;
 }
 
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
 .trend-stats {
-  margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .trend-stats div {
-  flex: 1;
-  min-width: 0;
   padding: 16px;
-  border-radius: 12px;
-  background: var(--surface-card);
-  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--b3-theme-primary) 4%, transparent), transparent 45%),
+    var(--surface-card);
+  border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 12%, var(--panel-border));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--b3-theme-background) 55%, transparent);
 }
 
 .trend-stats span {
@@ -1084,11 +1104,132 @@ input {
   color: var(--b3-theme-primary);
 }
 
-.trend-item {
+.trend-section-card {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card-accent, var(--b3-theme-primary)) 7%, transparent), transparent 42%),
+    var(--surface-card-strong);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--b3-theme-background) 60%, transparent);
+}
+
+.trend-section-card--warm {
+  --card-accent: var(--accent-warm);
+}
+
+.trend-section-card--cool {
+  --card-accent: var(--accent-cool);
+}
+
+.trend-section-card--accent {
+  --card-accent: var(--b3-theme-primary);
+}
+
+.trend-section-card--muted {
+  --card-accent: color-mix(in srgb, var(--b3-theme-on-background) 45%, transparent);
+}
+
+.trend-section-card--neutral {
+  --card-accent: color-mix(in srgb, var(--b3-theme-primary) 45%, var(--accent-warm));
+}
+
+.trend-section-card__eyebrow {
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--card-accent, var(--b3-theme-primary)) 52%, var(--panel-muted));
+  font-weight: 700;
+}
+
+.trend-section-card__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--b3-theme-on-background);
+}
+
+.trend-section-card__empty {
+  padding: 16px 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--panel-border);
+  background: color-mix(in srgb, var(--surface-card) 78%, transparent);
+  color: var(--panel-muted);
+  font-size: 13px;
+}
+
+.trend-record {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--card-accent, var(--b3-theme-primary)) 16%, var(--panel-border));
+  background: var(--surface-card);
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.trend-record:hover {
+  background: var(--surface-card-soft);
+  border-color: color-mix(in srgb, var(--card-accent, var(--b3-theme-primary)) 30%, var(--panel-border));
+}
+
+.trend-record__header {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
+}
+
+.trend-record__button {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--b3-theme-primary);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+
+.trend-record__button:hover {
+  color: color-mix(in srgb, var(--b3-theme-primary) 70%, transparent);
+}
+
+.trend-record__meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--panel-muted);
+}
+
+.trend-record__delta,
+.trend-record__badge {
+  display: inline-flex;
   align-items: center;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.trend-record__delta--positive {
+  color: color-mix(in srgb, var(--accent-warm) 62%, var(--b3-theme-on-background));
+  background: color-mix(in srgb, var(--accent-warm) 14%, var(--b3-theme-surface));
+}
+
+.trend-record__delta--negative {
+  color: color-mix(in srgb, var(--accent-cool) 74%, var(--b3-theme-on-background));
+  background: color-mix(in srgb, var(--accent-cool) 12%, var(--b3-theme-surface));
+}
+
+.trend-record__badge {
+  color: color-mix(in srgb, var(--b3-theme-on-background) 72%, transparent);
+  background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
 }
 
 .detail-grid {
@@ -1173,7 +1314,7 @@ input {
   .filter-panel,
   .summary-grid,
   .layout-grid,
-  .split-block,
+  .trend-grid,
   .filter-panel__row--meta,
   .filter-panel__row--focus {
     grid-template-columns: 1fr;
