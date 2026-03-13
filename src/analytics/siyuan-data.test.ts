@@ -34,7 +34,7 @@ describe('loadAnalyticsSnapshot', () => {
         ]
       }
 
-      if (query.includes("WHERE type = 'd'")) {
+      if (query.includes("WHERE doc.type = 'd'")) {
         return [
           {
             id: '20260311120000-srcdoc1',
@@ -135,7 +135,7 @@ describe('loadAnalyticsSnapshot', () => {
         return []
       }
 
-      if (query.includes("WHERE type = 'd'")) {
+      if (query.includes("WHERE doc.type = 'd'")) {
         return [
           {
             id: '20260312100000-srcdoc1',
@@ -202,7 +202,7 @@ describe('loadAnalyticsSnapshot', () => {
         return []
       }
 
-      if (query.includes("WHERE type = 'd'")) {
+      if (query.includes("WHERE doc.type = 'd'")) {
         return [
           {
             id: '20260312150000-srcdoc1',
@@ -269,7 +269,7 @@ describe('loadAnalyticsSnapshot', () => {
         return []
       }
 
-      if (query.includes("WHERE type = 'd'")) {
+      if (query.includes("WHERE doc.type = 'd'")) {
         return [
           {
             id: '20260312110000-srcdoc1',
@@ -340,7 +340,7 @@ describe('loadAnalyticsSnapshot', () => {
         return []
       }
 
-      if (query.includes("WHERE type = 'd'")) {
+      if (query.includes("WHERE doc.type = 'd'")) {
         return []
       }
 
@@ -371,7 +371,7 @@ describe('loadAnalyticsSnapshot', () => {
 
     await loadAnalyticsSnapshot()
 
-    const documentQuery = queries.find(query => query.includes("WHERE type = 'd'"))
+    const documentQuery = queries.find(query => query.includes("WHERE doc.type = 'd'"))
     const referenceQuery = queries.find(query => query.includes('FROM refs r'))
     const internalSourceQuery = queries.find(query => query.includes('%siyuan://blocks/%') || query.includes('%((%'))
     const internalTargetQuery = queries.find(query => query.includes("SELECT id, COALESCE(NULLIF(root_id, ''), id) AS rootId"))
@@ -381,5 +381,91 @@ describe('loadAnalyticsSnapshot', () => {
     expect(internalSourceQuery).toContain('LIMIT')
     expect(internalSourceQuery).toContain('COALESCE(content')
     expect(internalTargetQuery).toContain('LIMIT')
+  })
+
+  it('keeps document name and alias for downstream theme matching', async () => {
+    apiMocks.sqlMock.mockImplementation(async (query: string) => {
+      if (query.includes('FROM refs r')) {
+        return []
+      }
+
+      if (query.includes("WHERE doc.type = 'd'")) {
+        return [
+          {
+            id: '20260313100000-theme-ai',
+            box: 'box-1',
+            path: '/topics/theme-ai.sy',
+            hpath: '/专题/主题-AI-索引',
+            title: '主题-AI-索引',
+            name: '人工智能',
+            alias: 'AIGC,智能体',
+            tag: '#topic',
+            created: '20260313100000',
+            updated: '20260313110000',
+          },
+        ]
+      }
+
+      if (query.includes('%siyuan://blocks/%') || query.includes('%((%')) {
+        return []
+      }
+
+      return []
+    })
+
+    apiMocks.lsNotebooksMock.mockResolvedValue({ notebooks: [] })
+
+    const snapshot = await loadAnalyticsSnapshot()
+
+    expect(snapshot.documents).toEqual([
+      expect.objectContaining({
+        id: '20260313100000-theme-ai',
+        name: '人工智能',
+        alias: 'AIGC,智能体',
+      }),
+    ])
+  })
+
+  it('aggregates document body content for downstream theme suggestion matching', async () => {
+    apiMocks.sqlMock.mockImplementation(async (query: string) => {
+      if (query.includes('FROM refs r')) {
+        return []
+      }
+
+      if (query.includes("WHERE doc.type = 'd'")) {
+        return [
+          {
+            id: '20260313230104-1bjyp2m',
+            box: 'box-1',
+            path: '/20260313230104-1bjyp2m.sy',
+            hpath: '/别名测试',
+            title: '别名测试',
+            name: '',
+            alias: '',
+            content: 'skill\nabc\ndef',
+            tag: '',
+            created: '20260313230104',
+            updated: '20260313230233',
+          },
+        ]
+      }
+
+      if (query.includes('%siyuan://blocks/%') || query.includes('%((%')) {
+        return []
+      }
+
+      return []
+    })
+
+    apiMocks.lsNotebooksMock.mockResolvedValue({ notebooks: [] })
+
+    const snapshot = await loadAnalyticsSnapshot()
+
+    expect(snapshot.documents).toEqual([
+      expect.objectContaining({
+        id: '20260313230104-1bjyp2m',
+        content: 'skill\nabc\ndef',
+      }),
+    ])
   })
 })

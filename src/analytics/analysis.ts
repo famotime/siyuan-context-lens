@@ -17,6 +17,7 @@ export interface DocumentRecord {
   hpath: string
   title?: string
   name?: string
+  alias?: string
   content?: string
   tags?: readonly string[] | string
   created?: string

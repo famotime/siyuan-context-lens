@@ -5,6 +5,7 @@ export interface ThemeDocument {
   documentId: string
   title: string
   themeName: string
+  matchTerms: string[]
   box: string
   path: string
   hpath: string
@@ -48,10 +49,12 @@ export function collectThemeDocuments(params: {
       if (!themeName) {
         return null
       }
+      const matchTerms = buildThemeMatchTerms(themeName, document.name, document.alias)
       return {
         documentId: document.id,
         title,
         themeName,
+        matchTerms,
         box: document.box,
         path: document.path,
         hpath: document.hpath,
@@ -76,16 +79,21 @@ export function buildThemeOptions(themeDocuments: ThemeDocument[]): ThemeOption[
 }
 
 export function countThemeMatchesForDocument(params: {
-  document: Pick<DocumentRecord, 'id' | 'path' | 'hpath' | 'title' | 'name' | 'content' | 'tags'>
+  document: Pick<DocumentRecord, 'id' | 'path' | 'hpath' | 'title' | 'name' | 'alias' | 'content' | 'tags'>
   themeDocuments: ThemeDocument[]
 }): ThemeDocumentMatch[] {
-  const fields = buildMatchFields(params.document)
+  const fields = buildMatchFields(params.document, { includeContent: true })
 
   return params.themeDocuments
     .filter(themeDocument => themeDocument.documentId !== params.document.id)
     .map((themeDocument) => {
-      const normalizedTheme = themeDocument.themeName.trim().toLocaleLowerCase()
-      const matchCount = fields.reduce((total, field) => total + countOccurrences(field, normalizedTheme), 0)
+      const matchCount = themeDocument.matchTerms.reduce((total, term) => {
+        const normalizedTerm = term.trim().toLocaleLowerCase()
+        if (!normalizedTerm) {
+          return total
+        }
+        return total + fields.reduce((fieldTotal, field) => fieldTotal + countOccurrences(field, normalizedTerm), 0)
+      }, 0)
       if (matchCount <= 0) {
         return null
       }
@@ -101,7 +109,7 @@ export function countThemeMatchesForDocument(params: {
 }
 
 export function documentMatchesSelectedThemes(params: {
-  document: Pick<DocumentRecord, 'id' | 'path' | 'hpath' | 'title' | 'name' | 'content' | 'tags'>
+  document: Pick<DocumentRecord, 'id' | 'path' | 'hpath' | 'title' | 'name' | 'alias' | 'content' | 'tags'>
   selectedThemes: string[]
   themeDocuments?: ThemeDocument[]
 }): boolean {
@@ -185,19 +193,47 @@ function normalizePath(value?: string): string {
   return withLeadingSlash.replace(/\/+$/, '')
 }
 
-function buildMatchFields(document: Pick<DocumentRecord, 'path' | 'hpath' | 'title' | 'name' | 'content' | 'tags'>): string[] {
+function buildMatchFields(
+  document: Pick<DocumentRecord, 'path' | 'hpath' | 'title' | 'name' | 'alias' | 'content' | 'tags'>,
+  options?: { includeContent?: boolean },
+): string[] {
   const tags = Array.isArray(document.tags)
     ? document.tags
     : typeof document.tags === 'string'
       ? document.tags.split(/[,\s#]+/)
       : []
 
-  return [
+  const fields = [
     resolveTitle(document),
     document.hpath ?? '',
     document.path ?? '',
     tags.join(' '),
-  ].map(value => value.toLocaleLowerCase())
+  ]
+
+  if (options?.includeContent) {
+    fields.push(document.content ?? '')
+  }
+
+  return fields.map(value => value.toLocaleLowerCase())
+}
+
+function buildThemeMatchTerms(themeName: string, name?: string, alias?: string): string[] {
+  return [...new Set([
+    themeName.trim(),
+    (name ?? '').trim(),
+    ...parseAliases(alias),
+  ].filter(Boolean))]
+}
+
+function parseAliases(alias?: string): string[] {
+  if (!alias) {
+    return []
+  }
+
+  return alias
+    .split(/[\r\n,，;；、|]+/)
+    .map(item => item.trim())
+    .filter(Boolean)
 }
 
 function countOccurrences(haystack: string, needle: string): number {

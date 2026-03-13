@@ -24,6 +24,9 @@ interface DocumentRow {
   path: string
   hpath: string
   title: string
+  name: string | null
+  alias: string | null
+  content: string | null
   tag: string | null
   created: string
   updated: string
@@ -56,21 +59,42 @@ const QUERY_LIMIT = 200000
 
 const DOCUMENT_SQL = `
   SELECT
-    id,
-    box,
-    path,
-    hpath,
+    doc.id,
+    doc.box,
+    doc.path,
+    doc.hpath,
     CASE
-      WHEN COALESCE(TRIM(content), '') <> '' THEN content
-      WHEN COALESCE(TRIM(name), '') <> '' THEN name
-      ELSE hpath
+      WHEN COALESCE(TRIM(doc.content), '') <> '' THEN doc.content
+      WHEN COALESCE(TRIM(doc.name), '') <> '' THEN doc.name
+      ELSE doc.hpath
     END AS title,
-    tag,
-    created,
-    updated
-  FROM blocks
-  WHERE type = 'd'
-  ORDER BY updated DESC
+    doc.name,
+    doc.alias,
+    COALESCE(body.bodyContent, '') AS content,
+    doc.tag,
+    doc.created,
+    doc.updated
+  FROM blocks doc
+  LEFT JOIN (
+    SELECT
+      root_id,
+      GROUP_CONCAT(content, char(10)) AS bodyContent
+    FROM (
+      SELECT
+        root_id,
+        content,
+        sort,
+        created,
+        id
+      FROM blocks
+      WHERE type <> 'd'
+        AND COALESCE(TRIM(content), '') <> ''
+      ORDER BY root_id, sort, created, id
+    ) ordered_blocks
+    GROUP BY root_id
+  ) body ON body.root_id = doc.id
+  WHERE doc.type = 'd'
+  ORDER BY doc.updated DESC
   LIMIT ${QUERY_LIMIT}
 `
 
@@ -130,6 +154,9 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
       path: row.path,
       hpath: row.hpath,
       title: row.title,
+      name: row.name ?? '',
+      alias: row.alias ?? '',
+      content: row.content ?? '',
       tags: parseTags(row.tag),
       created: row.created,
       updated: row.updated,

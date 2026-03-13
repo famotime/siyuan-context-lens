@@ -18,8 +18,9 @@ const config: PluginConfig = {
 
 const documents = [
   { id: 'doc-root', box: 'box-1', path: '/topics.sy', hpath: '/专题', title: '专题总览', tags: [], created: '20260301090000', updated: '20260301120000' },
-  { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', tags: [], created: '20260301090000', updated: '20260301120000' },
-  { id: 'doc-theme-ml', box: 'box-1', path: '/topics/theme-ml.sy', hpath: '/专题/主题-机器学习-索引', title: '主题-机器学习-索引', tags: [], created: '20260301090000', updated: '20260301120000' },
+  { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', name: '人工智能', alias: 'AIGC,智能体', tags: [], created: '20260301090000', updated: '20260301120000' },
+  { id: 'doc-theme-ml', box: 'box-1', path: '/topics/theme-ml.sy', hpath: '/专题/主题-机器学习-索引', title: '主题-机器学习-索引', name: '机器学习', alias: 'ML', tags: [], created: '20260301090000', updated: '20260301120000' },
+  { id: 'doc-theme-skills', box: 'box-1', path: '/topics/theme-skills.sy', hpath: '/专题/主题-Skills-索引', title: '主题-Skills-索引', name: 'skill', alias: 'abc,def', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-theme-ignore', box: 'box-1', path: '/topics/theme-ignore.sy', hpath: '/专题/无前后缀', title: '无前后缀', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-other-box', box: 'box-2', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', tags: [], created: '20260301090000', updated: '20260301120000' },
 ] as const
@@ -31,10 +32,11 @@ describe('theme documents', () => {
       config,
     })
 
-    expect(themeDocuments).toHaveLength(2)
+    expect(themeDocuments).toHaveLength(3)
     expect(themeDocuments).toEqual(expect.arrayContaining([
       expect.objectContaining({ documentId: 'doc-theme-ai', themeName: 'AI' }),
       expect.objectContaining({ documentId: 'doc-theme-ml', themeName: '机器学习' }),
+      expect.objectContaining({ documentId: 'doc-theme-skills', themeName: 'Skills' }),
     ]))
   })
 
@@ -58,7 +60,54 @@ describe('theme documents', () => {
 
     expect(matches.map(item => ({ theme: item.themeName, count: item.matchCount }))).toEqual([
       { theme: 'AI', count: 5 },
-      { theme: '机器学习', count: 2 },
+      { theme: '机器学习', count: 3 },
+    ])
+  })
+
+  it('matches theme documents when an orphan only mentions the configured name or an alias', () => {
+    const themeDocuments = collectThemeDocuments({
+      documents: [...documents],
+      config,
+    })
+
+    const matches = countThemeMatchesForDocument({
+      document: {
+        id: 'doc-orphan-alias',
+        box: 'box-1',
+        path: '/notes/agents.sy',
+        hpath: '/笔记/智能体',
+        title: '人工智能实践',
+        tags: ['知识卡片'],
+      },
+      themeDocuments,
+    })
+
+    expect(matches).toEqual([
+      expect.objectContaining({ themeName: 'AI', matchCount: 2 }),
+    ])
+  })
+
+  it('matches theme documents when an orphan only mentions the name or alias in document content', () => {
+    const themeDocuments = collectThemeDocuments({
+      documents: [...documents],
+      config,
+    })
+
+    const matches = countThemeMatchesForDocument({
+      document: {
+        id: 'doc-orphan-content',
+        box: 'box-1',
+        path: '/notes/content-only.sy',
+        hpath: '/笔记/随想',
+        title: '别名测试',
+        content: 'skill abc def',
+        tags: [],
+      },
+      themeDocuments,
+    })
+
+    expect(matches).toEqual([
+      expect.objectContaining({ themeName: 'Skills', matchCount: 3 }),
     ])
   })
 

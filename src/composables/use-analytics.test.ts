@@ -7,8 +7,8 @@ const snapshot = {
   documents: [
     { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha AI', tags: ['note'], created: '20260101090000', updated: '20260101120000' },
     { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['note'], created: '20260311120000', updated: '20260311120000' },
-    { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', tags: [], created: '20260301090000', updated: '20260311120000' },
-    { id: 'doc-theme-ml', box: 'box-1', path: '/topics/theme-ml.sy', hpath: '/专题/主题-机器学习-索引', title: '主题-机器学习-索引', tags: [], created: '20260301090000', updated: '20260311120000' },
+    { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', name: '人工智能', alias: 'AIGC,智能体', tags: [], created: '20260301090000', updated: '20260311120000' },
+    { id: 'doc-theme-ml', box: 'box-1', path: '/topics/theme-ml.sy', hpath: '/专题/主题-机器学习-索引', title: '主题-机器学习-索引', name: '机器学习', alias: 'ML', tags: [], created: '20260301090000', updated: '20260311120000' },
     { id: 'doc-orphan', box: 'box-1', path: '/notes/orphan.sy', hpath: '/笔记/AI 与 机器学习', title: 'AI 与 机器学习 AI', tags: ['AI'], created: '20260310120000', updated: '20260311120000' },
     { id: 'doc-orphan-zeta', box: 'box-1', path: '/notes/zeta.sy', hpath: '/笔记/Zeta', title: 'Zeta', tags: [], created: '20260309120000', updated: '20260310120000' },
     { id: 'doc-orphan-gamma', box: 'box-1', path: '/notes/gamma.sy', hpath: '/笔记/Gamma', title: 'Gamma', tags: [], created: '20260308120000', updated: '20260309120000' },
@@ -222,6 +222,95 @@ describe('useAnalyticsState', () => {
       'doc-orphan',
       'doc-orphan-gamma',
       'doc-orphan-zeta',
+    ])
+  })
+
+  it('suggests theme documents for orphans that only match a theme name alias', async () => {
+    const aliasSnapshot = {
+      ...snapshot,
+      documents: [
+        ...snapshot.documents,
+        { id: 'doc-orphan-alias', box: 'box-1', path: '/notes/agents.sy', hpath: '/笔记/随想', title: '智能体实践', tags: [], created: '20260310120000', updated: '20260311150000' },
+      ],
+    }
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+      },
+      loadSnapshot: async () => aliasSnapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.orphanThemeSuggestions.value.get('doc-orphan-alias')).toEqual([
+      expect.objectContaining({ themeName: 'AI', matchCount: 1 }),
+    ])
+  })
+
+  it('suggests theme documents for orphans that only match in document content', async () => {
+    const contentSnapshot = {
+      ...snapshot,
+      documents: [
+        { id: 'doc-theme-skills', box: 'box-1', path: '/topics/theme-skills.sy', hpath: '/专题/主题-Skills-索引', title: '主题-Skills-索引', name: 'skill', alias: 'abc,def', tags: [], created: '20260301090000', updated: '20260311120000' },
+        ...snapshot.documents,
+        { id: 'doc-orphan-content', box: 'box-1', path: '/notes/content-only.sy', hpath: '/笔记/别名测试', title: '别名测试', content: 'skill abc def', tags: [], created: '20260310120000', updated: '20260311150000' },
+      ],
+    }
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+      },
+      loadSnapshot: async () => contentSnapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.orphanThemeSuggestions.value.get('doc-orphan-content')).toEqual([
+      expect.objectContaining({ themeName: 'Skills', matchCount: 3 }),
     ])
   })
 
