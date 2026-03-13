@@ -58,14 +58,6 @@
         </select>
       </label>
       <label class="filter-item">
-        <span>孤立排序</span>
-        <select v-model="orphanSort">
-          <option value="updated-desc">按更新时间</option>
-          <option value="created-desc">按创建时间</option>
-          <option value="title-asc">按标题</option>
-        </select>
-      </label>
-      <label class="filter-item">
         <span>沉没阈值</span>
         <select v-model="dormantDays">
           <option :value="30">30 天</option>
@@ -143,7 +135,15 @@
           v-show="isPanelExpanded('summary-detail')"
           class="summary-detail-body"
         >
-          <template v-if="selectedSummaryDetail.kind === 'list'">
+          <template v-if="selectedSummaryDetail.key === 'orphans'">
+            <OrphanDetailPanel
+              :items="selectedSummaryDetail.items"
+              :orphan-sort="orphanSort"
+              :open-document="openDocument"
+              :on-update-orphan-sort="(value) => { orphanSort.value = value }"
+            />
+          </template>
+          <template v-else-if="selectedSummaryDetail.kind === 'list'">
             <div
               v-if="selectedSummaryDetail.items.length"
               class="summary-detail-list"
@@ -508,6 +508,7 @@ import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import { SUGGESTION_TYPE_LABELS } from '@/analytics/ui-copy'
+import OrphanDetailPanel from '@/components/OrphanDetailPanel.vue'
 import RankingPanel from '@/components/RankingPanel.vue'
 import { useAnalyticsState } from '@/composables/use-analytics'
 import { appendBlock, prependBlock } from '@/api'

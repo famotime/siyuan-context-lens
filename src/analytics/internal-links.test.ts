@@ -8,7 +8,7 @@ describe('internal links', () => {
       {
         id: 'blk-1',
         rootId: 'doc-a',
-        markdown: null,
+        markdown: '',
         content: 'See ((doc-b "Beta"))',
         updated: '20260311120000',
       },

@@ -66,7 +66,11 @@ export function buildInternalLinkReferences(params: {
 }
 
 function resolveSourceText(row: InternalLinkSourceRow): string {
-  return row.markdown ?? row.content ?? ''
+  const markdown = row.markdown?.trim()
+  if (markdown) {
+    return markdown
+  }
+  return row.content ?? ''
 }
 
 function extractMarkdownReferenceTargets(markdown: string): MarkdownReferenceTarget[] {
