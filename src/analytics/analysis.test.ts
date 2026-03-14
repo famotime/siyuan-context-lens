@@ -226,7 +226,8 @@ describe('analyzeReferenceGraph', () => {
 
     expect(docA?.inboundReferences).toBe(2)
     expect(docA?.outboundReferences).toBe(2)
-    expect(docB?.inboundReferences).toBe(1)
+    expect(docB?.inboundReferences).toBe(2)
+    expect(docB?.distinctSourceDocuments).toBe(1)
     expect(docB?.outboundReferences).toBe(1)
     expect(docC?.inboundReferences).toBe(1)
   })

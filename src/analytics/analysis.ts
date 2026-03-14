@@ -294,7 +294,7 @@ export function analyzeReferenceGraph(params: {
       return {
         documentId: document.id,
         title: document.title,
-        inboundReferences: distinctSourceDocuments.size,
+        inboundReferences: inbound.length,
         distinctSourceDocuments: distinctSourceDocuments.size,
         outboundReferences: outboundTargets.size,
         lastActiveAt: inbound.reduce((latest, reference) => {

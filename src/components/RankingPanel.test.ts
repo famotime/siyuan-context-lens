@@ -9,7 +9,7 @@ const baseRanking = [
     documentId: 'doc-a',
     title: 'Alpha',
     isThemeDocument: true,
-    inboundReferences: 1,
+    inboundReferences: 4,
     distinctSourceDocuments: 1,
     outboundReferences: 0,
     lastActiveAt: '20260310120000',
@@ -168,5 +168,32 @@ describe('RankingPanel', () => {
     expect(html).toContain('升级为主题页')
     expect(html).toContain('建议补齐总览结构并承接更多入链。')
     expect(html).toContain('主题文档')
+  })
+
+  it('renders total inbound references separately from distinct source documents', async () => {
+    const app = createSSRApp({
+      render: () => h(RankingPanel, {
+        ranking: baseRanking,
+        panelCount: 1,
+        snapshotLabel: '03-12 00:00',
+        isExpanded: true,
+        onTogglePanel: vi.fn(),
+        resolveTitle: (id: string) => id,
+        formatTimestamp: () => '2026-03-10',
+        openDocument: vi.fn(),
+        toggleLinkPanel: vi.fn(),
+        isLinkPanelExpanded: () => false,
+        resolveLinkAssociations: () => ({ outbound: [], inbound: [] }),
+        toggleLinkGroup: vi.fn(),
+        isLinkGroupExpanded: () => false,
+        isSyncing: () => false,
+        syncAssociation: vi.fn(),
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('4 次引用')
+    expect(html).toContain('1 个来源文档')
   })
 })
