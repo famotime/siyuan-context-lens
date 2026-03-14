@@ -19,6 +19,13 @@ import {
 } from '@/analytics/orphan-theme-links'
 import { syncAssociation as syncAssociationCore, type LinkDirection } from '@/analytics/link-sync'
 import { buildPanelCounts } from '@/analytics/panel-counts'
+import {
+  DEFAULT_SUMMARY_CARD_ORDER,
+  isSameSummaryCardOrder,
+  moveSummaryCardOrder,
+  normalizeSummaryCardOrder,
+  sortSummaryCards,
+} from '@/analytics/summary-card-order'
 import { buildSummaryCards, buildSummaryDetailSections, type SummaryCardItem, type SummaryCardKey } from '@/analytics/summary-details'
 import { buildThemeOptions, collectThemeDocuments, countThemeMatchesForDocument } from '@/analytics/theme-documents'
 import { buildTimeRangeOptions } from '@/analytics/time-range'
@@ -100,6 +107,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const pathScope = ref<PathScope>('focused')
   const maxPathDepth = ref(6)
   const selectedSummaryCardKey = ref<SummaryCardKey>('documents')
+  const summaryCardOrder = ref<SummaryCardKey[]>(normalizeSummaryCardOrder(params.config.summaryCardOrder))
   const panelCollapseState = ref<PanelCollapseState<PanelKey>>(buildPanelCollapseState(panelKeys))
   const expandedLinkPanels = ref(new Set<string>())
   const expandedLinkGroups = ref(new Set<string>())
@@ -224,7 +232,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     return communityTrendMap.value.get(selectedCommunity.value.id) ?? null
   })
 
-  const summaryCards = computed<SummaryCardItem[]>(() => {
+  const rawSummaryCards = computed<SummaryCardItem[]>(() => {
     if (!report.value || !trends.value) {
       return []
     }
@@ -235,6 +243,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       trends: trends.value,
     })
   })
+  const summaryCards = computed<SummaryCardItem[]>(() => sortSummaryCards(rawSummaryCards.value, summaryCardOrder.value))
 
   const summaryDetailSections = computed(() => {
     if (!snapshot.value || !report.value) {
@@ -448,6 +457,13 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     }
   }, { immediate: true })
 
+  watch(() => params.config.summaryCardOrder, (savedOrder) => {
+    if (isSameSummaryCardOrder(savedOrder, summaryCardOrder.value)) {
+      return
+    }
+    summaryCardOrder.value = normalizeSummaryCardOrder(savedOrder)
+  }, { immediate: true })
+
   watch(summaryCards, (cards) => {
     if (cards.length === 0) {
       return
@@ -537,6 +553,35 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
 
   function selectSummaryCard(cardKey: SummaryCardKey) {
     selectedSummaryCardKey.value = cardKey
+  }
+
+  function persistSummaryCardOrder(nextOrder: SummaryCardKey[]) {
+    if (isSameSummaryCardOrder(params.config.summaryCardOrder, nextOrder)) {
+      return
+    }
+    params.config.summaryCardOrder = [...nextOrder]
+  }
+
+  function reorderSummaryCard(draggedKey: SummaryCardKey, targetKey: SummaryCardKey) {
+    const nextOrder = moveSummaryCardOrder({
+      order: summaryCardOrder.value,
+      draggedKey,
+      targetKey,
+    })
+    if (isSameSummaryCardOrder(summaryCardOrder.value, nextOrder)) {
+      return
+    }
+    summaryCardOrder.value = nextOrder
+    persistSummaryCardOrder(nextOrder)
+  }
+
+  function resetSummaryCardOrder() {
+    if (isSameSummaryCardOrder(summaryCardOrder.value, DEFAULT_SUMMARY_CARD_ORDER)) {
+      return
+    }
+    const nextOrder = [...DEFAULT_SUMMARY_CARD_ORDER]
+    summaryCardOrder.value = nextOrder
+    persistSummaryCardOrder(nextOrder)
   }
 
   function resolveLinkAssociations(documentId: string) {
@@ -774,6 +819,8 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     selectEvidence,
     selectCommunity,
     selectSummaryCard,
+    reorderSummaryCard,
+    resetSummaryCardOrder,
     resolveLinkAssociations,
     toggleLinkPanel,
     isLinkPanelExpanded,

@@ -27,6 +27,108 @@ vi.mock('@/analytics/siyuan-data', () => ({
 import { useAnalyticsState } from './use-analytics'
 
 describe('useAnalyticsState', () => {
+  it('reorders summary cards and persists the manual order into config', async () => {
+    const config = {
+      showSummaryCards: true,
+      showRanking: true,
+      showCommunities: true,
+      showOrphanBridge: true,
+      showTrends: true,
+      showPropagation: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '/专题',
+      themeNamePrefix: '主题-',
+      themeNameSuffix: '-索引',
+    }
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config,
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    state.reorderSummaryCard('orphans', 'documents')
+    await nextTick()
+
+    expect(state.summaryCards.value.map(card => card.key)).toEqual([
+      'orphans',
+      'documents',
+      'references',
+      'ranking',
+      'trends',
+      'communities',
+      'dormant',
+      'bridges',
+      'propagation',
+    ])
+    expect(config.summaryCardOrder).toEqual(state.summaryCards.value.map(card => card.key))
+  })
+
+  it('restores a saved summary card order and supports resetting back to default', async () => {
+    const config = {
+      showSummaryCards: true,
+      showRanking: true,
+      showCommunities: true,
+      showOrphanBridge: true,
+      showTrends: true,
+      showPropagation: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '/专题',
+      themeNamePrefix: '主题-',
+      themeNameSuffix: '-索引',
+      summaryCardOrder: ['orphans', 'documents', 'references', 'ranking', 'trends', 'communities', 'dormant', 'bridges', 'propagation'],
+    }
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config,
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.summaryCards.value.map(card => card.key)).toEqual(config.summaryCardOrder)
+
+    state.resetSummaryCardOrder()
+    await nextTick()
+
+    expect(state.summaryCards.value.map(card => card.key)).toEqual([
+      'documents',
+      'references',
+      'ranking',
+      'trends',
+      'communities',
+      'orphans',
+      'dormant',
+      'bridges',
+      'propagation',
+    ])
+    expect(config.summaryCardOrder).toEqual(state.summaryCards.value.map(card => card.key))
+  })
+
   it('refreshes snapshot and updates derived states', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,

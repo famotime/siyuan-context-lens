@@ -8,14 +8,24 @@
           用文档级引用网络识别核心节点、主题社区、孤立内容和可执行整理动作。
         </p>
       </div>
-      <button
-        class="action-button"
-        type="button"
-        :disabled="loading"
-        @click="refresh"
-      >
-        {{ loading ? '分析中...' : '刷新分析' }}
-      </button>
+      <div class="hero__actions">
+        <button
+          class="action-button"
+          type="button"
+          :disabled="loading"
+          @click="refresh"
+        >
+          {{ loading ? '分析中...' : '刷新分析' }}
+        </button>
+        <button
+          class="ghost-button hero__reset-button"
+          type="button"
+          :disabled="loading || !visibleSummaryCards.length"
+          @click="resetSummaryCardOrder"
+        >
+          重置排序
+        </button>
+      </div>
     </div>
 
     <div class="filter-panel">
@@ -85,9 +95,22 @@
         <button
           v-for="card in visibleSummaryCards"
           :key="card.label"
-          :class="['summary-card', 'summary-card--interactive', { 'summary-card--active': card.key === selectedSummaryCardKey }]"
+          :class="[
+            'summary-card',
+            'summary-card--interactive',
+            {
+              'summary-card--active': card.key === selectedSummaryCardKey,
+              'summary-card--dragging': card.key === draggedSummaryCardKey,
+              'summary-card--drop-target': card.key === dropTargetSummaryCardKey && card.key !== draggedSummaryCardKey,
+            },
+          ]"
           :title="card.hint"
+          draggable="true"
           type="button"
+          @dragstart="handleSummaryCardDragStart(card.key, $event)"
+          @dragover.prevent="handleSummaryCardDragOver(card.key, $event)"
+          @drop.prevent="handleSummaryCardDrop(card.key)"
+          @dragend="handleSummaryCardDragEnd"
           @click="selectSummaryCard(card.key)"
         >
           <span class="summary-card__label">{{ card.label }}</span>
@@ -511,9 +534,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
+import type { SummaryCardKey } from '@/analytics/summary-details'
 import DormantDetailPanel from '@/components/DormantDetailPanel.vue'
 import DocumentTitle from '@/components/DocumentTitle.vue'
 import FilterSelect from '@/components/FilterSelect.vue'
@@ -579,6 +603,8 @@ const {
   selectEvidence,
   selectCommunity,
   selectSummaryCard,
+  reorderSummaryCard,
+  resetSummaryCardOrder,
   resolveLinkAssociations,
   toggleLinkPanel,
   isLinkPanelExpanded,
@@ -596,6 +622,9 @@ const {
   toggleOrphanThemeSuggestion,
   isThemeSuggestionActive,
 } = analytics
+
+const draggedSummaryCardKey = ref<SummaryCardKey | ''>('')
+const dropTargetSummaryCardKey = ref<SummaryCardKey | ''>('')
 
 const visibleSummaryCards = computed(() => {
   if (!props.config.showSummaryCards) {
@@ -656,6 +685,39 @@ function updateOrphanSort(value: typeof orphanSort.value) {
 function updateDormantDays(value: number) {
   dormantDays.value = value
 }
+
+function handleSummaryCardDragStart(cardKey: SummaryCardKey, event: DragEvent) {
+  draggedSummaryCardKey.value = cardKey
+  dropTargetSummaryCardKey.value = ''
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', cardKey)
+  }
+}
+
+function handleSummaryCardDragOver(cardKey: SummaryCardKey, event: DragEvent) {
+  if (!draggedSummaryCardKey.value || draggedSummaryCardKey.value === cardKey) {
+    return
+  }
+  dropTargetSummaryCardKey.value = cardKey
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
+
+function handleSummaryCardDrop(cardKey: SummaryCardKey) {
+  if (!draggedSummaryCardKey.value) {
+    return
+  }
+  reorderSummaryCard(draggedSummaryCardKey.value, cardKey)
+  draggedSummaryCardKey.value = ''
+  dropTargetSummaryCardKey.value = ''
+}
+
+function handleSummaryCardDragEnd() {
+  draggedSummaryCardKey.value = ''
+  dropTargetSummaryCardKey.value = ''
+}
 </script>
 
 <style lang="scss" scoped>
@@ -692,6 +754,13 @@ function updateDormantDays(value: number) {
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 24px;
+}
+
+.hero__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .eyebrow {
@@ -818,6 +887,16 @@ input {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.12);
   border-color: color-mix(in srgb, var(--b3-theme-primary) 20%, transparent);
+}
+
+.summary-card--dragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
+
+.summary-card--drop-target {
+  border-color: color-mix(in srgb, var(--accent-warm) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-warm) 18%, transparent);
 }
 
 .summary-card--active {
@@ -1301,6 +1380,11 @@ input {
   background: color-mix(in srgb, var(--b3-theme-primary) 15%, transparent);
 }
 
+.ghost-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .state-banner,
 .empty-state {
   padding: 24px;
@@ -1333,6 +1417,11 @@ input {
 
   .hero {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hero__actions {
+    align-items: stretch;
   }
 }
 </style>

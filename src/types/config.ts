@@ -9,6 +9,7 @@ export interface PluginConfig {
   themeDocumentPath: string
   themeNamePrefix: string
   themeNameSuffix: string
+  summaryCardOrder?: string[]
 }
 
 export const DEFAULT_CONFIG: PluginConfig = {
@@ -22,4 +23,5 @@ export const DEFAULT_CONFIG: PluginConfig = {
   themeDocumentPath: '',
   themeNamePrefix: '',
   themeNameSuffix: '',
+  summaryCardOrder: undefined,
 }

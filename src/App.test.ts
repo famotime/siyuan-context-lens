@@ -10,4 +10,13 @@ describe('App trend detail layout', () => {
     expect(source).toContain('trend-record__meta')
     expect(source).not.toContain('variant="compact"')
   })
+
+  it('exposes drag sorting and a reset order button for summary cards', async () => {
+    const source = await readFile(new URL('./App.vue', import.meta.url), 'utf8')
+
+    expect(source).toContain('重置排序')
+    expect(source).toContain('draggable="true"')
+    expect(source).toContain('@dragstart=')
+    expect(source).toContain('@drop.prevent=')
+  })
 })
