@@ -272,6 +272,50 @@ describe('buildSummaryDetailSections', () => {
       expect.objectContaining({ documentId: 'doc-local-target', badge: '1 次参与' }),
     ])
   })
+
+  it('does not show missing topic page badges when a community already contains a recognized theme document', () => {
+    const sections = buildSummaryDetailSections({
+      documents: [
+        { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', tags: [], created: '20260301090000', updated: '20260311120000' },
+        { id: 'doc-note', box: 'box-1', path: '/notes/ai.sy', hpath: '/笔记/AI', title: 'AI 笔记', tags: [], created: '20260302090000', updated: '20260310120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-note', sourceBlockId: 'blk-note', targetDocumentId: 'doc-theme-ai', targetBlockId: 'blk-theme', content: '[[主题-AI-索引]]', sourceUpdated: '20260311120000' },
+      ],
+      report: {
+        ...report,
+        summary: {
+          ...report.summary,
+          totalDocuments: 2,
+          analyzedDocuments: 2,
+          totalReferences: 1,
+          orphanCount: 0,
+          communityCount: 1,
+          dormantCount: 0,
+          propagationCount: 0,
+        },
+        ranking: [
+          { documentId: 'doc-theme-ai', title: '主题-AI-索引', inboundReferences: 1, distinctSourceDocuments: 1, outboundReferences: 0, lastActiveAt: '20260311120000' },
+        ],
+        communities: [
+          { id: 'community-doc-theme-ai', documentIds: ['doc-note', 'doc-theme-ai'], size: 2, hubDocumentIds: ['doc-theme-ai'], topTags: [], notebookIds: ['box-1'], missingTopicPage: true },
+        ],
+        bridgeDocuments: [],
+        orphans: [],
+        dormantDocuments: [],
+        propagationNodes: [],
+      } as any,
+      now,
+      timeRange: 'all',
+      themeDocumentIds: new Set(['doc-theme-ai']),
+      dormantDays: 30,
+    })
+
+    expect(sections.communities.items).toEqual([
+      expect.objectContaining({ documentId: 'doc-note', badge: undefined }),
+      expect.objectContaining({ documentId: 'doc-theme-ai', badge: undefined, isThemeDocument: true }),
+    ])
+  })
 })
 
 describe('buildSummaryCards', () => {

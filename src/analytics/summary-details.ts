@@ -314,11 +314,12 @@ export function buildSummaryDetailSections(params: {
       description: '已归入主题社区的文档。',
       kind: 'list',
       items: params.report.communities.flatMap(community => {
+        const hasRecognizedThemeDocument = community.documentIds.some(documentId => themeDocumentIdSet.has(documentId))
         return community.documentIds.map((documentId) => ({
           documentId,
           title: documentMap.get(documentId)?.title ?? documentId,
           meta: `社区标签：${community.topTags.join(' / ') || '未提取'} · 社区规模 ${community.size}`,
-          badge: community.missingTopicPage ? '缺主题页' : undefined,
+          badge: community.missingTopicPage && !hasRecognizedThemeDocument ? '缺主题页' : undefined,
           isThemeDocument: themeDocumentIdSet.has(documentId),
         }))
       }),
