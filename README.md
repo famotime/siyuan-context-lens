@@ -1,4 +1,4 @@
-# siyuan-context-lens
+# siyuan-network-lens
 
 思源笔记插件：脉络镜（Context lens）。
 

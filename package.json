@@ -1,5 +1,5 @@
 {
-  "name": "siyuan-context-lens",
+  "name": "siyuan-network-lens",
   "version": "0.0.1",
   "type": "module",
   "description": "A SiYuan plugin for document context lens.",

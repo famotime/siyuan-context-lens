@@ -64,7 +64,7 @@ Tests live alongside source in `src/analytics/*.test.ts`. Key coverage: graph an
 - **Do not modify** `plugin-sample-vite-vue/` — it's a template, not part of the plugin.
 - `reference_docs/` contains SiYuan API documentation for reference.
 - Path aliases: `@/*` → `src/*`
-- Dev mode outputs to `$VITE_SIYUAN_WORKSPACE_PATH/data/plugins/siyuan-context-lens` (configured in `.env`).
+- Dev mode outputs to `$VITE_SIYUAN_WORKSPACE_PATH/data/plugins/siyuan-network-lens` (configured in `.env`).
 
 ## Troubleshooting
 
