@@ -3,7 +3,7 @@
     <div class="hero">
       <div class="hero__intro">
         <div class="hero__copy-block">
-          <p class="eyebrow">Context lens</p>
+          <p class="eyebrow">Network lens</p>
           <h1>脉络镜</h1>
           <p class="hero-copy">
             让隐没的知识，重现脉络

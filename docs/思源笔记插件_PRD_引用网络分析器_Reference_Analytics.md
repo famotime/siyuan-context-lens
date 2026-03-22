@@ -1,6 +1,6 @@
 ## 一、项目名称
 
-脉络镜 Context lens
+脉络镜 Network lens
 
 ## 二、项目背景
 

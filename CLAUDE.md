@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SiYuan note-taking plugin ("脉络镜 / Context lens") that performs document-level reference network analysis. Not a graph renderer — it analyzes structural relationships between documents to surface rankings, communities, bridges, orphans, dormant docs, propagation nodes, trends, and actionable suggestions.
+SiYuan note-taking plugin ("脉络镜 / Network lens") that performs document-level reference network analysis. Not a graph renderer — it analyzes structural relationships between documents to surface rankings, communities, bridges, orphans, dormant docs, propagation nodes, trends, and actionable suggestions.
 
 ## Commands
 

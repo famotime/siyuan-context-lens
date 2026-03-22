@@ -2,7 +2,7 @@
   "name": "siyuan-network-lens",
   "version": "0.0.1",
   "type": "module",
-  "description": "A SiYuan plugin for document context lens.",
+  "description": "A SiYuan plugin for document network lens.",
   "author": "",
   "license": "MIT",
   "homepage": "",
