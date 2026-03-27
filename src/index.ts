@@ -2,12 +2,13 @@ import { Plugin, Dialog } from 'siyuan'
 import { reactive, watch } from 'vue'
 
 import pluginInfo from '@/../plugin.json'
-import { destroyApp, mountApp, mountSetting, destroySetting } from '@/main'
+import { destroyApp, destroySetting, mountApp, mountSetting } from '@/main'
+import { openPluginDock } from './plugin-dock'
+import { PLUGIN_ICON, PLUGIN_ICON_SYMBOL } from './plugin-icon'
 import { DEFAULT_CONFIG, ensureConfigDefaults, type PluginConfig } from './types/config'
 
 const DOCK_TYPE = 'reference-analytics-dock'
 const PLUGIN_TITLE = '脉络镜'
-const PLUGIN_ICON = 'iconGraph'
 const STORAGE_NAME = 'settings.json'
 
 export default class ReferenceAnalyticsPlugin extends Plugin {
@@ -19,6 +20,8 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
   }
 
   async onload() {
+    this.addIcons(PLUGIN_ICON_SYMBOL)
+
     const loadedConfig = await this.loadData(STORAGE_NAME)
     if (loadedConfig) {
       ensureConfigDefaults(loadedConfig as PluginConfig)
@@ -29,14 +32,6 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
     watch(() => { return { ...this.config } }, (newConfig) => {
       this.saveData(STORAGE_NAME, newConfig)
     }, { deep: true })
-
-    this.addTopBar({
-      icon: PLUGIN_ICON,
-      title: PLUGIN_TITLE,
-      callback: () => {
-        this.openDock()
-      },
-    })
 
     this.addCommand({
       langKey: 'openReferenceAnalytics',
@@ -77,11 +72,11 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
   }
 
   async uninstall() {
-    await this.removeData('settings.json')
+    await this.removeData(STORAGE_NAME)
   }
 
   openDock() {
-    this.dockInstance?.model.toggleModel(DOCK_TYPE, true)
+    openPluginDock(DOCK_TYPE, this.dockInstance)
   }
 
   openSetting() {
@@ -92,12 +87,12 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
       content: '<div id="reference-analytics-setting-root" style="height: 100%;"></div>',
       destroyCallback: () => {
         destroySetting()
-      }
+      },
     })
 
     const root = dialog.element.querySelector('#reference-analytics-setting-root') as HTMLElement
     if (root) {
-        mountSetting(root, this.config)
+      mountSetting(root, this.config)
     }
   }
 }

@@ -20,9 +20,6 @@
   "readme": {
     "default": "README.md"
   },
-  "funding": {
-    "custom": []
-  },
   "keywords": [
     "analytics",
     "graph",

@@ -175,6 +175,7 @@ onMounted(async () => {
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
+  border-radius: 14px;
 }
 
 .setting-group {

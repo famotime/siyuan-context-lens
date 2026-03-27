@@ -27,3 +27,6 @@
 ![image](https://raw.githubusercontent.com/famotime/siyuan-network-lens/main/assets/image-20260321143824-1lckav4.quickedit-convert-webp-1774075160589-20260321143920-v297w9q.webp)
 
 ‍
+## 如何使用？
+
+当前功能介绍、使用方法，以及基于试用的意见和建议，可以在思源社区的这个帖子中讨论：[一个想法：我们不需要更酷炫的关系图，我们需要一个能给出建议的仪表盘](https://ld246.com/article/1774075839744)
