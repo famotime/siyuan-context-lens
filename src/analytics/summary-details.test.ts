@@ -189,14 +189,30 @@ describe('buildSummaryDetailSections', () => {
         readTitlePrefixes: '',
         readTitleSuffixes: '',
       } as any,
+      largeDocumentMetrics: new Map([
+        ['doc-c', { documentId: 'doc-c', wordCount: 500, documentBytes: 1024, assetBytes: 4 * 1024 * 1024, totalBytes: 4 * 1024 * 1024 + 1024, assetCount: 3 }],
+      ]),
     })
 
     expect((sections as Record<string, any>).read).toEqual(expect.objectContaining({
       key: 'read',
       title: '未读文档详情',
       items: [
-        expect.objectContaining({ documentId: 'doc-a', badge: '待标记' }),
-        expect.objectContaining({ documentId: 'doc-c', badge: '待标记' }),
+        expect.objectContaining({
+          documentId: 'doc-a',
+          badge: '待标记',
+          meta: '创建于 2026-03-01',
+          suggestions: [],
+        }),
+        expect.objectContaining({
+          documentId: 'doc-c',
+          badge: '待标记',
+          meta: '创建于 2026-03-03',
+          suggestions: [
+            expect.objectContaining({ label: '补齐链接', text: '当前没有文档级连接' }),
+            expect.objectContaining({ label: '清理内嵌资源' }),
+          ],
+        }),
       ],
     }))
   })

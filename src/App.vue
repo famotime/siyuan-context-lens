@@ -174,6 +174,7 @@
         :is-expanded="isPanelExpanded('summary-detail')"
         :on-toggle-panel="() => togglePanel('summary-detail')"
         :orphan-detail-items="orphanDetailItems"
+        :orphan-theme-suggestions="orphanThemeSuggestions"
         :orphan-sort="orphanSort"
         :on-update-orphan-sort="updateOrphanSort"
         :dormant-days="dormantDays"
@@ -181,6 +182,7 @@
         :open-document="openDocument"
         :toggle-orphan-theme-suggestion="toggleOrphanThemeSuggestion"
         :is-theme-suggestion-active="isThemeSuggestionActive"
+        :read-card-mode="readCardMode"
         :path-scope="pathScope"
         :on-update-path-scope="updatePathScope"
         :max-path-depth="maxPathDepth"
@@ -273,6 +275,7 @@ const {
   selectedSummaryCount,
   themeDocumentIds,
   orphanDetailItems,
+  orphanThemeSuggestions,
   pathOptions,
   pathChain,
   panelCounts,

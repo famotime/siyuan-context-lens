@@ -47,11 +47,11 @@
       </template>
       <template v-else-if="detail.kind === 'list'">
         <div
-          v-if="detail.items.length"
+          v-if="listItems.length"
           class="summary-detail-list"
         >
           <article
-            v-for="item in detail.items"
+            v-for="item in listItems"
             :key="`${detail.key}-${item.documentId}`"
             class="summary-detail-item"
           >
@@ -72,7 +72,28 @@
             <p class="summary-detail-item__meta">
               {{ item.meta }}
             </p>
-            <SuggestionCallout :suggestions="item.suggestions ?? []" />
+            <SuggestionCallout
+              v-if="hasSuggestionCallout(item)"
+              :suggestions="buildSuggestionCalloutItems(item)"
+            >
+              <div
+                v-if="item.themeSuggestions?.length"
+                class="detail-theme-section"
+              >
+                <div class="detail-theme-tags">
+                  <button
+                    v-for="suggestion in item.themeSuggestions"
+                    :key="`${item.documentId}-${suggestion.themeDocumentId}`"
+                    :class="['detail-theme-tag', { 'detail-theme-tag--active': isThemeSuggestionActive(item.documentId, suggestion.themeDocumentId) }]"
+                    type="button"
+                    :title="`${suggestion.themeDocumentTitle} · 匹配 ${suggestion.matchCount} 次`"
+                    @click="toggleOrphanThemeSuggestion(item.documentId, suggestion.themeDocumentId)"
+                  >
+                    <span class="detail-theme-name">{{ suggestion.themeName }}</span>
+                  </button>
+                </div>
+              </div>
+            </SuggestionCallout>
           </article>
         </div>
         <div
@@ -422,9 +443,12 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import type { OrphanSort } from '@/analytics/analysis'
 import type { LinkDirection } from '@/analytics/link-sync'
-import type { SummaryDetailSection as SummaryDetailSectionType } from '@/analytics/summary-details'
+import type { DetailSuggestion, SummaryDetailSection as SummaryDetailSectionType } from '@/analytics/summary-details'
+import type { ReadCardMode } from '@/analytics/read-status'
 import type { ThemeDocumentMatch } from '@/analytics/theme-documents'
 import type { PathScope } from '@/composables/use-analytics-derived'
 import DocumentTitle from '@/components/DocumentTitle.vue'
@@ -443,12 +467,13 @@ type DetailItemWithThemeSuggestions = {
   themeSuggestions: ThemeDocumentMatch[]
 }
 
-defineProps<{
+const props = defineProps<{
   detail: SummaryDetailSectionType
   selectedSummaryCount: number
   isExpanded: boolean
   onTogglePanel: () => void
   orphanDetailItems: DetailItemWithThemeSuggestions[]
+  orphanThemeSuggestions: Map<string, ThemeDocumentMatch[]>
   orphanSort: OrphanSort
   onUpdateOrphanSort: (value: OrphanSort) => void
   dormantDays: number
@@ -456,6 +481,7 @@ defineProps<{
   openDocument: (documentId: string) => void
   toggleOrphanThemeSuggestion: (orphanDocumentId: string, themeDocumentId: string) => Promise<void>
   isThemeSuggestionActive: (orphanDocumentId: string, themeDocumentId: string) => boolean
+  readCardMode: ReadCardMode
   pathScope: PathScope
   onUpdatePathScope: (value: PathScope) => void
   maxPathDepth: number
@@ -480,6 +506,47 @@ defineProps<{
   themeDocumentIds: Set<string>
   selectCommunity: (communityId: string) => void
 }>()
+
+const listItems = computed<DetailItemWithThemeSuggestions[]>(() => {
+  if (props.detail.kind !== 'list') {
+    return []
+  }
+
+  if (props.detail.key === 'read' && props.readCardMode === 'unread') {
+    return props.detail.items.map(item => ({
+      ...item,
+      themeSuggestions: props.orphanThemeSuggestions.get(item.documentId) ?? [],
+    }))
+  }
+
+  return props.detail.items.map(item => ({
+    ...item,
+    themeSuggestions: [],
+  }))
+})
+
+function hasSuggestionCallout(item: DetailItemWithThemeSuggestions): boolean {
+  return Boolean(item.suggestions?.length || item.themeSuggestions.length)
+}
+
+function buildSuggestionCalloutItems(item: DetailItemWithThemeSuggestions): DetailSuggestion[] {
+  const suggestions = item.suggestions ?? []
+  if (!item.themeSuggestions.length) {
+    return suggestions
+  }
+
+  return suggestions.map((suggestion) => {
+    if (suggestion.label !== '补齐链接') {
+      return suggestion
+    }
+
+    const text = suggestion.text.replace(/[。；，,\s]*$/, '')
+    return {
+      ...suggestion,
+      text: `${text}，建议链接以下主题文档（点击添加）：`,
+    }
+  })
+}
 </script>
 
 <style scoped>
@@ -605,6 +672,47 @@ defineProps<{
   font-size: 12px;
   background: var(--surface-chip-warm);
   color: color-mix(in srgb, var(--accent-warm) 60%, var(--b3-theme-on-background));
+}
+
+.detail-theme-section {
+  display: grid;
+  gap: 6px;
+}
+
+.detail-theme-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detail-theme-tag {
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--b3-theme-on-background) 58%, transparent);
+  background: color-mix(in srgb, var(--b3-theme-on-background) 8%, transparent);
+  transition: background-color 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  max-width: 100%;
+}
+
+.detail-theme-tag:hover {
+  background: color-mix(in srgb, var(--b3-theme-primary) 14%, transparent);
+  color: var(--b3-theme-primary);
+}
+
+.detail-theme-tag--active {
+  background: color-mix(in srgb, var(--b3-theme-primary) 18%, transparent);
+  color: var(--b3-theme-primary);
+}
+
+.detail-theme-name {
+  font-weight: 600;
 }
 
 .propagation-path {

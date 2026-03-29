@@ -9,6 +9,7 @@ const baseProps = {
   isExpanded: true,
   onTogglePanel: vi.fn(),
   orphanDetailItems: [],
+  orphanThemeSuggestions: new Map<string, Array<{ themeDocumentId: string, themeDocumentTitle: string, themeName: string, matchCount: number }>>(),
   orphanSort: 'updated-desc' as const,
   onUpdateOrphanSort: vi.fn(),
   dormantDays: 30,
@@ -16,6 +17,7 @@ const baseProps = {
   openDocument: vi.fn(),
   toggleOrphanThemeSuggestion: vi.fn(),
   isThemeSuggestionActive: vi.fn(() => false),
+  readCardMode: 'unread' as const,
   pathScope: 'focused' as const,
   onUpdatePathScope: vi.fn(),
   maxPathDepth: 4,
@@ -107,5 +109,41 @@ describe('SummaryDetailSection', () => {
     expect(html).toContain('Alpha')
     expect(html).toContain('3 分')
     expect(html).toContain('path-node')
+  })
+
+  it('renders orphan-style theme suggestions inside unread detail items', async () => {
+    const app = createSSRApp({
+      render: () => h(SummaryDetailSection, {
+        ...baseProps,
+        orphanThemeSuggestions: new Map([
+          ['doc-orphan', [
+            { themeDocumentId: 'doc-theme-ai', themeDocumentTitle: '主题-AI-索引', themeName: 'AI', matchCount: 2 },
+          ]],
+        ]),
+        detail: {
+          key: 'read',
+          title: '未读文档详情',
+          description: '未命中已读规则的文档。',
+          kind: 'list',
+          items: [
+            {
+              documentId: 'doc-orphan',
+              title: 'Alpha',
+              meta: '创建于 2026-03-14',
+              badge: '待标记',
+              suggestions: [{ label: '补齐链接', text: '当前没有文档级连接。' }],
+            },
+          ],
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('未读文档详情')
+    expect(html).toContain('创建于 2026-03-14')
+    expect(html).toContain('补齐链接')
+    expect(html).toContain('当前没有文档级连接，建议链接以下主题文档（点击添加）：')
+    expect(html).toContain('AI')
   })
 })

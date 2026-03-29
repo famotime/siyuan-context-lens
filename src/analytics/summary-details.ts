@@ -12,6 +12,8 @@ import {
   buildLargeDocumentMeta,
   buildLargeDocumentRankings,
   formatLargeDocumentBadge,
+  formatBytes,
+  LARGE_DOCUMENT_STORAGE_THRESHOLD_BYTES,
   type LargeDocumentCardMode,
   type LargeDocumentMetric,
   type LargeDocumentSummary,
@@ -254,12 +256,17 @@ export function buildSummaryDetailSections(params: {
   const unreadItems = filteredDocuments
     .filter(document => !readDocumentIdSet.has(document.id))
     .sort((left, right) => compareTimestamp(right.updated ?? '', left.updated ?? '') || resolveTitle(left).localeCompare(resolveTitle(right), 'zh-CN'))
-      .map(document => ({
+    .map(document => ({
       documentId: document.id,
       title: resolveTitle(document),
-      meta: `未命中已读目录、标签或标题规则 · 最近更新 ${formatCompactDate(document.updated)}`,
+      meta: `创建于 ${formatCompactDate(document.created)}`,
       badge: '待标记',
       isThemeDocument: themeDocumentIdSet.has(document.id),
+      suggestions: buildUnreadSuggestions({
+        documentId: document.id,
+        suggestionMap,
+        largeDocumentMetrics: params.largeDocumentMetrics,
+      }),
     }))
 
   return {
@@ -463,6 +470,28 @@ function buildPropagationSuggestion(item: ReferenceGraphReport['propagationNodes
   return {
     label: '传播优化',
     text: `位于 ${item.pathPairCount} 条关键最短路径上，覆盖 ${item.focusDocumentCount} 个焦点文档${bridgeHint}，建议补充路径说明与上下游导航。`,
+  }
+}
+
+function buildUnreadSuggestions(params: {
+  documentId: string
+  suggestionMap: Map<string, Array<{ type: ReferenceGraphReport['suggestions'][number]['type'], suggestion: DetailSuggestion }>>
+  largeDocumentMetrics?: ReadonlyMap<string, LargeDocumentMetric>
+}): DetailSuggestion[] {
+  const suggestions = resolveSuggestions(params.suggestionMap, params.documentId, 'repair-orphan')
+  const metric = params.largeDocumentMetrics?.get(params.documentId)
+
+  if (metric && metric.assetCount > 0 && metric.totalBytes > LARGE_DOCUMENT_STORAGE_THRESHOLD_BYTES) {
+    suggestions.push(buildEmbeddedAssetCleanupSuggestion(metric))
+  }
+
+  return suggestions
+}
+
+function buildEmbeddedAssetCleanupSuggestion(metric: Pick<LargeDocumentMetric, 'assetCount' | 'assetBytes' | 'totalBytes'>): DetailSuggestion {
+  return {
+    label: '清理内嵌资源',
+    text: `内嵌资源 ${metric.assetCount} 个，资源占用 ${formatBytes(metric.assetBytes)}，当前总大小 ${formatBytes(metric.totalBytes)}，建议清理不再需要的内嵌资源。`,
   }
 }
 
