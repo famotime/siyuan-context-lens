@@ -175,7 +175,7 @@ onMounted(async () => {
   height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
-  border-radius: 14px;
+  border-radius: 0 0 var(--b3-border-radius-b) var(--b3-border-radius-b);
 }
 
 .setting-group {
