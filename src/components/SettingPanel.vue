@@ -124,6 +124,69 @@
 
     <div class="setting-group">
       <div class="setting-header">
+        <h3>AI 接入</h3>
+        <p>配置兼容 OpenAI API 的服务，用于生成“AI 整理收件箱”的今日优先待办。</p>
+      </div>
+      <div class="setting-form">
+        <label class="setting-item setting-item--full">
+          <span class="setting-item__text">
+            <strong>启用 AI 整理收件箱</strong>
+            <span>开启后可在统计卡片下方生成统一优先级的整理建议</span>
+          </span>
+          <input type="checkbox" v-model="config.aiEnabled" class="b3-switch">
+        </label>
+        <label class="setting-field setting-field--full">
+          <span>Base URL</span>
+          <input
+            v-model.trim="config.aiBaseUrl"
+            placeholder="https://api.openai.com/v1"
+            type="text"
+          >
+        </label>
+        <label class="setting-field setting-field--full">
+          <span>API Key</span>
+          <input
+            v-model.trim="config.aiApiKey"
+            placeholder="sk-..."
+            type="password"
+          >
+        </label>
+        <label class="setting-field setting-field--full">
+          <span>Model</span>
+          <input
+            v-model.trim="config.aiModel"
+            placeholder="gpt-4.1-mini"
+            type="text"
+          >
+        </label>
+        <label class="setting-field setting-field--full">
+          <span>上下文容量</span>
+          <select v-model="config.aiContextCapacity">
+            <option value="compact">紧凑</option>
+            <option value="balanced">标准</option>
+            <option value="full">扩展</option>
+          </select>
+        </label>
+      </div>
+      <div class="setting-actions">
+        <button
+          class="setting-button"
+          type="button"
+          :disabled="aiTestingConnection || !config.aiEnabled || !aiConfigComplete"
+          @click="handleTestConnection"
+        >
+          {{ aiTestingConnection ? '测试中...' : '测试连接' }}
+        </button>
+        <span class="setting-feedback">
+          如果出现超时或 `context deadline exceeded`，优先切换到“紧凑”。
+        </span>
+        <span v-if="aiConnectionMessage" class="setting-feedback setting-feedback--success">{{ aiConnectionMessage }}</span>
+        <span v-if="aiConnectionError" class="setting-feedback setting-feedback--error">{{ aiConnectionError }}</span>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-header">
         <h3>传播与链路</h3>
         <p>传播节点详情中将包含关系传播路径视图。</p>
       </div>
@@ -132,9 +195,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
-import { lsNotebooks, sql } from '@/api'
+import { forwardProxy, lsNotebooks, sql } from '@/api'
+import { createAiInboxService, isAiConfigComplete } from '@/analytics/ai-inbox'
 import { SUMMARY_CARD_DEFINITIONS } from '@/analytics/summary-card-config'
 import { loadSettingPanelData, type NotebookOption } from '@/components/setting-panel-data'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
@@ -147,8 +211,14 @@ const props = defineProps<{
 const notebooks = ref<NotebookOption[]>([])
 const readTagOptions = ref<Array<{ value: string, label: string, key: string }>>([])
 const summaryCardSettings = SUMMARY_CARD_DEFINITIONS
+const aiTestingConnection = ref(false)
+const aiConnectionMessage = ref('')
+const aiConnectionError = ref('')
 
 ensureConfigDefaults(props.config)
+
+const aiService = createAiInboxService({ forwardProxy })
+const aiConfigComplete = computed(() => isAiConfigComplete(props.config))
 
 onMounted(async () => {
   const data = await loadSettingPanelData({
@@ -159,6 +229,23 @@ onMounted(async () => {
   notebooks.value = data.notebooks
   readTagOptions.value = data.readTagOptions
 })
+
+async function handleTestConnection() {
+  aiTestingConnection.value = true
+  aiConnectionMessage.value = ''
+  aiConnectionError.value = ''
+
+  try {
+    const result = await aiService.testConnection({
+      config: props.config,
+    })
+    aiConnectionMessage.value = result.message
+  } catch (error) {
+    aiConnectionError.value = error instanceof Error ? error.message : 'AI 连接测试失败'
+  } finally {
+    aiTestingConnection.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -284,6 +371,41 @@ onMounted(async () => {
   color: var(--b3-theme-on-background);
   padding: 10px 12px;
   box-sizing: border-box;
+}
+
+.setting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.setting-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--b3-theme-primary);
+  color: var(--b3-theme-on-primary, #fff);
+  cursor: pointer;
+  font: inherit;
+  transition: opacity 0.2s;
+}
+
+.setting-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.setting-feedback {
+  font-size: 13px;
+}
+
+.setting-feedback--success {
+  color: color-mix(in srgb, var(--b3-theme-primary) 72%, var(--b3-theme-on-background));
+}
+
+.setting-feedback--error {
+  color: var(--b3-theme-error);
 }
 
 .setting-select-shell {

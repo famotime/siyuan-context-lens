@@ -44,11 +44,13 @@ import {
   createLinkAssociationInteractions,
   createThemeSuggestionController,
 } from './use-analytics-interactions'
+import { createAiInboxService, isAiConfigComplete, type AiInboxResult, type AiInboxService } from '@/analytics/ai-inbox'
 import type { PluginConfig } from '@/types/config'
 
 export type { PathScope } from './use-analytics-derived'
 
 const panelKeys = [
+  'ai-inbox',
   'summary-detail',
 ] as const
 
@@ -71,6 +73,14 @@ type BlockDeleteFn = (id: string) => Promise<any>
 type BlockUpdateFn = (dataType: 'markdown' | 'dom', data: string, id: string) => Promise<any>
 type GetChildBlocksFn = (id: string) => Promise<Array<{ id: string, type?: string }>>
 type GetBlockKramdownFn = (id: string) => Promise<{ id: string, kramdown: string }>
+type ForwardProxyFn = (
+  url: string,
+  method?: string,
+  payload?: any,
+  headers?: any[],
+  timeout?: number,
+  contentType?: string,
+) => Promise<IResForwardProxy>
 
 type UseAnalyticsParams = {
   plugin: PluginLike
@@ -87,6 +97,8 @@ type UseAnalyticsParams = {
   updateBlock: BlockUpdateFn
   getChildBlocks: GetChildBlocksFn
   getBlockKramdown: GetBlockKramdownFn
+  forwardProxy?: ForwardProxyFn
+  createAiInboxService?: (deps: { forwardProxy: ForwardProxyFn }) => AiInboxService
 }
 
 export function useAnalyticsState(params: UseAnalyticsParams) {
@@ -102,6 +114,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const updateBlock = params.updateBlock
   const getChildBlocks = params.getChildBlocks
   const getBlockKramdown = params.getBlockKramdown
+  const aiInboxService = params.forwardProxy
+    ? (params.createAiInboxService?.({ forwardProxy: params.forwardProxy }) ?? createAiInboxService({ forwardProxy: params.forwardProxy }))
+    : null
 
   const loading = ref(false)
   const errorMessage = ref('')
@@ -127,6 +142,11 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const summaryCardOrder = ref<SummaryCardKey[]>(normalizeSummaryCardOrder(params.config.summaryCardOrder))
   const panelCollapseState = ref<PanelCollapseState<PanelKey>>(buildPanelCollapseState(panelKeys))
   const largeDocumentMetrics = ref<Map<string, LargeDocumentMetric>>(new Map())
+  const aiInboxLoading = ref(false)
+  const aiConnectionTesting = ref(false)
+  const aiInboxError = ref('')
+  const aiConnectionMessage = ref('')
+  const aiInboxResult = ref<AiInboxResult | null>(null)
   const timeRangeOptions = computed(() => buildTimeRangeOptions())
   let disposeActiveDocumentSync: (() => void) | null = null
 
@@ -272,6 +292,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     })
   })
   const summaryCards = computed<SummaryCardItem[]>(() => sortSummaryCards(rawSummaryCards.value, summaryCardOrder.value))
+  const aiConfigReady = computed(() => isAiConfigComplete(params.config))
 
   const summaryDetailSections = computed(() => {
     if (!snapshot.value || !report.value) {
@@ -495,6 +516,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         ? await loadLargeDocumentMetricsFn(snapshot.value.documents)
         : new Map()
       themeSuggestionController.clearPendingThemeSuggestionBlocks()
+      aiInboxError.value = ''
+      aiConnectionMessage.value = ''
+      aiInboxResult.value = null
     } catch (error) {
       const message = error instanceof Error ? error.message : '读取思源数据失败'
       errorMessage.value = message
@@ -593,6 +617,70 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     return delta > 0 ? `+${delta}` : delta.toString()
   }
 
+  async function testAiConnection() {
+    aiConnectionTesting.value = true
+    aiInboxError.value = ''
+    aiConnectionMessage.value = ''
+
+    try {
+      if (!aiInboxService) {
+        throw new Error('AI 网络代理未初始化')
+      }
+      const result = await aiInboxService.testConnection({
+        config: params.config,
+      })
+      aiConnectionMessage.value = result.message
+      return result
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI 连接测试失败'
+      aiInboxError.value = message
+      notify(message, 5000, 'error')
+      return {
+        ok: false,
+        message,
+      }
+    } finally {
+      aiConnectionTesting.value = false
+    }
+  }
+
+  async function generateAiInbox() {
+    if (!report.value || !trends.value || !snapshot.value) {
+      aiInboxError.value = '当前分析结果还未准备好，请先刷新分析'
+      return
+    }
+
+    aiInboxLoading.value = true
+    aiInboxError.value = ''
+    aiConnectionMessage.value = ''
+
+    try {
+      if (!aiInboxService) {
+        throw new Error('AI 网络代理未初始化')
+      }
+      const payload = aiInboxService.buildPayload({
+        documents: snapshot.value.documents,
+        report: report.value,
+        trends: trends.value,
+        summaryCards: summaryCards.value,
+        filters: filters.value,
+        timeRange: timeRange.value,
+        dormantDays: dormantDays.value,
+        contextCapacity: params.config.aiContextCapacity,
+      })
+      aiInboxResult.value = await aiInboxService.generateInbox({
+        config: params.config,
+        payload,
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'AI 收件箱生成失败'
+      aiInboxError.value = message
+      notify(message, 5000, 'error')
+    } finally {
+      aiInboxLoading.value = false
+    }
+  }
+
   const linkInteractions = createLinkAssociationInteractions({
     resolveTitle,
     appendBlock,
@@ -635,6 +723,12 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     readCardMode,
     largeDocumentCardMode,
     panelCollapseState,
+    aiConfigReady,
+    aiInboxLoading,
+    aiConnectionTesting,
+    aiInboxError,
+    aiConnectionMessage,
+    aiInboxResult,
     filters,
     notebookOptions,
     tagOptions,
@@ -682,6 +776,8 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     openDocument,
     formatTimestamp,
     formatDelta,
+    generateAiInbox,
+    testAiConnection,
     toggleOrphanThemeSuggestion: themeSuggestionController.toggleOrphanThemeSuggestion,
     isThemeSuggestionActive: themeSuggestionController.isThemeSuggestionActive,
   }

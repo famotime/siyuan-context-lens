@@ -722,4 +722,102 @@ describe('useAnalyticsState', () => {
 
     expect(state.resolveLinkAssociations('doc-parent').childDocuments.map(item => item.documentId)).toEqual(['doc-child-old'])
   })
+
+  it('exposes AI inbox state and can generate a prioritized inbox from injected AI service', async () => {
+    const aiResult = {
+      generatedAt: '2026-03-12T08:00:00.000Z',
+      summary: '今天先处理断裂风险和孤立补链。',
+      items: [
+        {
+          id: 'task-doc-orphan',
+          type: 'document',
+          title: 'AI 与 机器学习 AI',
+          priority: 'P1',
+          why: '当前窗口内孤立，但和主题 AI、机器学习都有明显语义相关。',
+          action: '补 2 条到主题页的连接。',
+          benefit: '能立刻回到主题网络中。',
+          documentIds: ['doc-orphan'],
+        },
+      ],
+    }
+    const buildPayload = vi.fn(() => ({ focus: [] }))
+    const generateInbox = vi.fn().mockResolvedValue(aiResult)
+    const testConnection = vi.fn().mockResolvedValue({
+      ok: true,
+      message: '连接成功',
+    })
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.example.com/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'gpt-4.1-mini',
+      },
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+      forwardProxy: async () => ({
+        body: '',
+        contentType: 'application/json',
+        elapsed: 1,
+        headers: {},
+        status: 200,
+        url: 'https://api.example.com/v1/chat/completions',
+      }),
+      createAiInboxService: () => ({
+        buildPayload,
+        generateInbox,
+        testConnection,
+      }),
+    } as any)
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.panelCollapseState.value).toHaveProperty('ai-inbox', true)
+    expect(typeof (state as any).generateAiInbox).toBe('function')
+    expect(typeof (state as any).testAiConnection).toBe('function')
+    expect((state as any).aiInboxResult.value).toBeNull()
+
+    const connection = await (state as any).testAiConnection()
+    expect(connection).toEqual({
+      ok: true,
+      message: '连接成功',
+    })
+
+    await (state as any).generateAiInbox()
+    await nextTick()
+
+    expect(buildPayload).toHaveBeenCalledTimes(1)
+    expect(generateInbox).toHaveBeenCalledTimes(1)
+    expect((state as any).aiInboxResult.value).toEqual(aiResult)
+    expect((state as any).aiInboxError.value).toBe('')
+    expect((state as any).aiInboxResult.value.items).toEqual([
+      expect.objectContaining({
+        id: 'task-doc-orphan',
+        type: 'document',
+        title: 'AI 与 机器学习 AI',
+      }),
+    ])
+  })
 })

@@ -167,6 +167,21 @@
         :on-reorder-summary-card="reorderSummaryCard"
       />
 
+      <AIInboxPanel
+        :enabled="Boolean(props.config.aiEnabled)"
+        :is-configured="aiConfigReady"
+        :is-expanded="isPanelExpanded('ai-inbox')"
+        :loading="aiInboxLoading"
+        :testing-connection="aiConnectionTesting"
+        :error="aiInboxError"
+        :connection-message="aiConnectionMessage"
+        :result="aiInboxResult"
+        :on-generate="generateAiInbox"
+        :on-test-connection="testAiConnection"
+        :on-toggle-panel="() => togglePanel('ai-inbox')"
+        :open-document="openDocument"
+      />
+
       <SummaryDetailSection
         v-if="visibleSummaryCards.length && selectedSummaryDetail"
         :detail="selectedSummaryDetail"
@@ -216,12 +231,13 @@ import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import FilterSelect from '@/components/FilterSelect.vue'
+import AIInboxPanel from '@/components/AIInboxPanel.vue'
 import SummaryCardsGrid from '@/components/SummaryCardsGrid.vue'
 import SummaryDetailSection from '@/components/SummaryDetailSection.vue'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import { isSummaryCardVisible } from '@/analytics/summary-card-config'
 import { useAnalyticsState } from '@/composables/use-analytics'
-import { appendBlock, deleteBlock, getBlockKramdown, getChildBlocks, prependBlock, updateBlock } from '@/api'
+import { appendBlock, deleteBlock, forwardProxy, getBlockKramdown, getChildBlocks, prependBlock, updateBlock } from '@/api'
 import { ensureConfigDefaults, type PluginConfig } from '@/types/config'
 import pluginIconUrl from '../icon.png'
 
@@ -243,6 +259,7 @@ const analytics = useAnalyticsState({
   updateBlock,
   getChildBlocks,
   getBlockKramdown,
+  forwardProxy,
 })
 
 const {
@@ -280,7 +297,15 @@ const {
   pathChain,
   panelCounts,
   snapshotLabel,
+  aiConfigReady,
+  aiInboxLoading,
+  aiConnectionTesting,
+  aiInboxError,
+  aiConnectionMessage,
+  aiInboxResult,
   refresh,
+  generateAiInbox,
+  testAiConnection,
   selectEvidence,
   selectCommunity,
   selectSummaryCard,

@@ -1,4 +1,5 @@
 import { SUMMARY_CARD_DEFINITIONS, buildSummaryCardVisibilityDefaults } from '@/analytics/summary-card-config'
+import type { AiContextCapacity } from '@/analytics/ai-inbox'
 
 export interface PluginConfig {
   showSummaryCards: boolean
@@ -22,6 +23,11 @@ export interface PluginConfig {
   readTitlePrefixes?: string
   readTitleSuffixes?: string
   readPaths?: string
+  aiEnabled?: boolean
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
+  aiContextCapacity?: AiContextCapacity
   summaryCardOrder?: string[]
 }
 
@@ -36,6 +42,11 @@ export const DEFAULT_CONFIG: PluginConfig = {
   readTitlePrefixes: '',
   readTitleSuffixes: '',
   readPaths: '',
+  aiEnabled: false,
+  aiBaseUrl: '',
+  aiApiKey: '',
+  aiModel: '',
+  aiContextCapacity: 'balanced',
   summaryCardOrder: undefined,
 }
 
@@ -65,5 +76,20 @@ export function ensureConfigDefaults(config: PluginConfig) {
   }
   if (typeof config.readPaths !== 'string') {
     config.readPaths = ''
+  }
+  if (typeof config.aiEnabled !== 'boolean') {
+    config.aiEnabled = false
+  }
+  if (typeof config.aiBaseUrl !== 'string') {
+    config.aiBaseUrl = ''
+  }
+  if (typeof config.aiApiKey !== 'string') {
+    config.aiApiKey = ''
+  }
+  if (typeof config.aiModel !== 'string') {
+    config.aiModel = ''
+  }
+  if (config.aiContextCapacity !== 'compact' && config.aiContextCapacity !== 'balanced' && config.aiContextCapacity !== 'full') {
+    config.aiContextCapacity = 'balanced'
   }
 }

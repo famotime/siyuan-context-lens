@@ -6,8 +6,10 @@ describe('App trend detail layout', () => {
     const source = await readFile(new URL('./App.vue', import.meta.url), 'utf8')
 
     expect(source).toContain("import SummaryCardsGrid from '@/components/SummaryCardsGrid.vue'")
+    expect(source).toContain("import AIInboxPanel from '@/components/AIInboxPanel.vue'")
     expect(source).toContain("import SummaryDetailSection from '@/components/SummaryDetailSection.vue'")
     expect(source).toContain('<SummaryCardsGrid')
+    expect(source).toContain('<AIInboxPanel')
     expect(source).toContain('<SummaryDetailSection')
     expect(source).not.toContain('draggable="true"')
   })
