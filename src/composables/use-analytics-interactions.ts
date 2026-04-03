@@ -212,6 +212,7 @@ export function createAiSuggestionActions(params: {
   setBlockAttrs?: SetBlockAttrsFn
   getDocumentById: (documentId: string) => Pick<DocumentRecord, 'id' | 'title' | 'tags'> | undefined
   onDocumentTagsChanged?: (documentId: string, tags: string[]) => void
+  invalidateAiSuggestionCache?: (documentId: string) => Promise<void>
 }) {
   const pendingAiLinkBlocks = ref(new Map<string, AppliedDocumentLinkChange>())
   const pendingAiTagBlocks = ref(new Map<string, AppliedTagSuggestionChange>())
@@ -241,6 +242,7 @@ export function createAiSuggestionActions(params: {
         } else {
           pendingAiLinkBlocks.value.delete(orphanDocumentId)
         }
+        await invalidateSuggestionCache(params.invalidateAiSuggestionCache, orphanDocumentId)
         params.notify('已撤销 AI 链接建议', 3000, 'info')
       } catch (error) {
         const message = error instanceof Error ? error.message : '撤销 AI 链接失败'
@@ -267,6 +269,7 @@ export function createAiSuggestionActions(params: {
             prependBlock: params.prependBlock,
           })
       pendingAiLinkBlocks.value.set(orphanDocumentId, change)
+      await invalidateSuggestionCache(params.invalidateAiSuggestionCache, orphanDocumentId)
       params.notify('已插入 AI 建议链接，刷新分析后将重新判断孤立状态', 3000, 'info')
     } catch (error) {
       const message = error instanceof Error ? error.message : '插入 AI 建议链接失败'
@@ -320,6 +323,7 @@ export function createAiSuggestionActions(params: {
           pendingAiTagBlocks.value.delete(documentId)
           params.onDocumentTagsChanged?.(documentId, existingChange.baseTags)
         }
+        await invalidateSuggestionCache(params.invalidateAiSuggestionCache, documentId)
         params.notify('已撤销 AI 标签建议', 3000, 'info')
       } else {
         const change = existingChange
@@ -337,6 +341,7 @@ export function createAiSuggestionActions(params: {
             })
         pendingAiTagBlocks.value.set(documentId, change)
         params.onDocumentTagsChanged?.(documentId, [...change.baseTags, ...change.appliedTags])
+        await invalidateSuggestionCache(params.invalidateAiSuggestionCache, documentId)
         params.notify('已写入 AI 标签建议', 3000, 'info')
       }
     } catch (error) {
@@ -356,4 +361,15 @@ export function createAiSuggestionActions(params: {
 
 function normalizeTag(tag: string): string {
   return tag.trim()
+}
+
+async function invalidateSuggestionCache(
+  invalidateAiSuggestionCache: ((documentId: string) => Promise<void>) | undefined,
+  documentId: string,
+) {
+  try {
+    await invalidateAiSuggestionCache?.(documentId)
+  } catch {
+    // Private index invalidation should not block the visible AI action.
+  }
 }

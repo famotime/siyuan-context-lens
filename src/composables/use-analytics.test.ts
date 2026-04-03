@@ -936,6 +936,7 @@ describe('useAnalyticsState', () => {
       onProgress?.('AI 正在分析……')
       return aiSuggestionResult
     })
+    const saveSuggestionIndex = vi.fn(async () => undefined)
 
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
@@ -978,6 +979,10 @@ describe('useAnalyticsState', () => {
       createAiLinkSuggestionService: () => ({
         suggestForOrphan,
       }),
+      aiIndexStore: {
+        saveSuggestionIndex,
+        invalidateSuggestionCache: vi.fn(async () => undefined),
+      },
     } as any)
 
     await state.refresh()
@@ -1003,6 +1008,23 @@ describe('useAnalyticsState', () => {
       error: '',
       result: aiSuggestionResult,
     })
+    expect(saveSuggestionIndex).toHaveBeenCalledTimes(1)
+    expect(saveSuggestionIndex).toHaveBeenCalledWith(expect.objectContaining({
+      sourceDocument: expect.objectContaining({
+        id: 'doc-orphan',
+        title: 'AI 与 机器学习 AI',
+      }),
+      result: aiSuggestionResult,
+      config: expect.objectContaining({
+        aiModel: 'gpt-4.1-mini',
+        aiEmbeddingModel: 'text-embedding-3-small',
+      }),
+      filters: expect.objectContaining({
+        tags: undefined,
+        themeNames: undefined,
+      }),
+      timeRange: '7d',
+    }))
   })
 
   it('toggles AI link suggestions with the same insertion rules as theme suggestions and applies document tags via block attrs', async () => {
@@ -1021,6 +1043,7 @@ describe('useAnalyticsState', () => {
       .mockResolvedValueOnce({ tags: 'AI,AI工具' })
       .mockResolvedValueOnce({ tags: 'AI' })
     const notify = vi.fn()
+    const invalidateSuggestionCache = vi.fn(async () => undefined)
 
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
@@ -1049,6 +1072,10 @@ describe('useAnalyticsState', () => {
       getBlockKramdown: async () => ({ id: 'blk-orphan-1', kramdown: '((doc-existing "Existing"))' }),
       setBlockAttrs,
       getBlockAttrs,
+      aiIndexStore: {
+        saveSuggestionIndex: vi.fn(async () => undefined),
+        invalidateSuggestionCache,
+      },
     } as any)
 
     await state.refresh()
@@ -1058,11 +1085,13 @@ describe('useAnalyticsState', () => {
 
     expect(updateBlock).toHaveBeenCalledWith('markdown', '((doc-existing "Existing"))\t((doc-b "Beta"))', 'blk-orphan-1')
     expect((state as any).isAiLinkSuggestionActive('doc-orphan', 'doc-b')).toBe(true)
+    expect(invalidateSuggestionCache).toHaveBeenCalledWith('doc-orphan')
 
     await (state as any).toggleOrphanAiLinkSuggestion('doc-orphan', 'doc-b', 'Beta')
 
     expect(updateBlock).toHaveBeenLastCalledWith('markdown', '((doc-existing "Existing"))', 'blk-orphan-1')
     expect((state as any).isAiLinkSuggestionActive('doc-orphan', 'doc-b')).toBe(false)
+    expect(invalidateSuggestionCache).toHaveBeenCalledTimes(2)
 
     await (state as any).toggleOrphanAiTagSuggestion('doc-orphan', 'AI工具')
 
@@ -1078,5 +1107,6 @@ describe('useAnalyticsState', () => {
     expect(state.snapshot.value?.documents.find(document => document.id === 'doc-orphan')?.tags).toEqual(['AI'])
     expect(state.tagOptions.value).not.toContain('AI工具')
     expect(notify).toHaveBeenCalled()
+    expect(invalidateSuggestionCache).toHaveBeenCalledTimes(4)
   })
 })

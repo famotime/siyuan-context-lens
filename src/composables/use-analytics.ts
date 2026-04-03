@@ -47,6 +47,10 @@ import {
 } from './use-analytics-interactions'
 import { createAiInboxService, isAiConfigComplete, type AiInboxResult, type AiInboxService } from '@/analytics/ai-inbox'
 import {
+  createAiDocumentIndexStoreFromPlugin,
+  type AiDocumentIndexStore,
+} from '@/analytics/ai-index-store'
+import {
   createAiLinkSuggestionService,
   isAiLinkSuggestionConfigComplete,
   type AiLinkSuggestionService,
@@ -71,6 +75,8 @@ type EventBusLike = {
 type PluginLike = {
   eventBus: EventBusLike
   app: any
+  loadData?: (storageName: string) => Promise<any>
+  saveData?: (storageName: string, value: any) => Promise<void> | void
 }
 
 type OpenTabFn = (params: { app: any, doc: { id: string, zoomIn?: boolean } }) => void
@@ -111,6 +117,7 @@ type UseAnalyticsParams = {
   forwardProxy?: ForwardProxyFn
   createAiInboxService?: (deps: { forwardProxy: ForwardProxyFn }) => AiInboxService
   createAiLinkSuggestionService?: (deps: { forwardProxy: ForwardProxyFn }) => AiLinkSuggestionService
+  aiIndexStore?: AiDocumentIndexStore | null
 }
 
 export function useAnalyticsState(params: UseAnalyticsParams) {
@@ -134,6 +141,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const aiLinkSuggestionService = params.forwardProxy
     ? (params.createAiLinkSuggestionService?.({ forwardProxy: params.forwardProxy }) ?? createAiLinkSuggestionService({ forwardProxy: params.forwardProxy }))
     : null
+  const aiIndexStore = params.aiIndexStore ?? createAiDocumentIndexStoreFromPlugin(params.plugin)
 
   const loading = ref(false)
   const errorMessage = ref('')
@@ -218,6 +226,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
           ? { ...document, tags: normalizeTags(tags) }
           : document),
       }
+    },
+    invalidateAiSuggestionCache: async (documentId) => {
+      await aiIndexStore?.invalidateSuggestionCache(documentId)
     },
   })
 
@@ -810,6 +821,22 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
           })
         },
       })
+      if (aiIndexStore) {
+        try {
+          await aiIndexStore.saveSuggestionIndex({
+            config: params.config,
+            sourceDocument,
+            orphan,
+            themeDocuments: themeDocuments.value,
+            filters: filters.value,
+            timeRange: timeRange.value,
+            result,
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'AI 索引记录保存失败'
+          notify(message, 5000, 'error')
+        }
+      }
       updateOrphanAiSuggestionState(documentId, {
         loading: false,
         statusMessage: '',
