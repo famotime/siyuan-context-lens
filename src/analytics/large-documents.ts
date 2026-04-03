@@ -30,6 +30,8 @@ export interface LargeDocumentSummary {
 export const LARGE_DOCUMENT_WORD_THRESHOLD = 10000
 export const LARGE_DOCUMENT_STORAGE_THRESHOLD_BYTES = 3 * 1024 * 1024
 
+const apiModulePath = '@/api'
+
 export async function loadLargeDocumentMetrics(params: {
   documents: DocumentRecord[]
   getFile?: (path: string) => Promise<unknown>
@@ -322,16 +324,20 @@ function isLargeDocument(metric: Pick<LargeDocumentMetric, 'wordCount' | 'totalB
 }
 
 async function defaultGetFile(path: string): Promise<unknown> {
-  const api = await import('@/api')
+  const api = await loadApiModule()
   return api.getFile(path)
 }
 
 async function defaultGetDocAssets(id: string): Promise<unknown> {
-  const api = await import('@/api')
+  const api = await loadApiModule()
   return api.getDocAssets(id)
 }
 
 async function defaultStatAsset(path: string): Promise<unknown> {
-  const api = await import('@/api')
+  const api = await loadApiModule()
   return api.statAsset(path)
+}
+
+async function loadApiModule() {
+  return import(/* @vite-ignore */ apiModulePath)
 }

@@ -1,8 +1,15 @@
+import { readFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
 
 import { buildLargeDocumentRankings, buildLargeDocumentSummary, loadLargeDocumentMetrics } from './large-documents'
 
 describe('loadLargeDocumentMetrics', () => {
+  it('does not dynamically import the shared api module to avoid mixed import warnings in build output', async () => {
+    const source = await readFile(new URL('./large-documents.ts', import.meta.url), 'utf8')
+
+    expect(source).not.toContain("import('@/api')")
+  })
+
   it('combines document file bytes with embedded asset bytes and deduplicates repeated asset stats', async () => {
     const getFile = vi.fn(async (path: string) => {
       if (path === '/data/box-1/alpha.sy') {
