@@ -264,6 +264,67 @@ describe('ai link suggestions', () => {
     ])
   })
 
+  it('rejects OpenAI-style embedding models on SiliconFlow with a clear error', async () => {
+    const service = createAiLinkSuggestionService({
+      forwardProxy: async () => {
+        throw new Error('should not request embeddings')
+      },
+    })
+
+    await expect(service.suggestForOrphan({
+      config: {
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.siliconflow.cn/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'deepseek-ai/DeepSeek-V3',
+        aiEmbeddingModel: 'text-embedding-3-small',
+        aiRequestTimeoutSeconds: 30,
+        aiMaxTokens: 1024,
+        aiTemperature: 0.2,
+        aiMaxContextMessages: 7,
+      } as any,
+      sourceDocument: {
+        id: 'doc-orphan',
+        box: 'box-1',
+        path: '/notes/orphan.sy',
+        hpath: '/笔记/AI 与 机器学习',
+        title: 'AI 与 机器学习 AI',
+        tags: ['AI'],
+        content: '人工智能 模型 机器学习',
+        updated: '20260311120000',
+      },
+      orphan: {
+        documentId: 'doc-orphan',
+        title: 'AI 与 机器学习 AI',
+        degree: 0,
+        createdAt: '20260310120000',
+        updatedAt: '20260311120000',
+        historicalReferenceCount: 2,
+        lastHistoricalAt: '20260310120000',
+        hasSparseEvidence: true,
+      },
+      documents: [
+        { id: 'doc-orphan', box: 'box-1', path: '/notes/orphan.sy', hpath: '/笔记/AI 与 机器学习', title: 'AI 与 机器学习 AI', tags: ['AI'], content: '人工智能 模型 机器学习', updated: '20260311120000' },
+        { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', tags: [], content: 'AI 人工智能 索引', updated: '20260311120000' },
+      ],
+      themeDocuments: [
+        {
+          documentId: 'doc-theme-ai',
+          title: '主题-AI-索引',
+          themeName: 'AI',
+          matchTerms: ['AI', '人工智能'],
+          box: 'box-1',
+          path: '/topics/theme-ai.sy',
+          hpath: '/专题/主题-AI-索引',
+        },
+      ],
+      availableTags: ['AI', '机器学习'],
+      report: {
+        ranking: [],
+      } as any,
+    })).rejects.toThrow('SiliconFlow 的 Embedding Model 不能填写 text-embedding-3-small 这类 OpenAI 模型名，请改用如 BAAI/bge-m3、BAAI/bge-large-zh-v1.5 或 Qwen/Qwen3-Embedding 系列模型')
+  })
+
   it('auto-appends /v1 for SiliconFlow requests when base url omits it', async () => {
     const requests: string[] = []
     const service = createAiLinkSuggestionService({

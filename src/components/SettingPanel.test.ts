@@ -55,7 +55,7 @@ describe('SettingPanel', () => {
           aiBaseUrl: 'https://api.example.com/v1',
           aiApiKey: 'sk-test',
           aiModel: 'gpt-4.1-mini',
-          aiEmbeddingModel: 'text-embedding-3-small',
+          aiEmbeddingModel: 'BAAI/bge-m3',
           aiRequestTimeoutSeconds: 30,
           aiMaxTokens: 10240,
           aiTemperature: 0.7,
@@ -88,13 +88,21 @@ describe('SettingPanel', () => {
     expect(html).toContain('桥接节点卡片')
     expect(html).toContain('传播节点卡片')
     expect(html).toContain('AI 接入')
+    expect(html).toContain('AI 服务商')
+    expect(html).toContain('硅基流动')
+    expect(html).toContain('OpenAI')
+    expect(html).toContain('Gemini')
+    expect(html).toContain('自定义')
     expect(html).toContain('启用 AI 今日建议')
     expect(html).toContain('Base URL')
     expect(html).toContain('https://api.siliconflow.cn/v1')
     expect(html).toContain('API Key')
     expect(html).toContain('Model')
     expect(html).toContain('Embedding Model（可选）')
+    expect(html).toContain('BAAI/bge-m3')
+    expect(html).toContain('SiliconFlow 可填写')
     expect(html).toContain('text-embedding-3-small')
+    expect(html).toContain('这类 OpenAI 模型名')
     expect(html).toContain('超时时间')
     expect(html).toContain('最大 Token 数')
     expect(html).toContain('温度')
@@ -105,5 +113,48 @@ describe('SettingPanel', () => {
     expect(html).not.toContain('核心文档排行卡片')
     expect(html).not.toContain('孤立与桥接卡片')
     expect(html).not.toContain('整理建议卡片')
+  })
+
+  it('renders siliconflow model list controls when siliconflow preset is active', async () => {
+    const app = createSSRApp({
+      render: () => h(SettingPanel, {
+        config: {
+          showSummaryCards: true,
+          showDocuments: true,
+          showRead: true,
+          showReferences: true,
+          showRanking: true,
+          showCommunities: true,
+          showTrends: true,
+          showOrphans: true,
+          showDormant: true,
+          showBridges: true,
+          showPropagation: true,
+          themeNotebookId: 'box-1',
+          themeDocumentPath: '/专题',
+          themeNamePrefix: '主题-',
+          themeNameSuffix: '-索引',
+          readTagNames: ['已读'],
+          readTitlePrefixes: '已读-|三星-',
+          readTitleSuffixes: '-五星',
+          readPaths: '/已读|/归档',
+          aiEnabled: true,
+          aiBaseUrl: 'https://api.siliconflow.cn/v1',
+          aiApiKey: 'sk-test',
+          aiModel: '',
+          aiEmbeddingModel: '',
+          aiRequestTimeoutSeconds: 30,
+          aiMaxTokens: 10240,
+          aiTemperature: 0.7,
+          aiMaxContextMessages: 7,
+          aiContextCapacity: 'compact',
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('模型清单')
+    expect(html).toContain('/v1/models')
   })
 })

@@ -119,6 +119,7 @@ export function createAiLinkSuggestionService(deps: {
       }
 
       const embeddingModel = params.config.aiEmbeddingModel?.trim()
+      validateEmbeddingModelConfig(params.config)
       const rankedCandidates = embeddingModel
         ? await rankCandidatesWithEmbeddings({
             config: params.config,
@@ -180,6 +181,33 @@ export function createAiLinkSuggestionService(deps: {
       return normalizeSuggestionResult(parseJsonFromResponse(payload))
     },
   }
+}
+
+function validateEmbeddingModelConfig(config: AiConfig) {
+  const embeddingModel = config.aiEmbeddingModel?.trim()
+  if (!embeddingModel) {
+    return
+  }
+
+  if (isSiliconFlowBaseUrl(config.aiBaseUrl) && isOpenAiStyleEmbeddingModel(embeddingModel)) {
+    throw new Error('SiliconFlow 的 Embedding Model 不能填写 text-embedding-3-small 这类 OpenAI 模型名，请改用如 BAAI/bge-m3、BAAI/bge-large-zh-v1.5 或 Qwen/Qwen3-Embedding 系列模型')
+  }
+}
+
+function isSiliconFlowBaseUrl(baseUrl?: string) {
+  if (!baseUrl?.trim()) {
+    return false
+  }
+
+  try {
+    return new URL(baseUrl).hostname === 'api.siliconflow.cn'
+  } catch {
+    return /^https?:\/\/api\.siliconflow\.cn(?:\/|$)/i.test(baseUrl.trim())
+  }
+}
+
+function isOpenAiStyleEmbeddingModel(model: string) {
+  return /^text-embedding-/i.test(model.trim())
 }
 
 async function rankCandidatesWithEmbeddings(params: {

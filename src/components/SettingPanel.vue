@@ -136,11 +136,23 @@
           <input type="checkbox" v-model="config.aiEnabled" class="b3-switch">
         </label>
         <label class="setting-field setting-field--full">
+          <span>AI 服务商</span>
+          <select :value="selectedAiProviderPreset" @change="handleAiProviderPresetChange">
+            <option
+              v-for="providerOption in aiProviderPresetOptions"
+              :key="providerOption.value"
+              :value="providerOption.value"
+            >
+              {{ providerOption.label }}
+            </option>
+          </select>
+        </label>
+        <label class="setting-field setting-field--full">
           <span>Base URL</span>
           <small class="setting-field__hint">OpenAI 兼容服务通常需要填写到 <code>/v1</code>，例如 <code>https://api.siliconflow.cn/v1</code></small>
           <input
             v-model.trim="config.aiBaseUrl"
-            placeholder="https://api.openai.com/v1"
+            :placeholder="aiProviderPresetMeta.baseUrl ?? 'https://api.openai.com/v1'"
             type="text"
           >
         </label>
@@ -154,21 +166,59 @@
         </label>
         <label class="setting-field setting-field--full">
           <span>Model</span>
+          <select v-if="showSiliconFlowChatModelSelect" v-model="config.aiModel">
+            <option value="">请选择聊天模型</option>
+            <option
+              v-for="option in siliconFlowChatModelOptions"
+              :key="option.key"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
           <input
+            v-else
             v-model.trim="config.aiModel"
-            placeholder="gpt-4.1-mini"
+            :placeholder="aiProviderPresetMeta.modelPlaceholder"
             type="text"
           >
         </label>
         <label class="setting-field setting-field--full">
           <span>Embedding Model（可选）</span>
-          <small class="setting-field__hint">可选，用于增强孤立文档 AI 补链召回；留空时会退回到主题命中与结构候选</small>
+          <small class="setting-field__hint">可选，用于增强孤立文档 AI 补链召回；留空时会退回到主题命中与结构候选。SiliconFlow 可填写 <code>BAAI/bge-m3</code>、<code>BAAI/bge-large-zh-v1.5</code> 或 <code>Qwen/Qwen3-Embedding-*</code>；不要填写 <code>text-embedding-3-small</code> 这类 OpenAI 模型名。</small>
+          <select v-if="showSiliconFlowEmbeddingModelSelect" v-model="config.aiEmbeddingModel">
+            <option value="">请选择 embedding 模型</option>
+            <option
+              v-for="option in siliconFlowEmbeddingModelOptions"
+              :key="option.key"
+              :value="option.value"
+            >
+              {{ option.label }}
+            </option>
+          </select>
           <input
+            v-else
             v-model.trim="config.aiEmbeddingModel"
-            placeholder="text-embedding-3-small"
+            :placeholder="aiProviderPresetMeta.embeddingPlaceholder"
             type="text"
           >
         </label>
+        <div v-if="showSiliconFlowModelCatalog" class="setting-field setting-field--full">
+          <span>模型清单</span>
+          <small class="setting-field__hint">填写 API Key 后，可从 SiliconFlow 的 <code>/v1/models</code> 模型清单加载 chat 与 embedding 模型。</small>
+          <div class="setting-inline-actions">
+            <button
+              class="setting-button setting-button--ghost"
+              type="button"
+              :disabled="siliconFlowModelCatalogLoading || !canLoadSiliconFlowModels"
+              @click="loadSiliconFlowModelCatalog"
+            >
+              {{ siliconFlowModelCatalogLoading ? '加载中...' : '加载模型列表' }}
+            </button>
+            <span v-if="siliconFlowModelCatalogError" class="setting-feedback setting-feedback--error">{{ siliconFlowModelCatalogError }}</span>
+            <span v-else-if="siliconFlowModelCatalogLoaded" class="setting-feedback setting-feedback--success">已加载 {{ siliconFlowChatModelOptions.length }} 个聊天模型，{{ siliconFlowEmbeddingModelOptions.length }} 个 embedding 模型</span>
+          </div>
+        </div>
         <label class="setting-field">
           <span>超时时间</span>
           <small class="setting-field__hint">发起请求的超时时间</small>
@@ -249,11 +299,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import { forwardProxy, lsNotebooks, sql } from '@/api'
-import { createAiInboxService, isAiConfigComplete } from '@/analytics/ai-inbox'
+import { createAiInboxService, fetchSiliconFlowModelCatalog, isAiConfigComplete } from '@/analytics/ai-inbox'
 import { SUMMARY_CARD_DEFINITIONS } from '@/analytics/summary-card-config'
+import {
+  AI_PROVIDER_PRESETS,
+  AI_PROVIDER_PRESET_OPTIONS,
+  applyAiProviderPreset,
+  buildAiModelOptionItems,
+  detectAiProviderPreset,
+  type AiProviderPresetKey,
+} from '@/components/ai-provider-presets'
 import { loadSettingPanelData, type NotebookOption } from '@/components/setting-panel-data'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import { ensureConfigDefaults, type PluginConfig } from '@/types/config'
@@ -268,11 +326,23 @@ const summaryCardSettings = SUMMARY_CARD_DEFINITIONS
 const aiTestingConnection = ref(false)
 const aiConnectionMessage = ref('')
 const aiConnectionError = ref('')
+const selectedAiProviderPreset = ref<AiProviderPresetKey>(detectAiProviderPreset(props.config.aiBaseUrl))
+const siliconFlowChatModelOptions = ref<Array<{ value: string, label: string, key: string }>>([])
+const siliconFlowEmbeddingModelOptions = ref<Array<{ value: string, label: string, key: string }>>([])
+const siliconFlowModelCatalogLoading = ref(false)
+const siliconFlowModelCatalogError = ref('')
+const siliconFlowModelCatalogLoaded = ref(false)
 
 ensureConfigDefaults(props.config)
 
 const aiService = createAiInboxService({ forwardProxy })
 const aiConfigComplete = computed(() => isAiConfigComplete(props.config))
+const aiProviderPresetOptions = AI_PROVIDER_PRESET_OPTIONS
+const aiProviderPresetMeta = computed(() => AI_PROVIDER_PRESETS[selectedAiProviderPreset.value])
+const showSiliconFlowModelCatalog = computed(() => selectedAiProviderPreset.value === 'siliconflow')
+const canLoadSiliconFlowModels = computed(() => Boolean(props.config.aiApiKey?.trim()))
+const showSiliconFlowChatModelSelect = computed(() => showSiliconFlowModelCatalog.value && siliconFlowChatModelOptions.value.length > 0)
+const showSiliconFlowEmbeddingModelSelect = computed(() => showSiliconFlowModelCatalog.value && siliconFlowEmbeddingModelOptions.value.length > 0)
 
 onMounted(async () => {
   const data = await loadSettingPanelData({
@@ -283,6 +353,34 @@ onMounted(async () => {
   notebooks.value = data.notebooks
   readTagOptions.value = data.readTagOptions
 })
+
+watch(() => props.config.aiBaseUrl, (nextBaseUrl) => {
+  selectedAiProviderPreset.value = detectAiProviderPreset(nextBaseUrl)
+})
+
+watch(
+  [() => selectedAiProviderPreset.value, () => props.config.aiApiKey?.trim() ?? ''],
+  ([provider, apiKey], previous = ['custom', ''] as [AiProviderPresetKey, string]) => {
+    const [previousProvider, previousApiKey] = previous
+
+    if (provider !== 'siliconflow') {
+      resetSiliconFlowModelCatalog()
+      return
+    }
+
+    if (!apiKey) {
+      resetSiliconFlowModelCatalog()
+      return
+    }
+
+    const providerChanged = provider !== previousProvider
+    const apiKeyBecameAvailable = !previousApiKey && Boolean(apiKey)
+    if (providerChanged || apiKeyBecameAvailable) {
+      void loadSiliconFlowModelCatalog()
+    }
+  },
+  { immediate: true },
+)
 
 async function handleTestConnection() {
   aiTestingConnection.value = true
@@ -299,6 +397,51 @@ async function handleTestConnection() {
   } finally {
     aiTestingConnection.value = false
   }
+}
+
+function handleAiProviderPresetChange(event: Event) {
+  const nextProvider = (event.target as HTMLSelectElement).value as AiProviderPresetKey
+  selectedAiProviderPreset.value = nextProvider
+  applyAiProviderPreset(props.config, nextProvider)
+
+  aiConnectionMessage.value = ''
+  aiConnectionError.value = ''
+
+  if (nextProvider !== 'siliconflow') {
+    resetSiliconFlowModelCatalog()
+  }
+}
+
+async function loadSiliconFlowModelCatalog() {
+  if (selectedAiProviderPreset.value !== 'siliconflow' || !canLoadSiliconFlowModels.value) {
+    siliconFlowModelCatalogError.value = '加载模型列表前，请先选择硅基流动并填写 API Key'
+    return
+  }
+
+  siliconFlowModelCatalogLoading.value = true
+  siliconFlowModelCatalogError.value = ''
+
+  try {
+    const catalog = await fetchSiliconFlowModelCatalog({
+      config: props.config,
+      forwardProxy,
+    })
+    siliconFlowChatModelOptions.value = buildAiModelOptionItems(catalog.chatModels, props.config.aiModel)
+    siliconFlowEmbeddingModelOptions.value = buildAiModelOptionItems(catalog.embeddingModels, props.config.aiEmbeddingModel)
+    siliconFlowModelCatalogLoaded.value = true
+  } catch (error) {
+    siliconFlowModelCatalogError.value = error instanceof Error ? error.message : '加载模型列表失败'
+  } finally {
+    siliconFlowModelCatalogLoading.value = false
+  }
+}
+
+function resetSiliconFlowModelCatalog() {
+  siliconFlowChatModelOptions.value = []
+  siliconFlowEmbeddingModelOptions.value = []
+  siliconFlowModelCatalogLoading.value = false
+  siliconFlowModelCatalogError.value = ''
+  siliconFlowModelCatalogLoaded.value = false
 }
 </script>
 
@@ -415,6 +558,13 @@ async function handleTestConnection() {
   font-weight: 500;
 }
 
+.setting-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
 .setting-field__hint {
   font-size: 12px;
   line-height: 1.5;
@@ -469,6 +619,12 @@ async function handleTestConnection() {
   cursor: pointer;
   font: inherit;
   transition: opacity 0.2s;
+}
+
+.setting-button--ghost {
+  background: color-mix(in srgb, var(--b3-theme-surface) 84%, var(--b3-theme-primary) 6%);
+  color: var(--b3-theme-on-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
 }
 
 .setting-button:disabled {

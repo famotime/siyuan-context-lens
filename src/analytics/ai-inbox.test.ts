@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createAiInboxService, limitChatCompletionMessages, resolveAiRequestOptions, resolveAiEndpoint } from './ai-inbox'
+import { createAiInboxService, fetchSiliconFlowModelCatalog, limitChatCompletionMessages, resolveAiRequestOptions, resolveAiEndpoint } from './ai-inbox'
 
 const documents = Array.from({ length: 12 }, (_, index) => ({
   id: `doc-${index + 1}`,
@@ -435,7 +435,72 @@ describe('ai inbox request options', () => {
   it('auto-appends /v1 for SiliconFlow chat completions when base url omits it', () => {
     expect(resolveAiEndpoint('https://api.siliconflow.cn', 'chat/completions')).toBe('https://api.siliconflow.cn/v1/chat/completions')
     expect(resolveAiEndpoint('https://api.siliconflow.cn/', 'embeddings')).toBe('https://api.siliconflow.cn/v1/embeddings')
+    expect(resolveAiEndpoint('https://api.siliconflow.cn', 'models')).toBe('https://api.siliconflow.cn/v1/models')
     expect(resolveAiEndpoint('https://api.siliconflow.cn/v1', 'chat/completions')).toBe('https://api.siliconflow.cn/v1/chat/completions')
+  })
+
+  it('fetches siliconflow chat and embedding model catalogs from the models endpoint', async () => {
+    const requests: Array<{ url: string, method?: string, headers?: any[], timeout?: number, contentType?: string }> = []
+    const catalog = await fetchSiliconFlowModelCatalog({
+      config: {
+        aiBaseUrl: 'https://api.siliconflow.cn',
+        aiApiKey: 'sk-test',
+        aiRequestTimeoutSeconds: 45,
+      } as any,
+      forwardProxy: async (url, method, payload, headers, timeout, contentType) => {
+        requests.push({ url, method, headers, timeout, contentType })
+
+        if (url.endsWith('sub_type=chat')) {
+          return {
+            body: JSON.stringify({
+              data: [
+                { id: 'deepseek-ai/DeepSeek-V3' },
+                { id: 'Qwen/Qwen2.5-72B-Instruct' },
+              ],
+            }),
+            status: 200,
+          } as any
+        }
+
+        return {
+          body: JSON.stringify({
+            data: [
+              { id: 'BAAI/bge-m3' },
+              { id: 'Qwen/Qwen3-Embedding-8B' },
+              { id: 'BAAI/bge-m3' },
+            ],
+          }),
+          status: 200,
+        } as any
+      },
+    })
+
+    expect(requests).toEqual([
+      {
+        url: 'https://api.siliconflow.cn/v1/models?sub_type=chat',
+        method: 'GET',
+        headers: [
+          { Authorization: 'Bearer sk-test' },
+          { Accept: 'application/json' },
+        ],
+        timeout: 45000,
+        contentType: 'application/json',
+      },
+      {
+        url: 'https://api.siliconflow.cn/v1/models?sub_type=embedding',
+        method: 'GET',
+        headers: [
+          { Authorization: 'Bearer sk-test' },
+          { Accept: 'application/json' },
+        ],
+        timeout: 45000,
+        contentType: 'application/json',
+      },
+    ])
+    expect(catalog).toEqual({
+      chatModels: ['deepseek-ai/DeepSeek-V3', 'Qwen/Qwen2.5-72B-Instruct'],
+      embeddingModels: ['BAAI/bge-m3', 'Qwen/Qwen3-Embedding-8B'],
+    })
   })
 
   it('includes missing /v1 hints for non-2xx responses', async () => {

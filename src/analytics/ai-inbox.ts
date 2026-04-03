@@ -105,6 +105,11 @@ export interface AiInboxConnectionResult {
   message: string
 }
 
+export interface AiModelCatalogResult {
+  chatModels: string[]
+  embeddingModels: string[]
+}
+
 export interface AiInboxPayload {
   generatedAt: string
   context: {
@@ -882,7 +887,7 @@ export function resolveAiRequestOptions(config: Pick<
   }
 }
 
-export function resolveAiEndpoint(baseUrl: string, resourcePath: 'chat/completions' | 'embeddings'): string {
+export function resolveAiEndpoint(baseUrl: string, resourcePath: 'chat/completions' | 'embeddings' | 'models'): string {
   const trimmedBaseUrl = baseUrl.trim()
 
   try {
@@ -898,6 +903,70 @@ export function resolveAiEndpoint(baseUrl: string, resourcePath: 'chat/completio
   } catch {
     return `${trimmedBaseUrl.replace(/\/+$/, '')}/${resourcePath}`
   }
+}
+
+export async function fetchSiliconFlowModelCatalog(params: {
+  config: Pick<AiConfig, 'aiBaseUrl' | 'aiApiKey' | 'aiRequestTimeoutSeconds'>
+  forwardProxy: ForwardProxyFn
+}): Promise<AiModelCatalogResult> {
+  const aiBaseUrl = params.config.aiBaseUrl?.trim()
+  const aiApiKey = params.config.aiApiKey?.trim()
+  if (!aiBaseUrl || !aiApiKey) {
+    throw new Error('加载模型列表前，请先填写 SiliconFlow 的 Base URL 和 API Key')
+  }
+
+  const requestOptions = resolveAiRequestOptions(params.config)
+  const [chatModels, embeddingModels] = await Promise.all([
+    requestModelIds({
+      endpoint: `${resolveAiEndpoint(aiBaseUrl, 'models')}?sub_type=chat`,
+      apiKey: aiApiKey,
+      forwardProxy: params.forwardProxy,
+      timeoutMs: requestOptions.timeoutMs,
+    }),
+    requestModelIds({
+      endpoint: `${resolveAiEndpoint(aiBaseUrl, 'models')}?sub_type=embedding`,
+      apiKey: aiApiKey,
+      forwardProxy: params.forwardProxy,
+      timeoutMs: requestOptions.timeoutMs,
+    }),
+  ])
+
+  return {
+    chatModels,
+    embeddingModels,
+  }
+}
+
+async function requestModelIds(params: {
+  endpoint: string
+  apiKey: string
+  forwardProxy: ForwardProxyFn
+  timeoutMs: number
+}) {
+  const response = await params.forwardProxy(
+    params.endpoint,
+    'GET',
+    undefined,
+    [
+      { Authorization: `Bearer ${params.apiKey}` },
+      { Accept: 'application/json' },
+    ],
+    params.timeoutMs,
+    'application/json',
+  )
+
+  if (!response || response.status < 200 || response.status >= 300) {
+    throw new Error(`模型列表请求失败（${response?.status ?? '未知状态'}）`)
+  }
+
+  const payload = JSON.parse(response.body)
+  const ids = Array.isArray(payload?.data)
+    ? payload.data
+        .map((item: any) => (typeof item?.id === 'string' ? item.id.trim() : ''))
+        .filter(Boolean)
+    : []
+
+  return [...new Set(ids)].sort((left, right) => left.localeCompare(right, 'en'))
 }
 
 export function limitChatCompletionMessages(messages: ChatCompletionMessage[], maxContextMessages: number) {
