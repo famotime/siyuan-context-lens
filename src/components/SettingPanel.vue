@@ -125,13 +125,13 @@
     <div class="setting-group">
       <div class="setting-header">
         <h3>AI 接入</h3>
-        <p>配置兼容 OpenAI API 的服务，用于生成“AI 整理收件箱”和孤立文档的 AI 补链建议。</p>
+        <p>配置兼容 OpenAI API 的服务，用于生成“今日建议”和孤立文档的 AI 补链建议。</p>
       </div>
       <div class="setting-form">
         <label class="setting-item setting-item--full">
           <span class="setting-item__text">
-            <strong>启用 AI 整理收件箱</strong>
-            <span>开启后可在统计卡片下方生成统一优先级的整理建议</span>
+            <strong>启用 AI 今日建议</strong>
+            <span>开启后可在统计卡片中生成统一优先级的整理建议</span>
           </span>
           <input type="checkbox" v-model="config.aiEnabled" class="b3-switch">
         </label>

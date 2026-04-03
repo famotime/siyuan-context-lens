@@ -59,6 +59,9 @@ export function countSelectedSummaryItems(detail: SummaryDetailSection | null): 
   if (!detail) {
     return 0
   }
+  if (detail.kind === 'aiInbox') {
+    return detail.result?.items.length ?? 0
+  }
   if (detail.kind === 'list') {
     return detail.items.length
   }

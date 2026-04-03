@@ -8,6 +8,11 @@ const baseProps = {
   selectedSummaryCount: 1,
   isExpanded: true,
   onTogglePanel: vi.fn(),
+  aiSuggestionEnabled: true,
+  aiSuggestionConfigured: true,
+  aiSuggestionLoading: false,
+  aiSuggestionError: '',
+  generateAiInbox: vi.fn(),
   orphanDetailItems: [],
   orphanThemeSuggestions: new Map<string, Array<{ themeDocumentId: string, themeDocumentTitle: string, themeName: string, matchCount: number }>>(),
   orphanSort: 'updated-desc' as const,
@@ -17,6 +22,10 @@ const baseProps = {
   openDocument: vi.fn(),
   toggleOrphanThemeSuggestion: vi.fn(),
   isThemeSuggestionActive: vi.fn(() => false),
+  toggleOrphanAiLinkSuggestion: vi.fn(),
+  isAiLinkSuggestionActive: vi.fn(() => false),
+  toggleOrphanAiTagSuggestion: vi.fn(),
+  isAiTagSuggestionActive: vi.fn(() => false),
   aiEnabled: true,
   aiLinkSuggestionConfigReady: true,
   orphanAiSuggestionStates: new Map(),
@@ -149,5 +158,61 @@ describe('SummaryDetailSection', () => {
     expect(html).toContain('补齐链接')
     expect(html).toContain('当前没有文档级连接，建议链接以下主题文档（点击添加）：')
     expect(html).toContain('AI')
+  })
+
+  it('renders today suggestions inside the shared detail panel and uses reanalyze action text', async () => {
+    const app = createSSRApp({
+      render: () => h(SummaryDetailSection, {
+        ...baseProps,
+        selectedSummaryCount: 2,
+        detail: {
+          key: 'todaySuggestions',
+          title: '今日建议详情',
+          description: '按优先级提供建议',
+          kind: 'aiInbox',
+          result: {
+            generatedAt: '2026-04-03T08:00:00.000Z',
+            summary: '今天先补 AI 主题连接。',
+            items: [
+              {
+                id: 'task-doc-1',
+                type: 'document',
+                title: '修复孤立文档：AI 与机器学习整理',
+                priority: 'P1',
+                why: '当前窗口内孤立，但和 AI 主题页、机器学习主题页都有明显匹配。',
+                action: '先补到主题-AI-索引，再补到主题-机器学习-索引。',
+                benefit: '能移出孤立文档，并把主题社区规模从 8 提升到 9。',
+                documentIds: ['doc-a'],
+                recommendedTargets: [
+                  {
+                    documentId: 'doc-a',
+                    title: '主题-AI-索引',
+                    reason: '承担主题入口角色',
+                    kind: 'theme-document',
+                  },
+                ],
+                evidence: ['当前窗口内孤立', '主题匹配命中 4 次'],
+                expectedChanges: ['孤立文档数预计减少 1'],
+                draftText: '可归入 AI 主题：((doc-a "主题-AI-索引"))',
+              },
+            ],
+          },
+        },
+        aiSuggestionEnabled: true,
+        aiSuggestionConfigured: true,
+        aiSuggestionLoading: false,
+        aiSuggestionError: '',
+        generateAiInbox: vi.fn(),
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('2 项建议')
+    expect(html).toContain('重新分析')
+    expect(html).toContain('今天先补 AI 主题连接。')
+    expect(html).toContain('推荐目标')
+    expect(html).toContain('主题-AI-索引')
+    expect(html).not.toContain('测试连接')
   })
 })

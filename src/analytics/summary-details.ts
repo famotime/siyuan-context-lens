@@ -27,12 +27,14 @@ import {
   normalizeTags,
   resolveDocumentTitle as resolveTitle,
 } from './document-utils'
+import type { AiInboxResult } from './ai-inbox'
 import type { PluginConfig } from '@/types/config'
 
 export type SummaryCardKey =
   | 'documents'
   | 'largeDocuments'
   | 'read'
+  | 'todaySuggestions'
   | 'references'
   | 'ranking'
   | 'trends'
@@ -71,7 +73,7 @@ export interface RankingDetailItem extends RankingItem {
   suggestions?: DetailSuggestion[]
 }
 
-type ListDetailSectionKey = Exclude<SummaryCardKey, 'ranking' | 'trends' | 'propagation'>
+type ListDetailSectionKey = Exclude<SummaryCardKey, 'ranking' | 'trends' | 'propagation' | 'todaySuggestions'>
 
 export type SummaryDetailSection =
   | {
@@ -102,12 +104,20 @@ export type SummaryDetailSection =
     kind: 'propagation'
     items: SummaryDetailItem[]
   }
+  | {
+    key: 'todaySuggestions'
+    title: string
+    description: string
+    kind: 'aiInbox'
+    result: AiInboxResult | null
+  }
 
 export function buildSummaryCards(params: {
   report: ReferenceGraphReport
   dormantDays: number
   documentCount?: number
   readDocumentCount?: number
+  aiInboxCount?: number
   readCardMode?: ReadCardMode
   trends?: TrendReport | null
   largeDocumentSummary?: LargeDocumentSummary
@@ -139,6 +149,12 @@ export function buildSummaryCards(params: {
       hint: readCardMode === 'read'
         ? '命中已读标记规则的文档数'
         : '未命中已读标记规则的文档数',
+    },
+    {
+      key: 'todaySuggestions',
+      label: '今日建议',
+      value: (params.aiInboxCount ?? 0).toString(),
+      hint: 'AI 汇总出的今日整理建议数',
     },
     {
       key: 'largeDocuments',
@@ -216,6 +232,7 @@ export function buildSummaryDetailSections(params: {
   readCardMode?: ReadCardMode
   largeDocumentMetrics?: ReadonlyMap<string, LargeDocumentMetric>
   largeDocumentCardMode?: LargeDocumentCardMode
+  aiInboxResult?: AiInboxResult | null
 }): Record<SummaryCardKey, SummaryDetailSection> {
   const filteredDocuments = filterDocumentsByTimeRange({
     documents: params.documents,
@@ -301,12 +318,19 @@ export function buildSummaryDetailSections(params: {
           }))
         : unreadItems,
     },
+    todaySuggestions: {
+      key: 'todaySuggestions',
+      title: '今日建议详情',
+      description: '按优先级提供建议',
+      kind: 'aiInbox',
+      result: params.aiInboxResult ?? null,
+    },
     largeDocuments: {
       key: 'largeDocuments',
       title: largeDocumentCardMode === 'storage' ? '大文档详情（按资源）' : '大文档详情（按文字）',
       description: largeDocumentCardMode === 'storage'
-        ? '按总大小超过 3 MB 的文档倒序列出全部命中结果。'
-        : '按字数超过 10000 的文档倒序列出全部命中结果。',
+        ? '总大小超过 3 MB 的文档'
+        : '字数超过 10000 的文档',
       kind: 'list',
       items: largeDocumentItems,
     },

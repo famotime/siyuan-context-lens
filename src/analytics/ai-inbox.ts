@@ -776,14 +776,14 @@ async function requestChatCompletion(params: {
   maxTokensOverride?: number
 }) {
   if (!params.config.aiEnabled) {
-    throw new Error('请先在设置中启用 AI 整理收件箱')
+    throw new Error('请先在设置中启用 AI 今日建议')
   }
   if (!isAiConfigComplete(params.config)) {
     throw new Error('AI 接入配置不完整，请补充 Base URL、API Key 和 Model')
   }
 
   const requestOptions = resolveAiRequestOptions(params.config)
-  const endpoint = `${params.config.aiBaseUrl!.replace(/\/+$/, '')}/chat/completions`
+  const endpoint = resolveAiEndpoint(params.config.aiBaseUrl!, 'chat/completions')
   const messages = limitChatCompletionMessages(params.messages, requestOptions.maxContextMessages)
   const body = JSON.stringify({
     model: params.config.aiModel,
@@ -848,7 +848,11 @@ async function requestChatCompletion(params: {
       status,
       responseBody: response?.body?.slice(0, 500) ?? '',
     })
-    throw new Error(`AI 请求失败（${status}）`)
+    throw buildAiNonOkResponseError({
+      endpoint,
+      status,
+      responseBody: response?.body ?? '',
+    })
   }
 
   let payload: any
@@ -875,6 +879,24 @@ export function resolveAiRequestOptions(config: Pick<
     maxTokens: normalizePositiveInteger(config.aiMaxTokens, DEFAULT_AI_MAX_TOKENS),
     temperature: normalizeTemperature(config.aiTemperature, DEFAULT_AI_TEMPERATURE),
     maxContextMessages: normalizePositiveInteger(config.aiMaxContextMessages, DEFAULT_AI_MAX_CONTEXT_MESSAGES),
+  }
+}
+
+export function resolveAiEndpoint(baseUrl: string, resourcePath: 'chat/completions' | 'embeddings'): string {
+  const trimmedBaseUrl = baseUrl.trim()
+
+  try {
+    const url = new URL(trimmedBaseUrl)
+    const pathname = url.pathname.replace(/\/+$/, '')
+    const shouldAppendV1 = url.hostname === 'api.siliconflow.cn' && (pathname === '' || pathname === '/')
+
+    if (shouldAppendV1) {
+      url.pathname = '/v1'
+    }
+
+    return `${url.toString().replace(/\/+$/, '')}/${resourcePath}`
+  } catch {
+    return `${trimmedBaseUrl.replace(/\/+$/, '')}/${resourcePath}`
   }
 }
 
@@ -1148,6 +1170,28 @@ function buildAiRequestError(params: {
   }
 
   return new Error(`AI 请求失败：${rawMessage}\n${hints.join('\n')}`)
+}
+
+function buildAiNonOkResponseError(params: {
+  endpoint: string
+  status: string | number
+  responseBody: string
+}) {
+  const hints: string[] = []
+
+  if (isLikelyMissingV1Path(params.endpoint)) {
+    hints.push(`Base URL 很可能应包含 /v1；当前请求落到了 ${params.endpoint}`)
+  }
+
+  if (params.endpoint.startsWith('https://api.siliconflow.cn/chat/completions')) {
+    hints.push('SiliconFlow 可优先检查 Base URL 是否填写为 https://api.siliconflow.cn/v1')
+  }
+
+  const responseSummary = params.responseBody.trim().slice(0, 200)
+  const details = responseSummary ? `\n响应片段：${responseSummary}` : ''
+  const hintText = hints.length ? `\n${hints.join('\n')}` : ''
+
+  return new Error(`AI 请求失败（${params.status}）${details}${hintText}`)
 }
 
 function isLikelyMissingV1Path(endpoint: string): boolean {

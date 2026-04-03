@@ -11,6 +11,7 @@ export interface PluginConfig {
   showDocuments?: boolean
   showLargeDocuments?: boolean
   showRead?: boolean
+  showTodaySuggestions?: boolean
   showReferences?: boolean
   showRanking?: boolean
   showCommunities?: boolean

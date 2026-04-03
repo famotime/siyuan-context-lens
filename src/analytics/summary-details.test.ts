@@ -107,6 +107,22 @@ describe('buildSummaryDetailSections', () => {
         readTitleSuffixes: '',
       } as any,
       readCardMode: 'read',
+      aiInboxResult: {
+        generatedAt: '2026-03-12T08:00:00.000Z',
+        summary: '今天先处理孤立补链。',
+        items: [
+          {
+            id: 'task-doc-c',
+            type: 'document',
+            title: '修复孤立文档：Gamma',
+            priority: 'P1',
+            why: '当前窗口内没有有效连接。',
+            action: '补到主题页。',
+            benefit: '可重新进入主题网络。',
+            documentIds: ['doc-c'],
+          },
+        ],
+      },
     })
 
     expect(sections.orphans.kind).toBe('list')
@@ -160,6 +176,15 @@ describe('buildSummaryDetailSections', () => {
       }),
     ])
     expect(sections.trends.kind).toBe('trends')
+    expect(sections.todaySuggestions).toEqual(expect.objectContaining({
+      key: 'todaySuggestions',
+      kind: 'aiInbox',
+      title: '今日建议详情',
+      description: '按优先级提供建议',
+      result: expect.objectContaining({
+        summary: '今天先处理孤立补链。',
+      }),
+    }))
     expect((sections as Record<string, any>).read).toEqual(expect.objectContaining({
       key: 'read',
       kind: 'list',
@@ -522,10 +547,12 @@ describe('buildSummaryCards', () => {
         wordDocumentCount: 3,
         storageDocumentCount: 2,
       },
+      aiInboxCount: 4,
     })
 
     const dormant = cards.find(card => card.key === 'dormant')
     const read = cards.find(card => card.key === 'read')
+    const todaySuggestions = cards.find(card => card.key === 'todaySuggestions')
     const largeDocuments = cards.find(card => card.key === 'largeDocuments')
 
     expect(dormant).toEqual(expect.objectContaining({
@@ -537,6 +564,11 @@ describe('buildSummaryCards', () => {
       label: '未读文档',
       value: '3',
       hint: '未命中已读标记规则的文档数',
+    }))
+    expect(todaySuggestions).toEqual(expect.objectContaining({
+      label: '今日建议',
+      value: '4',
+      hint: 'AI 汇总出的今日整理建议数',
     }))
     expect(largeDocuments).toEqual(expect.objectContaining({
       label: '大文档·文字',
@@ -575,6 +607,7 @@ describe('buildSummaryCards', () => {
 
     expect(cards.find(card => card.key === 'ranking')?.value).toBe('1')
     expect(cards.some(card => card.key === 'suggestions')).toBe(false)
+    expect(cards.find(card => card.key === 'todaySuggestions')?.value).toBe('0')
     expect(cards.find(card => card.key === 'trends')?.value).toBe('2')
     expect(cards.find(card => card.key === 'largeDocuments')?.value).toBe('3')
   })

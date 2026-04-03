@@ -27,6 +27,10 @@ describe('OrphanDetailPanel', () => {
         openDocument: vi.fn(),
         onToggleThemeSuggestion: vi.fn(),
         isThemeSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiLinkSuggestion: vi.fn(),
+        isAiLinkSuggestionActive: vi.fn().mockImplementation((_documentId, targetDocumentId) => targetDocumentId === 'theme-ai'),
+        onToggleAiTagSuggestion: vi.fn(),
+        isAiTagSuggestionActive: vi.fn().mockImplementation((_documentId, tag) => tag === 'AI'),
         aiEnabled: true,
         aiConfigReady: true,
         aiSuggestionStates: new Map([
@@ -54,5 +58,69 @@ describe('OrphanDetailPanel', () => {
     expect(html).toContain('正在分析文档语义并生成 embedding')
     expect(html).not.toContain('主题-AI-索引</span>')
     expect(html).not.toContain('建议与主题文档建立链接：')
+  })
+
+  it('renders concise AI suggestions with merged reason and tag suggestions', async () => {
+    const app = createSSRApp({
+      render: () => h(OrphanDetailPanel, {
+        items: [
+          {
+            documentId: 'doc-a',
+            title: 'Alpha',
+            meta: 'meta',
+            themeSuggestions: [],
+          },
+        ],
+        orphanSort: 'updated-desc',
+        onUpdateOrphanSort: vi.fn(),
+        openDocument: vi.fn(),
+        onToggleThemeSuggestion: vi.fn(),
+        isThemeSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiLinkSuggestion: vi.fn(),
+        isAiLinkSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiTagSuggestion: vi.fn(),
+        isAiTagSuggestionActive: vi.fn().mockReturnValue(false),
+        aiEnabled: true,
+        aiConfigReady: true,
+        aiSuggestionStates: new Map([
+          ['doc-a', {
+            loading: false,
+            statusMessage: '',
+            error: '',
+            result: {
+              generatedAt: '2026-04-03T08:00:00.000Z',
+              summary: '优先补到主题页。',
+              suggestions: [
+                {
+                  targetDocumentId: 'theme-ai',
+                  targetTitle: '主题-AI-索引',
+                  targetType: 'theme-document',
+                  confidence: 'high',
+                  reason: '主题匹配和结构角色都很强，补链后更容易回到 AI 主题网络。',
+                  draftText: '可归入 AI 主题：((theme-ai "主题-AI-索引"))',
+                  tagSuggestions: [
+                    { tag: 'AI', source: 'existing', reason: '当前标签集合里已有该标签。' },
+                    { tag: 'AI 工具', source: 'new', reason: '更贴合工具实践语义。' },
+                  ],
+                },
+              ],
+            },
+          }],
+        ]),
+        onGenerateAiSuggestion: vi.fn(),
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('链接建议')
+    expect(html).toContain('标签建议')
+    expect(html).toContain('主题-AI-索引')
+    expect(html).toContain('补链后更容易回到 AI 主题网络')
+    expect(html).not.toContain('预估收益')
+    expect(html).toContain('当前标签集合里已有该标签')
+    expect(html).toContain('AI 工具')
+    expect(html).toContain('新标签')
+    expect(html).toContain('当前标签')
   })
 })

@@ -21,6 +21,7 @@ describe('config defaults', () => {
 
     expect(config.showDocuments).toBe(false)
     expect(config.showRead).toBe(true)
+    expect(config.showTodaySuggestions).toBe(true)
     expect(config.showReferences).toBe(false)
     expect(config.showRanking).toBe(false)
     expect(config.showLargeDocuments).toBe(true)

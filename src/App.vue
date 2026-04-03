@@ -167,27 +167,17 @@
         :on-reorder-summary-card="reorderSummaryCard"
       />
 
-      <AIInboxPanel
-        :enabled="Boolean(props.config.aiEnabled)"
-        :is-configured="aiConfigReady"
-        :is-expanded="isPanelExpanded('ai-inbox')"
-        :loading="aiInboxLoading"
-        :testing-connection="aiConnectionTesting"
-        :error="aiInboxError"
-        :connection-message="aiConnectionMessage"
-        :result="aiInboxResult"
-        :on-generate="generateAiInbox"
-        :on-test-connection="testAiConnection"
-        :on-toggle-panel="() => togglePanel('ai-inbox')"
-        :open-document="openDocument"
-      />
-
       <SummaryDetailSection
         v-if="visibleSummaryCards.length && selectedSummaryDetail"
         :detail="selectedSummaryDetail"
         :selected-summary-count="selectedSummaryCount"
         :is-expanded="isPanelExpanded('summary-detail')"
         :on-toggle-panel="() => togglePanel('summary-detail')"
+        :ai-suggestion-enabled="Boolean(props.config.aiEnabled)"
+        :ai-suggestion-configured="aiConfigReady"
+        :ai-suggestion-loading="aiInboxLoading"
+        :ai-suggestion-error="aiInboxError"
+        :generate-ai-inbox="generateAiInbox"
         :orphan-detail-items="orphanDetailItems"
         :orphan-theme-suggestions="orphanThemeSuggestions"
         :orphan-sort="orphanSort"
@@ -197,6 +187,10 @@
         :open-document="openDocument"
         :toggle-orphan-theme-suggestion="toggleOrphanThemeSuggestion"
         :is-theme-suggestion-active="isThemeSuggestionActive"
+        :toggle-orphan-ai-link-suggestion="toggleOrphanAiLinkSuggestion"
+        :is-ai-link-suggestion-active="isAiLinkSuggestionActive"
+        :toggle-orphan-ai-tag-suggestion="toggleOrphanAiTagSuggestion"
+        :is-ai-tag-suggestion-active="isAiTagSuggestionActive"
         :ai-enabled="Boolean(props.config.aiEnabled)"
         :ai-link-suggestion-config-ready="aiLinkSuggestionConfigReady"
         :orphan-ai-suggestion-states="orphanAiSuggestionStates"
@@ -235,13 +229,12 @@ import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import FilterSelect from '@/components/FilterSelect.vue'
-import AIInboxPanel from '@/components/AIInboxPanel.vue'
 import SummaryCardsGrid from '@/components/SummaryCardsGrid.vue'
 import SummaryDetailSection from '@/components/SummaryDetailSection.vue'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import { isSummaryCardVisible } from '@/analytics/summary-card-config'
 import { useAnalyticsState } from '@/composables/use-analytics'
-import { appendBlock, deleteBlock, forwardProxy, getBlockKramdown, getChildBlocks, prependBlock, updateBlock } from '@/api'
+import { appendBlock, deleteBlock, forwardProxy, getBlockAttrs, getBlockKramdown, getChildBlocks, prependBlock, setBlockAttrs, updateBlock } from '@/api'
 import { ensureConfigDefaults, type PluginConfig } from '@/types/config'
 import pluginIconUrl from '../icon.png'
 
@@ -263,6 +256,8 @@ const analytics = useAnalyticsState({
   updateBlock,
   getChildBlocks,
   getBlockKramdown,
+  getBlockAttrs,
+  setBlockAttrs,
   forwardProxy,
 })
 
@@ -305,14 +300,10 @@ const {
   aiConfigReady,
   aiLinkSuggestionConfigReady,
   aiInboxLoading,
-  aiConnectionTesting,
   aiInboxError,
-  aiConnectionMessage,
-  aiInboxResult,
   refresh,
   generateAiInbox,
   generateOrphanAiSuggestion,
-  testAiConnection,
   selectEvidence,
   selectCommunity,
   selectSummaryCard,
@@ -336,6 +327,10 @@ const {
   formatDelta,
   toggleOrphanThemeSuggestion,
   isThemeSuggestionActive,
+  toggleOrphanAiLinkSuggestion,
+  isAiLinkSuggestionActive,
+  toggleOrphanAiTagSuggestion,
+  isAiTagSuggestionActive,
 } = analytics
 
 const visibleSummaryCards = computed(() => {

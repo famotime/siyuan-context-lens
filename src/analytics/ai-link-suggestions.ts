@@ -1,7 +1,7 @@
 import type { DocumentRecord, OrphanItem, ReferenceGraphReport } from './analysis'
 import { resolveDocumentTitle } from './document-utils'
 import { countThemeMatchesForDocument, type ThemeDocument } from './theme-documents'
-import { isAiConfigComplete, resolveAiRequestOptions } from './ai-inbox'
+import { isAiConfigComplete, resolveAiEndpoint, resolveAiRequestOptions } from './ai-inbox'
 import type { PluginConfig } from '@/types/config'
 
 type ForwardProxyFn = (
@@ -28,6 +28,7 @@ type AiConfig = Pick<
 
 type CandidateTargetType = 'theme-document' | 'core-document' | 'related-document'
 type SuggestionConfidence = 'high' | 'medium' | 'low'
+type TagSuggestionSource = 'existing' | 'new'
 
 interface CandidateTarget {
   documentId: string
@@ -44,8 +45,14 @@ export interface AiLinkSuggestionItem {
   targetType: CandidateTargetType
   confidence: SuggestionConfidence
   reason: string
-  expectedBenefit: string
   draftText?: string
+  tagSuggestions?: AiLinkTagSuggestion[]
+}
+
+export interface AiLinkTagSuggestion {
+  tag: string
+  source: TagSuggestionSource
+  reason?: string
 }
 
 export interface AiLinkSuggestionResult {
@@ -68,6 +75,7 @@ export interface AiLinkSuggestionService {
     orphan: OrphanItem
     documents: DocumentRecord[]
     themeDocuments: ThemeDocument[]
+    availableTags: string[]
     report: ReferenceGraphReport
     onProgress?: (message: string) => void
   }) => Promise<AiLinkSuggestionResult>
@@ -77,9 +85,9 @@ const SUGGESTION_SYSTEM_PROMPT = [
   '你是思源笔记的补链建议助手。',
   '你只可以在给定候选目标中选择，不要发明不存在的文档。',
   '必须返回 JSON，格式为 {"summary": string, "suggestions": Suggestion[] }。',
-  '每条 Suggestion 必须包含 targetDocumentId、targetTitle、targetType、confidence、reason、expectedBenefit，可选 draftText。',
-  'reason 必须结合 embedding 分数、主题命中或结构角色解释。',
-  'expectedBenefit 必须写成处理后的可观察变化，不要写宽泛空话。',
+  '每条 Suggestion 必须包含 targetDocumentId、targetTitle、targetType、confidence、reason，可选 draftText、tagSuggestions。',
+  'reason 必须把推荐依据和处理后的主要改善合并成一段简洁说明。',
+  'tagSuggestions 是标签建议数组，每项包含 tag、source、reason；source 只能是 existing 或 new。',
   '如果主题页明显合适，优先推荐主题页。',
 ].join(' ')
 
@@ -128,7 +136,7 @@ export function createAiLinkSuggestionService(deps: {
         .sort((left, right) => right.finalScore - left.finalScore || left.title.localeCompare(right.title, 'zh-CN'))
         .slice(0, 6)
 
-      params.onProgress?.('AI 正在整理推荐理由与插入文案…')
+      params.onProgress?.('AI 正在分析……')
 
       const payload = await requestChatCompletion({
         config: params.config,
@@ -147,6 +155,14 @@ export function createAiLinkSuggestionService(deps: {
                 historicalReferenceCount: params.orphan.historicalReferenceCount,
                 hasSparseEvidence: params.orphan.hasSparseEvidence,
               },
+              availableThemes: params.themeDocuments.map(themeDocument => ({
+                documentId: themeDocument.documentId,
+                title: themeDocument.title,
+                themeName: themeDocument.themeName,
+                matchTerms: themeDocument.matchTerms,
+                hpath: themeDocument.hpath,
+              })),
+              availableTags: deduplicateTags(params.availableTags),
               candidates: topCandidates.map(candidate => ({
                 id: candidate.documentId,
                 title: candidate.title,
@@ -300,7 +316,7 @@ async function requestEmbeddings(params: {
   forwardProxy: ForwardProxyFn
   inputs: string[]
 }) {
-  const endpoint = `${params.config.aiBaseUrl!.replace(/\/+$/, '')}/embeddings`
+  const endpoint = resolveAiEndpoint(params.config.aiBaseUrl!, 'embeddings')
   const requestOptions = resolveAiRequestOptions(params.config)
   const response = await params.forwardProxy(
     endpoint,
@@ -338,7 +354,7 @@ async function requestChatCompletion(params: {
   forwardProxy: ForwardProxyFn
   messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }>
 }) {
-  const endpoint = `${params.config.aiBaseUrl!.replace(/\/+$/, '')}/chat/completions`
+  const endpoint = resolveAiEndpoint(params.config.aiBaseUrl!, 'chat/completions')
   const requestOptions = resolveAiRequestOptions(params.config)
   const response = await params.forwardProxy(
     endpoint,
@@ -428,9 +444,11 @@ function normalizeSuggestionResult(payload: any): AiLinkSuggestionResult {
 function normalizeSuggestionItem(value: any): AiLinkSuggestionItem | null {
   const targetDocumentId = typeof value?.targetDocumentId === 'string' ? value.targetDocumentId.trim() : ''
   const targetTitle = typeof value?.targetTitle === 'string' ? value.targetTitle.trim() : ''
-  const reason = typeof value?.reason === 'string' ? value.reason.trim() : ''
-  const expectedBenefit = typeof value?.expectedBenefit === 'string' ? value.expectedBenefit.trim() : ''
-  if (!targetDocumentId || !targetTitle || !reason || !expectedBenefit) {
+  const reason = mergeSuggestionReason(
+    typeof value?.reason === 'string' ? value.reason.trim() : '',
+    typeof value?.expectedBenefit === 'string' ? value.expectedBenefit.trim() : '',
+  )
+  if (!targetDocumentId || !targetTitle || !reason) {
     return null
   }
 
@@ -440,10 +458,10 @@ function normalizeSuggestionItem(value: any): AiLinkSuggestionItem | null {
     targetType: normalizeTargetType(value?.targetType),
     confidence: normalizeConfidence(value?.confidence),
     reason,
-    expectedBenefit,
     draftText: typeof value?.draftText === 'string' && value.draftText.trim()
       ? value.draftText.trim()
       : undefined,
+    tagSuggestions: normalizeTagSuggestions(value?.tagSuggestions),
   }
 }
 
@@ -459,4 +477,67 @@ function normalizeConfidence(value: unknown): SuggestionConfidence {
     return value
   }
   return 'medium'
+}
+
+function mergeSuggestionReason(reason: string, expectedBenefit: string): string {
+  if (!reason && !expectedBenefit) {
+    return ''
+  }
+  if (!reason) {
+    return expectedBenefit
+  }
+  if (!expectedBenefit) {
+    return reason
+  }
+  if (reason.includes(expectedBenefit) || expectedBenefit.includes(reason)) {
+    return reason.length >= expectedBenefit.length ? reason : expectedBenefit
+  }
+  const normalizedReason = /[。！？.!?]$/.test(reason) ? reason : `${reason}。`
+  return `${normalizedReason}${expectedBenefit}`
+}
+
+function normalizeTagSuggestions(value: unknown): AiLinkTagSuggestion[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const items = value
+    .map(item => normalizeTagSuggestion(item))
+    .filter((item): item is AiLinkTagSuggestion => item !== null)
+
+  if (!items.length) {
+    return undefined
+  }
+
+  const deduplicated = new Map<string, AiLinkTagSuggestion>()
+  for (const item of items) {
+    const key = item.tag.toLocaleLowerCase()
+    if (!deduplicated.has(key)) {
+      deduplicated.set(key, item)
+    }
+  }
+  return [...deduplicated.values()]
+}
+
+function normalizeTagSuggestion(value: any): AiLinkTagSuggestion | null {
+  const tag = typeof value?.tag === 'string' ? value.tag.trim() : ''
+  if (!tag) {
+    return null
+  }
+
+  return {
+    tag,
+    source: normalizeTagSuggestionSource(value?.source),
+    reason: typeof value?.reason === 'string' && value.reason.trim()
+      ? value.reason.trim()
+      : undefined,
+  }
+}
+
+function normalizeTagSuggestionSource(value: unknown): TagSuggestionSource {
+  return value === 'existing' ? 'existing' : 'new'
+}
+
+function deduplicateTags(tags: string[]): string[] {
+  return [...new Set(tags.map(tag => tag.trim()).filter(Boolean))]
 }

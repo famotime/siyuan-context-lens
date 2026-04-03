@@ -13,6 +13,7 @@ describe('summary card config', () => {
   it('uses a single definition list as the source of default order and card settings', () => {
     expect(SUMMARY_CARD_DEFINITIONS.map(item => item.key)).toEqual([
       'read',
+      'todaySuggestions',
       'orphans',
       'ranking',
       'documents',
@@ -31,6 +32,12 @@ describe('summary card config', () => {
       defaultVisible: true,
       settingLabel: '已读/未读文档卡片',
     }))
+    expect(getSummaryCardDefinition('todaySuggestions')).toEqual(expect.objectContaining({
+      key: 'todaySuggestions',
+      visibilityConfigKey: 'showTodaySuggestions',
+      defaultVisible: true,
+      settingLabel: '今日建议卡片',
+    }))
     expect(getSummaryCardDefinition('bridges')).toEqual(expect.objectContaining({
       key: 'bridges',
       visibilityConfigKey: 'showBridges',
@@ -47,6 +54,7 @@ describe('summary card config', () => {
   it('derives per-card visibility defaults and visibility lookups from the shared definitions', () => {
     expect(buildSummaryCardVisibilityDefaults()).toEqual({
       showRead: true,
+      showTodaySuggestions: true,
       showOrphans: true,
       showRanking: true,
       showDocuments: false,

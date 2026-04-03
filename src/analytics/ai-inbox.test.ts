@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createAiInboxService, limitChatCompletionMessages, resolveAiRequestOptions } from './ai-inbox'
+import { createAiInboxService, limitChatCompletionMessages, resolveAiRequestOptions, resolveAiEndpoint } from './ai-inbox'
 
 const documents = Array.from({ length: 12 }, (_, index) => ({
   id: `doc-${index + 1}`,
@@ -432,6 +432,40 @@ describe('ai inbox request options', () => {
     }))
   })
 
+  it('auto-appends /v1 for SiliconFlow chat completions when base url omits it', () => {
+    expect(resolveAiEndpoint('https://api.siliconflow.cn', 'chat/completions')).toBe('https://api.siliconflow.cn/v1/chat/completions')
+    expect(resolveAiEndpoint('https://api.siliconflow.cn/', 'embeddings')).toBe('https://api.siliconflow.cn/v1/embeddings')
+    expect(resolveAiEndpoint('https://api.siliconflow.cn/v1', 'chat/completions')).toBe('https://api.siliconflow.cn/v1/chat/completions')
+  })
+
+  it('includes missing /v1 hints for non-2xx responses', async () => {
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    }
+    const service = createAiInboxService({
+      forwardProxy: async () => ({
+        body: '{"error":"not found"}',
+        contentType: 'application/json',
+        elapsed: 12,
+        headers: {},
+        status: 404,
+        url: 'https://api.siliconflow.cn/chat/completions',
+      } as any),
+      logger,
+    })
+
+    await expect(service.testConnection({
+      config: {
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.siliconflow.cn/no-v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'deepseek-ai/DeepSeek-V3',
+      } as any,
+    })).rejects.toThrow(/Base URL 很可能应包含 \/v1/)
+  })
+
   it('adds timeout troubleshooting details and emits debug logs when forward proxy throws', async () => {
     const logger = {
       info: vi.fn(),
@@ -458,19 +492,10 @@ describe('ai inbox request options', () => {
       } as any,
     })).rejects.toThrow(/AI 请求超时/)
 
-    await expect(service.testConnection({
-      config: {
-        aiEnabled: true,
-        aiBaseUrl: 'https://api.siliconflow.cn',
-        aiApiKey: 'sk-test',
-        aiModel: 'deepseek-ai/DeepSeek-V3',
-      } as any,
-    })).rejects.toThrow(/Base URL 很可能应包含 \/v1/)
-
     expect(logger.info).toHaveBeenCalledWith(
       '[NetworkLens][AI] Request start',
       expect.objectContaining({
-        endpoint: 'https://api.siliconflow.cn/chat/completions',
+        endpoint: 'https://api.siliconflow.cn/v1/chat/completions',
         timeoutMs: 30000,
         model: 'deepseek-ai/DeepSeek-V3',
       }),
@@ -478,7 +503,7 @@ describe('ai inbox request options', () => {
     expect(logger.error).toHaveBeenCalledWith(
       '[NetworkLens][AI] Request failed',
       expect.objectContaining({
-        endpoint: 'https://api.siliconflow.cn/chat/completions',
+        endpoint: 'https://api.siliconflow.cn/v1/chat/completions',
         timeoutMs: 30000,
         model: 'deepseek-ai/DeepSeek-V3',
         errorMessage: 'forward request failed: Post "https://api.siliconflow.cn/chat/completions": context deadline exceeded v3.6.1',

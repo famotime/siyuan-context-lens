@@ -6,7 +6,16 @@
         <p>{{ detail.description }}</p>
       </div>
       <div class="panel-header__actions">
-        <span class="meta-text">{{ selectedSummaryCount }} 篇文档</span>
+        <span class="meta-text">{{ summaryCountLabel }}</span>
+        <button
+          v-if="detail.kind === 'aiInbox'"
+          class="action-button"
+          type="button"
+          :disabled="aiSuggestionLoading || !aiSuggestionEnabled || !aiSuggestionConfigured"
+          @click="generateAiInbox()"
+        >
+          {{ aiSuggestionLoading ? '分析中...' : detail.result ? '重新分析' : '今日建议' }}
+        </button>
         <button
           class="panel-toggle"
           type="button"
@@ -35,6 +44,10 @@
           :on-update-orphan-sort="onUpdateOrphanSort"
           :on-toggle-theme-suggestion="toggleOrphanThemeSuggestion"
           :is-theme-suggestion-active="isThemeSuggestionActive"
+          :on-toggle-ai-link-suggestion="toggleOrphanAiLinkSuggestion"
+          :is-ai-link-suggestion-active="isAiLinkSuggestionActive"
+          :on-toggle-ai-tag-suggestion="toggleOrphanAiTagSuggestion"
+          :is-ai-tag-suggestion-active="isAiTagSuggestionActive"
           :ai-enabled="aiEnabled"
           :ai-config-ready="aiLinkSuggestionConfigReady"
           :ai-suggestion-states="orphanAiSuggestionStates"
@@ -48,6 +61,144 @@
           :open-document="openDocument"
           :on-update-dormant-days="onUpdateDormantDays"
         />
+      </template>
+      <template v-else-if="detail.kind === 'aiInbox'">
+        <div class="ai-suggestion-panel">
+          <p
+            v-if="aiSuggestionError"
+            class="ai-suggestion-panel__status ai-suggestion-panel__status--error"
+          >
+            {{ aiSuggestionError }}
+          </p>
+
+          <div
+            v-if="!aiSuggestionEnabled"
+            class="empty-state"
+          >
+            在设置页启用 AI 后，这里会基于当前筛选结果生成今日整理建议。
+          </div>
+
+          <div
+            v-else-if="!aiSuggestionConfigured"
+            class="empty-state"
+          >
+            还缺少 OpenAI 兼容配置。请在设置页补充 Base URL、API Key 和 Model。
+          </div>
+
+          <div
+            v-else-if="aiSuggestionLoading && !detail.result"
+            class="ai-suggestion-panel__loading"
+            aria-hidden="true"
+          >
+            <div class="ai-suggestion-panel__loading-line loading-shimmer" />
+            <div class="ai-suggestion-panel__loading-line ai-suggestion-panel__loading-line--short loading-shimmer" />
+            <div class="ai-suggestion-panel__loading-card loading-shimmer" />
+            <div class="ai-suggestion-panel__loading-card loading-shimmer" />
+          </div>
+
+          <div
+            v-else-if="detail.result"
+            class="ai-suggestion-panel__result"
+          >
+            <div class="ai-suggestion-panel__summary">
+              <p>{{ detail.result.summary }}</p>
+              <span class="meta-text">共 {{ detail.result.items.length }} 项建议</span>
+            </div>
+
+            <div class="ai-suggestion-panel__list">
+              <article
+                v-for="item in detail.result.items"
+                :key="item.id"
+                class="ai-suggestion-panel__item"
+              >
+                <div class="ai-suggestion-panel__item-top">
+                  <div class="ai-suggestion-panel__badges">
+                    <span class="badge badge--cool">{{ resolveAiInboxTypeLabel(item.type) }}</span>
+                    <span class="badge">{{ item.priority }}</span>
+                  </div>
+                  <button
+                    v-if="item.documentIds?.length"
+                    class="ghost-button"
+                    type="button"
+                    @click="openDocument(item.documentIds[0])"
+                  >
+                    打开文档
+                  </button>
+                </div>
+                <h3>{{ item.title }}</h3>
+                <p><strong>为什么先做：</strong>{{ item.why }}</p>
+                <p><strong>推荐动作：</strong>{{ item.action }}</p>
+                <p><strong>预估收益：</strong>{{ item.benefit }}</p>
+
+                <div
+                  v-if="item.recommendedTargets?.length"
+                  class="ai-suggestion-panel__detail-group"
+                >
+                  <p class="ai-suggestion-panel__detail-title">推荐目标</p>
+                  <div class="ai-suggestion-panel__targets">
+                    <div
+                      v-for="target in item.recommendedTargets"
+                      :key="`${item.id}-${target.title}`"
+                      class="ai-suggestion-panel__target"
+                    >
+                      <button
+                        v-if="target.documentId"
+                        class="ghost-button ai-suggestion-panel__target-button"
+                        type="button"
+                        @click="openDocument(target.documentId)"
+                      >
+                        {{ target.title }}
+                      </button>
+                      <span v-else class="ai-suggestion-panel__target-label">{{ target.title }}</span>
+                      <p>{{ target.reason }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  v-if="item.evidence?.length"
+                  class="ai-suggestion-panel__detail-group"
+                >
+                  <p class="ai-suggestion-panel__detail-title">证据</p>
+                  <ul class="ai-suggestion-panel__detail-list">
+                    <li v-for="evidence in item.evidence" :key="`${item.id}-${evidence}`">
+                      {{ evidence }}
+                    </li>
+                  </ul>
+                </div>
+
+                <div
+                  v-if="item.expectedChanges?.length"
+                  class="ai-suggestion-panel__detail-group"
+                >
+                  <p class="ai-suggestion-panel__detail-title">处理后变化</p>
+                  <ul class="ai-suggestion-panel__detail-list">
+                    <li v-for="change in item.expectedChanges" :key="`${item.id}-${change}`">
+                      {{ change }}
+                    </li>
+                  </ul>
+                </div>
+
+                <div
+                  v-if="item.draftText"
+                  class="ai-suggestion-panel__detail-group"
+                >
+                  <p class="ai-suggestion-panel__detail-title">建议草稿</p>
+                  <div class="ai-suggestion-panel__draft">
+                    {{ item.draftText }}
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="empty-state"
+          >
+            点开“今日建议”后会自动开始分析当前筛选结果。
+          </div>
+        </div>
       </template>
       <template v-else-if="detail.kind === 'list'">
         <div
@@ -450,6 +601,7 @@
 import { computed } from 'vue'
 
 import type { OrphanSort } from '@/analytics/analysis'
+import type { AiInboxItemType } from '@/analytics/ai-inbox'
 import type { OrphanAiSuggestionState } from '@/analytics/ai-link-suggestions'
 import type { LinkDirection } from '@/analytics/link-sync'
 import type { DetailSuggestion, SummaryDetailSection as SummaryDetailSectionType } from '@/analytics/summary-details'
@@ -477,6 +629,11 @@ const props = defineProps<{
   selectedSummaryCount: number
   isExpanded: boolean
   onTogglePanel: () => void
+  aiSuggestionEnabled: boolean
+  aiSuggestionConfigured: boolean
+  aiSuggestionLoading: boolean
+  aiSuggestionError: string
+  generateAiInbox: () => void | Promise<void>
   orphanDetailItems: DetailItemWithThemeSuggestions[]
   orphanThemeSuggestions: Map<string, ThemeDocumentMatch[]>
   orphanSort: OrphanSort
@@ -486,6 +643,10 @@ const props = defineProps<{
   openDocument: (documentId: string) => void
   toggleOrphanThemeSuggestion: (orphanDocumentId: string, themeDocumentId: string) => Promise<void>
   isThemeSuggestionActive: (orphanDocumentId: string, themeDocumentId: string) => boolean
+  toggleOrphanAiLinkSuggestion: (orphanDocumentId: string, targetDocumentId: string, targetDocumentTitle: string) => Promise<void>
+  isAiLinkSuggestionActive: (orphanDocumentId: string, targetDocumentId: string) => boolean
+  toggleOrphanAiTagSuggestion: (documentId: string, tag: string) => Promise<void>
+  isAiTagSuggestionActive: (documentId: string, tag: string) => boolean
   aiEnabled: boolean
   aiLinkSuggestionConfigReady: boolean
   orphanAiSuggestionStates: Map<string, OrphanAiSuggestionState>
@@ -515,6 +676,10 @@ const props = defineProps<{
   themeDocumentIds: Set<string>
   selectCommunity: (communityId: string) => void
 }>()
+
+const summaryCountLabel = computed(() => props.detail.kind === 'aiInbox'
+  ? `${props.selectedSummaryCount} 项建议`
+  : `${props.selectedSummaryCount} 篇文档`)
 
 const listItems = computed<DetailItemWithThemeSuggestions[]>(() => {
   if (props.detail.kind !== 'list') {
@@ -556,9 +721,58 @@ function buildSuggestionCalloutItems(item: DetailItemWithThemeSuggestions): Deta
     }
   })
 }
+
+function resolveAiInboxTypeLabel(type: AiInboxItemType) {
+  if (type === 'connection') {
+    return '补连接'
+  }
+  if (type === 'topic-page') {
+    return '建主题页'
+  }
+  if (type === 'bridge-risk') {
+    return '桥接风险'
+  }
+  return '整理文档'
+}
 </script>
 
 <style scoped>
+.action-button,
+.ghost-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.action-button {
+  min-width: 108px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: var(--b3-theme-primary);
+  color: var(--b3-theme-on-primary, #fff);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--b3-theme-primary) 30%, transparent);
+}
+
+.action-button:disabled,
+.ghost-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghost-button {
+  min-width: 108px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--b3-theme-primary) 8%, transparent);
+  color: var(--b3-theme-primary);
+}
+
 .panel {
   padding: 24px;
   border-radius: 16px;
@@ -637,6 +851,183 @@ function buildSuggestionCalloutItems(item: DetailItemWithThemeSuggestions): Deta
   gap: 12px;
 }
 
+.ai-suggestion-panel,
+.ai-suggestion-panel__result,
+.ai-suggestion-panel__list {
+  display: grid;
+  gap: 14px;
+}
+
+.ai-suggestion-panel__status,
+.ai-suggestion-panel__summary,
+.ai-suggestion-panel__item,
+.ai-suggestion-panel__loading-card {
+  border-radius: 14px;
+  border: 1px solid var(--panel-border);
+  background: var(--surface-card);
+}
+
+.ai-suggestion-panel__status,
+.ai-suggestion-panel__summary,
+.ai-suggestion-panel__item {
+  padding: 16px;
+}
+
+.ai-suggestion-panel__status {
+  margin: 0;
+}
+
+.ai-suggestion-panel__status--error {
+  color: var(--b3-theme-error);
+  background: color-mix(in srgb, var(--b3-theme-error) 6%, var(--surface-card));
+}
+
+.ai-suggestion-panel__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ai-suggestion-panel__summary p {
+  margin: 0;
+  line-height: 1.7;
+}
+
+.ai-suggestion-panel__item {
+  display: grid;
+  gap: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-warm) 6%, transparent), transparent 44%),
+    var(--surface-card);
+}
+
+.ai-suggestion-panel__item h3,
+.ai-suggestion-panel__item p {
+  margin: 0;
+}
+
+.ai-suggestion-panel__item p {
+  line-height: 1.7;
+}
+
+.ai-suggestion-panel__item-top,
+.ai-suggestion-panel__badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ai-suggestion-panel__item-top {
+  justify-content: space-between;
+}
+
+.ai-suggestion-panel__detail-group {
+  display: grid;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--b3-theme-on-background) 10%, transparent);
+}
+
+.ai-suggestion-panel__detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--accent-cool) 72%, var(--b3-theme-on-background));
+}
+
+.ai-suggestion-panel__targets {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-suggestion-panel__target {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-cool) 6%, var(--surface-card-soft));
+}
+
+.ai-suggestion-panel__target-button,
+.ai-suggestion-panel__target-label {
+  width: fit-content;
+}
+
+.ai-suggestion-panel__target-label {
+  font-weight: 600;
+  color: var(--b3-theme-on-background);
+}
+
+.ai-suggestion-panel__detail-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.ai-suggestion-panel__detail-list li {
+  line-height: 1.6;
+}
+
+.ai-suggestion-panel__draft {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-warm) 8%, var(--surface-card-soft));
+  font-family: var(--b3-font-family-code, monospace);
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.ai-suggestion-panel__loading {
+  display: grid;
+  gap: 12px;
+}
+
+.ai-suggestion-panel__loading-line,
+.ai-suggestion-panel__loading-card {
+  min-height: 16px;
+}
+
+.ai-suggestion-panel__loading-line {
+  width: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-card-soft) 88%, transparent);
+}
+
+.ai-suggestion-panel__loading-line--short {
+  width: 56%;
+}
+
+.ai-suggestion-panel__loading-card {
+  min-height: 120px;
+}
+
+.loading-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.loading-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    color-mix(in srgb, white 18%, transparent) 28%,
+    transparent 56%
+  );
+  transform: translateX(-100%);
+  animation: ai-suggestion-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes ai-suggestion-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
 .summary-detail-item {
   padding: 16px;
   border-radius: 12px;
@@ -681,6 +1072,11 @@ function buildSuggestionCalloutItems(item: DetailItemWithThemeSuggestions): Deta
   font-size: 12px;
   background: var(--surface-chip-warm);
   color: color-mix(in srgb, var(--accent-warm) 60%, var(--b3-theme-on-background));
+}
+
+.badge--cool {
+  background: var(--surface-chip-cool);
+  color: color-mix(in srgb, var(--accent-cool) 70%, var(--b3-theme-on-background));
 }
 
 .detail-theme-section {
@@ -976,5 +1372,22 @@ select {
   background: var(--surface-card);
   border-radius: 12px;
   border: 1px dashed var(--panel-border);
+}
+
+@media (max-width: 720px) {
+  .panel-header {
+    flex-direction: column;
+  }
+
+  .panel-header__actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .ai-suggestion-panel__summary,
+  .ai-suggestion-panel__item-top {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 }
 </style>

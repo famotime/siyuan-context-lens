@@ -4,6 +4,7 @@ export type SummaryCardVisibilityConfigKey =
   | 'showDocuments'
   | 'showLargeDocuments'
   | 'showRead'
+  | 'showTodaySuggestions'
   | 'showReferences'
   | 'showRanking'
   | 'showTrends'
@@ -31,6 +32,13 @@ export const SUMMARY_CARD_DEFINITIONS: SummaryCardDefinition[] = [
     defaultVisible: true,
     settingLabel: '已读/未读文档卡片',
     settingDescription: '展示已读状态统计，并支持在已读与未读之间切换',
+  },
+  {
+    key: 'todaySuggestions',
+    visibilityConfigKey: 'showTodaySuggestions',
+    defaultVisible: true,
+    settingLabel: '今日建议卡片',
+    settingDescription: '展示 AI 汇总的今日整理建议数，并联动下方详情',
   },
   {
     key: 'orphans',

@@ -64,6 +64,7 @@ describe('useAnalyticsState', () => {
 
     expect(state.summaryCards.value.map(card => card.key)).toEqual([
       'read',
+      'todaySuggestions',
       'ranking',
       'orphans',
       'documents',
@@ -91,7 +92,7 @@ describe('useAnalyticsState', () => {
       themeDocumentPath: '/专题',
       themeNamePrefix: '主题-',
       themeNameSuffix: '-索引',
-      summaryCardOrder: ['orphans', 'documents', 'largeDocuments', 'read', 'references', 'ranking', 'trends', 'communities', 'dormant', 'bridges', 'propagation'],
+      summaryCardOrder: ['orphans', 'documents', 'largeDocuments', 'read', 'todaySuggestions', 'references', 'ranking', 'trends', 'communities', 'dormant', 'bridges', 'propagation'],
       readTagNames: ['note'],
       readTitlePrefixes: '',
       readTitleSuffixes: '',
@@ -123,6 +124,7 @@ describe('useAnalyticsState', () => {
 
     expect(state.summaryCards.value.map(card => card.key)).toEqual([
       'read',
+      'todaySuggestions',
       'orphans',
       'ranking',
       'documents',
@@ -794,7 +796,6 @@ describe('useAnalyticsState', () => {
     await state.refresh()
     await nextTick()
 
-    expect(state.panelCollapseState.value).toHaveProperty('ai-inbox', true)
     expect(typeof (state as any).generateAiInbox).toBe('function')
     expect(typeof (state as any).testAiConnection).toBe('function')
     expect((state as any).aiInboxResult.value).toBeNull()
@@ -811,6 +812,10 @@ describe('useAnalyticsState', () => {
     expect(buildPayload).toHaveBeenCalledTimes(1)
     expect(generateInbox).toHaveBeenCalledTimes(1)
     expect((state as any).aiInboxResult.value).toEqual(aiResult)
+    expect(state.summaryCards.value.find(card => card.key === 'todaySuggestions')).toEqual(expect.objectContaining({
+      label: '今日建议',
+      value: '1',
+    }))
     expect((state as any).aiInboxError.value).toBe('')
     expect((state as any).aiInboxResult.value.items).toEqual([
       expect.objectContaining({
@@ -819,6 +824,91 @@ describe('useAnalyticsState', () => {
         title: 'AI 与 机器学习 AI',
       }),
     ])
+  })
+
+  it('auto-generates today suggestions when the card detail is opened', async () => {
+    const aiResult = {
+      generatedAt: '2026-03-12T08:00:00.000Z',
+      summary: '今天先处理断裂风险和孤立补链。',
+      items: [
+        {
+          id: 'task-doc-orphan',
+          type: 'document',
+          title: 'AI 与 机器学习 AI',
+          priority: 'P1',
+          why: '当前窗口内孤立，但和主题 AI、机器学习都有明显语义相关。',
+          action: '补 2 条到主题页的连接。',
+          benefit: '能立刻回到主题网络中。',
+          documentIds: ['doc-orphan'],
+        },
+      ],
+    }
+    const generateInbox = vi.fn().mockResolvedValue(aiResult)
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showTodaySuggestions: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.example.com/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'gpt-4.1-mini',
+      },
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+      forwardProxy: async () => ({
+        body: '',
+        contentType: 'application/json',
+        elapsed: 1,
+        headers: {},
+        status: 200,
+        url: 'https://api.example.com/v1/chat/completions',
+      }),
+      createAiInboxService: () => ({
+        buildPayload: () => ({ focus: [] }) as any,
+        generateInbox,
+        testConnection: vi.fn().mockResolvedValue({
+          ok: true,
+          message: '连接成功',
+        }),
+      }),
+    } as any)
+
+    await state.refresh()
+    await nextTick()
+
+    state.selectSummaryCard('todaySuggestions')
+    await nextTick()
+    await Promise.resolve()
+    await nextTick()
+
+    expect(generateInbox).toHaveBeenCalledTimes(1)
+    expect(state.selectedSummaryDetail.value).toEqual(expect.objectContaining({
+      key: 'todaySuggestions',
+      kind: 'aiInbox',
+      result: expect.objectContaining({
+        summary: '今天先处理断裂风险和孤立补链。',
+      }),
+    }))
   })
 
   it('loads orphan AI suggestions on demand and exposes friendly progress state', async () => {
@@ -831,16 +921,19 @@ describe('useAnalyticsState', () => {
           targetTitle: '主题-AI-索引',
           targetType: 'theme-document',
           confidence: 'high',
-          reason: '主题匹配和 embedding 相似度都很高。',
-          expectedBenefit: '预计移出孤立文档列表。',
+          reason: '主题匹配和 embedding 相似度都很高，补链后更容易回到现有主题网络。',
           draftText: '可归入 AI 主题：((doc-theme-ai "主题-AI-索引"))',
+          tagSuggestions: [
+            { tag: 'AI', source: 'existing', reason: '已有标签，可直接复用。' },
+            { tag: 'AI 工具', source: 'new', reason: '更贴合工具实践语义。' },
+          ],
         },
       ],
     }
     const suggestForOrphan = vi.fn(async ({ onProgress }: any) => {
       onProgress?.('正在分析文档语义并生成 embedding…')
       onProgress?.('正在基于 embedding 与结构信号召回候选…')
-      onProgress?.('AI 正在整理推荐理由与插入文案…')
+      onProgress?.('AI 正在分析……')
       return aiSuggestionResult
     })
 
@@ -894,6 +987,15 @@ describe('useAnalyticsState', () => {
     await nextTick()
 
     expect(suggestForOrphan).toHaveBeenCalledTimes(1)
+    expect(suggestForOrphan).toHaveBeenCalledWith(expect.objectContaining({
+      availableTags: ['AI', 'note'],
+      themeDocuments: expect.arrayContaining([
+        expect.objectContaining({
+          documentId: 'doc-theme-ai',
+          themeName: 'AI',
+        }),
+      ]),
+    }))
     expect(typeof (state as any).generateOrphanAiSuggestion).toBe('function')
     expect((state as any).orphanAiSuggestionStates.value.get('doc-orphan')).toEqual({
       loading: false,
@@ -901,5 +1003,80 @@ describe('useAnalyticsState', () => {
       error: '',
       result: aiSuggestionResult,
     })
+  })
+
+  it('toggles AI link suggestions with the same insertion rules as theme suggestions and applies document tags via block attrs', async () => {
+    const updateBlock = vi.fn(async () => [])
+    const prependBlock = vi.fn(async () => ([
+      {
+        doOperations: [
+          { id: 'blk-tag-1' },
+        ],
+      },
+    ]))
+    const deleteBlock = vi.fn(async () => [])
+    const setBlockAttrs = vi.fn(async () => null)
+    const getBlockAttrs = vi.fn()
+      .mockResolvedValueOnce({ tags: 'AI' })
+      .mockResolvedValueOnce({ tags: 'AI,AI工具' })
+      .mockResolvedValueOnce({ tags: 'AI' })
+    const notify = vi.fn()
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+      },
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: notify,
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock,
+      deleteBlock,
+      updateBlock,
+      getChildBlocks: async (id: string) => id === 'doc-orphan' ? [{ id: 'blk-orphan-1', type: 'p' }] : [],
+      getBlockKramdown: async () => ({ id: 'blk-orphan-1', kramdown: '((doc-existing "Existing"))' }),
+      setBlockAttrs,
+      getBlockAttrs,
+    } as any)
+
+    await state.refresh()
+    await nextTick()
+
+    await (state as any).toggleOrphanAiLinkSuggestion('doc-orphan', 'doc-b', 'Beta')
+
+    expect(updateBlock).toHaveBeenCalledWith('markdown', '((doc-existing "Existing"))\t((doc-b "Beta"))', 'blk-orphan-1')
+    expect((state as any).isAiLinkSuggestionActive('doc-orphan', 'doc-b')).toBe(true)
+
+    await (state as any).toggleOrphanAiLinkSuggestion('doc-orphan', 'doc-b', 'Beta')
+
+    expect(updateBlock).toHaveBeenLastCalledWith('markdown', '((doc-existing "Existing"))', 'blk-orphan-1')
+    expect((state as any).isAiLinkSuggestionActive('doc-orphan', 'doc-b')).toBe(false)
+
+    await (state as any).toggleOrphanAiTagSuggestion('doc-orphan', 'AI工具')
+
+    expect(setBlockAttrs).toHaveBeenLastCalledWith('doc-orphan', { tags: 'AI,AI工具' })
+    expect((state as any).isAiTagSuggestionActive('doc-orphan', 'AI工具')).toBe(true)
+    expect(state.snapshot.value?.documents.find(document => document.id === 'doc-orphan')?.tags).toEqual(['AI', 'AI工具'])
+    expect(state.tagOptions.value).toContain('AI工具')
+
+    await (state as any).toggleOrphanAiTagSuggestion('doc-orphan', 'AI工具')
+
+    expect(setBlockAttrs).toHaveBeenLastCalledWith('doc-orphan', { tags: 'AI' })
+    expect((state as any).isAiTagSuggestionActive('doc-orphan', 'AI工具')).toBe(false)
+    expect(state.snapshot.value?.documents.find(document => document.id === 'doc-orphan')?.tags).toEqual(['AI'])
+    expect(state.tagOptions.value).not.toContain('AI工具')
+    expect(notify).toHaveBeenCalled()
   })
 })

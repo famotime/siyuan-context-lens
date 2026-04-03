@@ -41,6 +41,7 @@ import {
   type PathScope,
 } from './use-analytics-derived'
 import {
+  createAiSuggestionActions,
   createLinkAssociationInteractions,
   createThemeSuggestionController,
 } from './use-analytics-interactions'
@@ -51,12 +52,12 @@ import {
   type AiLinkSuggestionService,
   type OrphanAiSuggestionState,
 } from '@/analytics/ai-link-suggestions'
+import { normalizeTags } from '@/analytics/document-utils'
 import type { PluginConfig } from '@/types/config'
 
 export type { PathScope } from './use-analytics-derived'
 
 const panelKeys = [
-  'ai-inbox',
   'summary-detail',
 ] as const
 
@@ -79,6 +80,8 @@ type BlockDeleteFn = (id: string) => Promise<any>
 type BlockUpdateFn = (dataType: 'markdown' | 'dom', data: string, id: string) => Promise<any>
 type GetChildBlocksFn = (id: string) => Promise<Array<{ id: string, type?: string }>>
 type GetBlockKramdownFn = (id: string) => Promise<{ id: string, kramdown: string }>
+type GetBlockAttrsFn = (id: string) => Promise<{ [key: string]: string }>
+type SetBlockAttrsFn = (id: string, attrs: { [key: string]: string }) => Promise<any>
 type ForwardProxyFn = (
   url: string,
   method?: string,
@@ -103,6 +106,8 @@ type UseAnalyticsParams = {
   updateBlock: BlockUpdateFn
   getChildBlocks: GetChildBlocksFn
   getBlockKramdown: GetBlockKramdownFn
+  getBlockAttrs?: GetBlockAttrsFn
+  setBlockAttrs?: SetBlockAttrsFn
   forwardProxy?: ForwardProxyFn
   createAiInboxService?: (deps: { forwardProxy: ForwardProxyFn }) => AiInboxService
   createAiLinkSuggestionService?: (deps: { forwardProxy: ForwardProxyFn }) => AiLinkSuggestionService
@@ -121,6 +126,8 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const updateBlock = params.updateBlock
   const getChildBlocks = params.getChildBlocks
   const getBlockKramdown = params.getBlockKramdown
+  const getBlockAttrs = params.getBlockAttrs
+  const setBlockAttrs = params.setBlockAttrs
   const aiInboxService = params.forwardProxy
     ? (params.createAiInboxService?.({ forwardProxy: params.forwardProxy }) ?? createAiInboxService({ forwardProxy: params.forwardProxy }))
     : null
@@ -189,6 +196,29 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     getChildBlocks,
     getBlockKramdown,
     prependBlock,
+  })
+  const aiSuggestionActions = createAiSuggestionActions({
+    notify,
+    deleteBlock,
+    updateBlock,
+    getChildBlocks,
+    getBlockKramdown,
+    prependBlock,
+    getBlockAttrs,
+    setBlockAttrs,
+    getDocumentById: documentId => documentMap.value.get(documentId),
+    onDocumentTagsChanged: (documentId, tags) => {
+      if (!snapshot.value) {
+        return
+      }
+
+      snapshot.value = {
+        ...snapshot.value,
+        documents: snapshot.value.documents.map(document => document.id === documentId
+          ? { ...document, tags: normalizeTags(tags) }
+          : document),
+      }
+    },
   })
 
   const filteredDocuments = computed(() => {
@@ -293,6 +323,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       dormantDays: dormantDays.value,
       documentCount: filteredDocuments.value.length,
       readDocumentCount: readMatches.length,
+      aiInboxCount: aiInboxResult.value?.items.length ?? 0,
       readCardMode: readCardMode.value,
       trends: trends.value,
       largeDocumentSummary: buildLargeDocumentSummary({
@@ -326,6 +357,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       readCardMode: readCardMode.value,
       largeDocumentMetrics: largeDocumentMetrics.value,
       largeDocumentCardMode: largeDocumentCardMode.value,
+      aiInboxResult: aiInboxResult.value,
     })
   })
 
@@ -464,6 +496,31 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     }
   }, { immediate: true })
 
+  watch(
+    [
+      selectedSummaryCardKey,
+      () => panelCollapseState.value['summary-detail'],
+      report,
+      trends,
+      snapshot,
+      aiConfigReady,
+      () => params.config.aiEnabled,
+    ],
+    ([cardKey, isDetailExpanded, nextReport, nextTrends, nextSnapshot, nextAiConfigReady, aiEnabled]) => {
+      if (cardKey !== 'todaySuggestions' || !isDetailExpanded) {
+        return
+      }
+      if (!aiEnabled || !nextAiConfigReady || !nextReport || !nextTrends || !nextSnapshot) {
+        return
+      }
+      if (aiInboxLoading.value || aiInboxResult.value) {
+        return
+      }
+      void generateAiInbox()
+    },
+    { immediate: true },
+  )
+
   watch(themeOptions, (options) => {
     const allowedThemes = new Set(options.map(option => option.value))
     selectedThemes.value = selectedThemes.value.filter(themeName => allowedThemes.has(themeName))
@@ -528,6 +585,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         ? await loadLargeDocumentMetricsFn(snapshot.value.documents)
         : new Map()
       themeSuggestionController.clearPendingThemeSuggestionBlocks()
+      aiSuggestionActions.clearPendingAiSuggestionActions()
       aiInboxError.value = ''
       aiConnectionMessage.value = ''
       aiInboxResult.value = null
@@ -741,6 +799,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         orphan,
         documents: snapshot.value.documents,
         themeDocuments: themeDocuments.value,
+        availableTags: tagOptions.value,
         report: report.value,
         onProgress: (message) => {
           updateOrphanAiSuggestionState(documentId, {
@@ -871,5 +930,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     testAiConnection,
     toggleOrphanThemeSuggestion: themeSuggestionController.toggleOrphanThemeSuggestion,
     isThemeSuggestionActive: themeSuggestionController.isThemeSuggestionActive,
+    toggleOrphanAiLinkSuggestion: aiSuggestionActions.toggleOrphanAiLinkSuggestion,
+    isAiLinkSuggestionActive: aiSuggestionActions.isAiLinkSuggestionActive,
+    toggleOrphanAiTagSuggestion: aiSuggestionActions.toggleOrphanAiTagSuggestion,
+    isAiTagSuggestionActive: aiSuggestionActions.isAiTagSuggestionActive,
   }
 }

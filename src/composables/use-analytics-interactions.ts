@@ -6,7 +6,20 @@ import {
   removeThemeLinkFromDocumentChange,
   type AppliedThemeLinkChange,
 } from '@/analytics/orphan-theme-links'
+import {
+  addDocumentLinkToChange,
+  applyDocumentLinkToOrphanDocument,
+  removeDocumentLinkFromChange,
+  type AppliedDocumentLinkChange,
+} from '@/analytics/orphan-document-links'
+import {
+  addTagToDocumentChange,
+  applyTagToOrphanDocument,
+  removeTagFromDocumentChange,
+  type AppliedTagSuggestionChange,
+} from '@/analytics/orphan-document-tags'
 import { syncAssociation as syncAssociationCore, type LinkDirection } from '@/analytics/link-sync'
+import type { DocumentRecord } from '@/analytics/analysis'
 import type { ThemeDocument } from '@/analytics/theme-documents'
 
 type ShowMessageFn = (text: string, timeout?: number, type?: 'info' | 'error') => void
@@ -15,6 +28,8 @@ type BlockDeleteFn = (id: string) => Promise<any>
 type BlockUpdateFn = (dataType: 'markdown' | 'dom', data: string, id: string) => Promise<any>
 type GetChildBlocksFn = (id: string) => Promise<Array<{ id: string, type?: string }>>
 type GetBlockKramdownFn = (id: string) => Promise<{ id: string, kramdown: string }>
+type GetBlockAttrsFn = (id: string) => Promise<{ [key: string]: string }>
+type SetBlockAttrsFn = (id: string, attrs: { [key: string]: string }) => Promise<any>
 
 export function createLinkAssociationInteractions(params: {
   resolveTitle: (documentId: string) => string
@@ -184,4 +199,161 @@ export function createThemeSuggestionController(params: {
     isThemeSuggestionActive,
     toggleOrphanThemeSuggestion,
   }
+}
+
+export function createAiSuggestionActions(params: {
+  notify: ShowMessageFn
+  deleteBlock: BlockDeleteFn
+  updateBlock: BlockUpdateFn
+  getChildBlocks: GetChildBlocksFn
+  getBlockKramdown: GetBlockKramdownFn
+  prependBlock: BlockWriteFn
+  getBlockAttrs?: GetBlockAttrsFn
+  setBlockAttrs?: SetBlockAttrsFn
+  getDocumentById: (documentId: string) => Pick<DocumentRecord, 'id' | 'title' | 'tags'> | undefined
+  onDocumentTagsChanged?: (documentId: string, tags: string[]) => void
+}) {
+  const pendingAiLinkBlocks = ref(new Map<string, AppliedDocumentLinkChange>())
+  const pendingAiTagBlocks = ref(new Map<string, AppliedTagSuggestionChange>())
+
+  function clearPendingAiSuggestionActions() {
+    pendingAiLinkBlocks.value.clear()
+    pendingAiTagBlocks.value.clear()
+  }
+
+  function isAiLinkSuggestionActive(orphanDocumentId: string, targetDocumentId: string) {
+    return pendingAiLinkBlocks.value.get(orphanDocumentId)?.links.some(item => item.targetDocumentId === targetDocumentId) ?? false
+  }
+
+  async function toggleOrphanAiLinkSuggestion(orphanDocumentId: string, targetDocumentId: string, targetDocumentTitle: string) {
+    const existingChange = pendingAiLinkBlocks.value.get(orphanDocumentId)
+
+    if (existingChange?.links.some(item => item.targetDocumentId === targetDocumentId)) {
+      try {
+        const nextChange = await removeDocumentLinkFromChange({
+          change: existingChange,
+          targetDocumentId,
+          deleteBlock: params.deleteBlock,
+          updateBlock: params.updateBlock,
+        })
+        if (nextChange) {
+          pendingAiLinkBlocks.value.set(orphanDocumentId, nextChange)
+        } else {
+          pendingAiLinkBlocks.value.delete(orphanDocumentId)
+        }
+        params.notify('已撤销 AI 链接建议', 3000, 'info')
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '撤销 AI 链接失败'
+        params.notify(message, 5000, 'error')
+      }
+      return
+    }
+
+    try {
+      const change = existingChange
+        ? await addDocumentLinkToChange({
+            change: existingChange,
+            targetDocumentId,
+            targetDocumentTitle,
+            updateBlock: params.updateBlock,
+          })
+        : await applyDocumentLinkToOrphanDocument({
+            orphanDocumentId,
+            targetDocumentId,
+            targetDocumentTitle,
+            getChildBlocks: params.getChildBlocks,
+            getBlockKramdown: params.getBlockKramdown,
+            updateBlock: params.updateBlock,
+            prependBlock: params.prependBlock,
+          })
+      pendingAiLinkBlocks.value.set(orphanDocumentId, change)
+      params.notify('已插入 AI 建议链接，刷新分析后将重新判断孤立状态', 3000, 'info')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '插入 AI 建议链接失败'
+      params.notify(message, 5000, 'error')
+    }
+  }
+
+  function isAiTagSuggestionActive(documentId: string, tag: string) {
+    const normalizedTag = normalizeTag(tag)
+    if (!normalizedTag) {
+      return false
+    }
+
+    return pendingAiTagBlocks.value.get(documentId)?.appliedTags.some(item => normalizeTag(item) === normalizedTag) ?? false
+  }
+
+  async function toggleOrphanAiTagSuggestion(documentId: string, tag: string) {
+    const normalizedTag = normalizeTag(tag)
+    if (!normalizedTag) {
+      params.notify('标签内容为空，无法写入', 5000, 'error')
+      return
+    }
+
+    const document = params.getDocumentById(documentId)
+    if (!document) {
+      params.notify('未找到对应文档，无法写入标签', 5000, 'error')
+      return
+    }
+
+    const existingChange = pendingAiTagBlocks.value.get(documentId)
+    const getBlockAttrs = params.getBlockAttrs
+    const setBlockAttrs = params.setBlockAttrs
+
+    if (!getBlockAttrs || !setBlockAttrs) {
+      params.notify('当前环境未提供文档标签接口，无法写入标签', 5000, 'error')
+      return
+    }
+
+    try {
+      if (existingChange?.appliedTags.some(item => normalizeTag(item) === normalizedTag)) {
+        const nextChange = await removeTagFromDocumentChange({
+          change: existingChange,
+          tag: normalizedTag,
+          getBlockAttrs,
+          setBlockAttrs,
+        })
+        if (nextChange) {
+          pendingAiTagBlocks.value.set(documentId, nextChange)
+          params.onDocumentTagsChanged?.(documentId, [...nextChange.baseTags, ...nextChange.appliedTags])
+        } else {
+          pendingAiTagBlocks.value.delete(documentId)
+          params.onDocumentTagsChanged?.(documentId, existingChange.baseTags)
+        }
+        params.notify('已撤销 AI 标签建议', 3000, 'info')
+      } else {
+        const change = existingChange
+          ? await addTagToDocumentChange({
+              change: existingChange,
+              tag: normalizedTag,
+              getBlockAttrs,
+              setBlockAttrs,
+            })
+          : await applyTagToOrphanDocument({
+              orphanDocumentId: documentId,
+              tag: normalizedTag,
+              getBlockAttrs,
+              setBlockAttrs,
+            })
+        pendingAiTagBlocks.value.set(documentId, change)
+        params.onDocumentTagsChanged?.(documentId, [...change.baseTags, ...change.appliedTags])
+        params.notify('已写入 AI 标签建议', 3000, 'info')
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '写入 AI 标签失败'
+      params.notify(message, 5000, 'error')
+    }
+  }
+
+  return {
+    clearPendingAiSuggestionActions,
+    isAiLinkSuggestionActive,
+    toggleOrphanAiLinkSuggestion,
+    isAiTagSuggestionActive,
+    toggleOrphanAiTagSuggestion,
+  }
+}
+
+function normalizeTag(tag: string): string {
+  return tag.trim()
 }

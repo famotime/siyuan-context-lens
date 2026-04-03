@@ -25,6 +25,7 @@ describe('summary card order', () => {
       'documents',
       'read',
       'ranking',
+      'todaySuggestions',
       'largeDocuments',
       'trends',
       'references',
@@ -42,6 +43,7 @@ describe('summary card order', () => {
       targetKey: 'documents',
     })).toEqual([
       'read',
+      'todaySuggestions',
       'ranking',
       'orphans',
       'documents',
