@@ -53,6 +53,56 @@ describe('ai provider presets', () => {
     }))
   })
 
+  it('saves the current provider config and restores the selected provider config', () => {
+    const config = {
+      aiProviderPreset: 'openai',
+      aiProviderConfigs: {
+        openai: {
+          aiBaseUrl: 'https://api.openai.com/v1',
+          aiApiKey: 'sk-openai',
+          aiModel: 'gpt-5-custom',
+          aiEmbeddingModel: 'text-embedding-3-large',
+        },
+      },
+      aiBaseUrl: 'https://api.openai.com/v1',
+      aiApiKey: 'sk-openai',
+      aiModel: 'gpt-5-custom',
+      aiEmbeddingModel: 'text-embedding-3-large',
+    } as any
+
+    applyAiProviderPreset(config, 'gemini')
+
+    expect(config.aiProviderPreset).toBe('gemini')
+    expect(config.aiProviderConfigs.openai).toEqual({
+      aiBaseUrl: 'https://api.openai.com/v1',
+      aiApiKey: 'sk-openai',
+      aiModel: 'gpt-5-custom',
+      aiEmbeddingModel: 'text-embedding-3-large',
+    })
+    expect(config.aiBaseUrl).toBe('https://generativelanguage.googleapis.com/v1beta/openai')
+    expect(config.aiApiKey).toBe('')
+    expect(config.aiModel).toBe('gemini-2.5-flash')
+    expect(config.aiEmbeddingModel).toBe('gemini-embedding-001')
+
+    config.aiApiKey = 'gemini-key'
+    config.aiModel = 'gemini-2.5-pro-exp'
+    config.aiEmbeddingModel = 'gemini-embedding-custom'
+
+    applyAiProviderPreset(config, 'openai')
+
+    expect(config.aiProviderPreset).toBe('openai')
+    expect(config.aiProviderConfigs.gemini).toEqual({
+      aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      aiApiKey: 'gemini-key',
+      aiModel: 'gemini-2.5-pro-exp',
+      aiEmbeddingModel: 'gemini-embedding-custom',
+    })
+    expect(config.aiBaseUrl).toBe('https://api.openai.com/v1')
+    expect(config.aiApiKey).toBe('sk-openai')
+    expect(config.aiModel).toBe('gpt-5-custom')
+    expect(config.aiEmbeddingModel).toBe('text-embedding-3-large')
+  })
+
   it('builds unique sorted model option items and preserves the current value', () => {
     expect(buildAiModelOptionItems(['z-model', 'a-model', 'a-model'], 'custom-model')).toEqual([
       { value: 'a-model', label: 'a-model', key: 'a-model' },

@@ -1,6 +1,8 @@
-import type { PluginConfig } from '@/types/config'
-
-export type AiProviderPresetKey = 'siliconflow' | 'openai' | 'gemini' | 'custom'
+import type {
+  AiProviderConfigMap,
+  AiProviderConfigSnapshot,
+  AiProviderPresetKey,
+} from '@/types/ai-provider'
 
 interface AiProviderPresetDefinition {
   label: string
@@ -71,15 +73,55 @@ export function detectAiProviderPreset(baseUrl?: string): AiProviderPresetKey {
   return 'custom'
 }
 
-export function applyAiProviderPreset(config: PluginConfig, provider: AiProviderPresetKey) {
-  const preset = AI_PROVIDER_PRESETS[provider]
-  if (!preset.baseUrl) {
-    return
-  }
+export function applyAiProviderPreset(config: {
+  aiProviderPreset?: AiProviderPresetKey
+  aiProviderConfigs?: AiProviderConfigMap
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
+  aiEmbeddingModel?: string
+}, provider: AiProviderPresetKey) {
+  const providerConfigs = ensureAiProviderConfigMap(config)
+  const currentProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
 
-  config.aiBaseUrl = preset.baseUrl
-  config.aiModel = preset.defaultModel ?? ''
-  config.aiEmbeddingModel = preset.defaultEmbeddingModel ?? ''
+  providerConfigs[currentProvider] = buildAiProviderConfigSnapshot({
+    provider: currentProvider,
+    aiBaseUrl: config.aiBaseUrl,
+    aiApiKey: config.aiApiKey,
+    aiModel: config.aiModel,
+    aiEmbeddingModel: config.aiEmbeddingModel,
+  })
+
+  config.aiProviderPreset = provider
+  const nextSnapshot = resolveAiProviderConfigSnapshot(providerConfigs[provider], provider)
+  applyAiProviderConfigSnapshot(config, nextSnapshot)
+  providerConfigs[provider] = nextSnapshot
+}
+
+export function ensureAiProviderConfigState(config: {
+  aiProviderPreset?: AiProviderPresetKey
+  aiProviderConfigs?: AiProviderConfigMap
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
+  aiEmbeddingModel?: string
+}) {
+  const providerConfigs = ensureAiProviderConfigMap(config)
+  const activeProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
+  const hasStoredConfig = typeof providerConfigs[activeProvider] === 'object' && providerConfigs[activeProvider] !== null
+  const activeSnapshot = hasStoredConfig
+    ? resolveAiProviderConfigSnapshot(providerConfigs[activeProvider], activeProvider)
+    : buildAiProviderConfigSnapshot({
+        provider: activeProvider,
+        aiBaseUrl: config.aiBaseUrl,
+        aiApiKey: config.aiApiKey,
+        aiModel: config.aiModel,
+        aiEmbeddingModel: config.aiEmbeddingModel,
+      })
+
+  config.aiProviderPreset = activeProvider
+  providerConfigs[activeProvider] = activeSnapshot
+  applyAiProviderConfigSnapshot(config, activeSnapshot)
 }
 
 export function buildAiModelOptionItems(modelIds: string[], currentValue?: string) {
@@ -109,4 +151,69 @@ function normalizeUrl(value?: string) {
   } catch {
     return trimmed.replace(/\/+$/, '')
   }
+}
+
+function getAiProviderDefaultConfig(provider: AiProviderPresetKey): AiProviderConfigSnapshot {
+  const preset = AI_PROVIDER_PRESETS[provider]
+  return {
+    aiBaseUrl: preset.baseUrl ?? '',
+    aiApiKey: '',
+    aiModel: preset.defaultModel ?? '',
+    aiEmbeddingModel: preset.defaultEmbeddingModel ?? '',
+  }
+}
+
+function resolveAiProviderConfigSnapshot(
+  snapshot: Partial<AiProviderConfigSnapshot> | undefined,
+  provider: AiProviderPresetKey,
+): AiProviderConfigSnapshot {
+  const defaults = getAiProviderDefaultConfig(provider)
+  return {
+    aiBaseUrl: typeof snapshot?.aiBaseUrl === 'string' ? snapshot.aiBaseUrl : defaults.aiBaseUrl,
+    aiApiKey: typeof snapshot?.aiApiKey === 'string' ? snapshot.aiApiKey : defaults.aiApiKey,
+    aiModel: typeof snapshot?.aiModel === 'string' ? snapshot.aiModel : defaults.aiModel,
+    aiEmbeddingModel: typeof snapshot?.aiEmbeddingModel === 'string' ? snapshot.aiEmbeddingModel : defaults.aiEmbeddingModel,
+  }
+}
+
+function buildAiProviderConfigSnapshot(params: {
+  provider: AiProviderPresetKey
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
+  aiEmbeddingModel?: string
+}): AiProviderConfigSnapshot {
+  return resolveAiProviderConfigSnapshot({
+    aiBaseUrl: params.aiBaseUrl,
+    aiApiKey: params.aiApiKey,
+    aiModel: params.aiModel,
+    aiEmbeddingModel: params.aiEmbeddingModel,
+  }, params.provider)
+}
+
+function applyAiProviderConfigSnapshot(config: {
+  aiBaseUrl?: string
+  aiApiKey?: string
+  aiModel?: string
+  aiEmbeddingModel?: string
+}, snapshot: AiProviderConfigSnapshot) {
+  config.aiBaseUrl = snapshot.aiBaseUrl
+  config.aiApiKey = snapshot.aiApiKey
+  config.aiModel = snapshot.aiModel
+  config.aiEmbeddingModel = snapshot.aiEmbeddingModel
+}
+
+function ensureAiProviderConfigMap(config: {
+  aiProviderConfigs?: AiProviderConfigMap
+}) {
+  if (!config.aiProviderConfigs || typeof config.aiProviderConfigs !== 'object') {
+    config.aiProviderConfigs = {}
+  }
+  return config.aiProviderConfigs
+}
+
+function normalizeAiProviderPreset(provider: AiProviderPresetKey | undefined, baseUrl?: string): AiProviderPresetKey {
+  return provider === 'siliconflow' || provider === 'openai' || provider === 'gemini' || provider === 'custom'
+    ? provider
+    : detectAiProviderPreset(baseUrl)
 }

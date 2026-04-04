@@ -1,5 +1,7 @@
+import { ensureAiProviderConfigState } from '@/components/ai-provider-presets'
 import { SUMMARY_CARD_DEFINITIONS, buildSummaryCardVisibilityDefaults } from '@/analytics/summary-card-config'
 import type { AiContextCapacity } from '@/analytics/ai-inbox'
+import type { AiProviderConfigMap, AiProviderPresetKey } from '@/types/ai-provider'
 
 export const DEFAULT_AI_REQUEST_TIMEOUT_SECONDS = 30
 export const DEFAULT_AI_MAX_TOKENS = 10240
@@ -30,6 +32,8 @@ export interface PluginConfig {
   readTitleSuffixes?: string
   readPaths?: string
   aiEnabled?: boolean
+  aiProviderPreset?: AiProviderPresetKey
+  aiProviderConfigs?: AiProviderConfigMap
   aiBaseUrl?: string
   aiApiKey?: string
   aiModel?: string
@@ -54,6 +58,8 @@ export const DEFAULT_CONFIG: PluginConfig = {
   readTitleSuffixes: '',
   readPaths: '',
   aiEnabled: false,
+  aiProviderPreset: 'custom',
+  aiProviderConfigs: undefined,
   aiBaseUrl: '',
   aiApiKey: '',
   aiModel: '',
@@ -96,6 +102,17 @@ export function ensureConfigDefaults(config: PluginConfig) {
   if (typeof config.aiEnabled !== 'boolean') {
     config.aiEnabled = false
   }
+  if (
+    config.aiProviderPreset !== 'siliconflow'
+    && config.aiProviderPreset !== 'openai'
+    && config.aiProviderPreset !== 'gemini'
+    && config.aiProviderPreset !== 'custom'
+  ) {
+    config.aiProviderPreset = undefined
+  }
+  if (!config.aiProviderConfigs || typeof config.aiProviderConfigs !== 'object') {
+    config.aiProviderConfigs = {}
+  }
   if (typeof config.aiBaseUrl !== 'string') {
     config.aiBaseUrl = ''
   }
@@ -127,6 +144,7 @@ export function ensureConfigDefaults(config: PluginConfig) {
   if (config.aiContextCapacity !== 'compact' && config.aiContextCapacity !== 'balanced' && config.aiContextCapacity !== 'full') {
     config.aiContextCapacity = 'balanced'
   }
+  ensureAiProviderConfigState(config)
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {

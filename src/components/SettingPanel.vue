@@ -148,11 +148,11 @@
           </select>
         </label>
         <label class="setting-field setting-field--full">
-          <span>Base URL</span>
-          <small class="setting-field__hint">OpenAI 兼容服务通常需要填写到 <code>/v1</code>，例如 <code>https://api.siliconflow.cn/v1</code></small>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.baseUrl">Base URL</span>
           <input
             v-model.trim="config.aiBaseUrl"
             :placeholder="aiProviderPresetMeta.baseUrl ?? 'https://api.openai.com/v1'"
+            :title="AI_FIELD_TOOLTIPS.baseUrl"
             type="text"
           >
         </label>
@@ -166,10 +166,16 @@
         </label>
         <label class="setting-field setting-field--full">
           <span>Model</span>
-          <select v-if="showSiliconFlowChatModelSelect" v-model="config.aiModel">
-            <option value="">请选择聊天模型</option>
+          <select
+            v-if="showSiliconFlowChatModelSelect"
+            v-model="config.aiModel"
+            :title="siliconFlowChatModelSelectTitle"
+            @focus="handleSiliconFlowModelSelectOpen"
+            @mousedown="handleSiliconFlowModelSelectOpen"
+          >
+            <option value="">{{ siliconFlowChatModelPlaceholder }}</option>
             <option
-              v-for="option in siliconFlowChatModelOptions"
+              v-for="option in siliconFlowChatModelSelectOptions"
               :key="option.key"
               :value="option.value"
             >
@@ -184,12 +190,17 @@
           >
         </label>
         <label class="setting-field setting-field--full">
-          <span>Embedding Model（可选）</span>
-          <small class="setting-field__hint">可选，用于增强孤立文档 AI 补链召回；留空时会退回到主题命中与结构候选。SiliconFlow 可填写 <code>BAAI/bge-m3</code>、<code>BAAI/bge-large-zh-v1.5</code> 或 <code>Qwen/Qwen3-Embedding-*</code>；不要填写 <code>text-embedding-3-small</code> 这类 OpenAI 模型名。</small>
-          <select v-if="showSiliconFlowEmbeddingModelSelect" v-model="config.aiEmbeddingModel">
-            <option value="">请选择 embedding 模型</option>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.embeddingModel">Embedding Model（可选）</span>
+          <select
+            v-if="showSiliconFlowEmbeddingModelSelect"
+            v-model="config.aiEmbeddingModel"
+            :title="siliconFlowEmbeddingModelSelectTitle"
+            @focus="handleSiliconFlowModelSelectOpen"
+            @mousedown="handleSiliconFlowModelSelectOpen"
+          >
+            <option value="">{{ siliconFlowEmbeddingModelPlaceholder }}</option>
             <option
-              v-for="option in siliconFlowEmbeddingModelOptions"
+              v-for="option in siliconFlowEmbeddingModelSelectOptions"
               :key="option.key"
               :value="option.value"
             >
@@ -200,66 +211,51 @@
             v-else
             v-model.trim="config.aiEmbeddingModel"
             :placeholder="aiProviderPresetMeta.embeddingPlaceholder"
+            :title="AI_FIELD_TOOLTIPS.embeddingModel"
             type="text"
           >
         </label>
-        <div v-if="showSiliconFlowModelCatalog" class="setting-field setting-field--full">
-          <span>模型清单</span>
-          <small class="setting-field__hint">填写 API Key 后，可从 SiliconFlow 的 <code>/v1/models</code> 模型清单加载 chat 与 embedding 模型。</small>
-          <div class="setting-inline-actions">
-            <button
-              class="setting-button setting-button--ghost"
-              type="button"
-              :disabled="siliconFlowModelCatalogLoading || !canLoadSiliconFlowModels"
-              @click="loadSiliconFlowModelCatalog"
-            >
-              {{ siliconFlowModelCatalogLoading ? '加载中...' : '加载模型列表' }}
-            </button>
-            <span v-if="siliconFlowModelCatalogError" class="setting-feedback setting-feedback--error">{{ siliconFlowModelCatalogError }}</span>
-            <span v-else-if="siliconFlowModelCatalogLoaded" class="setting-feedback setting-feedback--success">已加载 {{ siliconFlowChatModelOptions.length }} 个聊天模型，{{ siliconFlowEmbeddingModelOptions.length }} 个 embedding 模型</span>
-          </div>
-        </div>
         <label class="setting-field">
-          <span>超时时间</span>
-          <small class="setting-field__hint">发起请求的超时时间</small>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.timeout">超时时间</span>
           <div class="setting-input-with-suffix">
             <input
               v-model.number="config.aiRequestTimeoutSeconds"
               min="1"
               step="1"
+              :title="AI_FIELD_TOOLTIPS.timeout"
               type="number"
             >
             <span class="setting-input-with-suffix__unit">s</span>
           </div>
         </label>
         <label class="setting-field">
-          <span>最大 Token 数</span>
-          <small class="setting-field__hint">请求 API 时传入的 <code>max_tokens</code> 参数，用于控制生成的文本长度</small>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.maxTokens">最大 Token 数</span>
           <input
             v-model.number="config.aiMaxTokens"
             min="1"
             step="1"
+            :title="AI_FIELD_TOOLTIPS.maxTokens"
             type="number"
           >
         </label>
         <label class="setting-field">
-          <span>温度</span>
-          <small class="setting-field__hint">请求 API 时传入的 <code>temperature</code> 参数，用于控制生成的文本随机性</small>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.temperature">温度</span>
           <input
             v-model.number="config.aiTemperature"
             max="2"
             min="0"
             step="0.1"
+            :title="AI_FIELD_TOOLTIPS.temperature"
             type="number"
           >
         </label>
         <label class="setting-field">
-          <span>最大上下文数</span>
-          <small class="setting-field__hint">请求 API 时传入的最大上下文数</small>
+          <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.maxContextMessages">最大上下文数</span>
           <input
             v-model.number="config.aiMaxContextMessages"
             min="1"
             step="1"
+            :title="AI_FIELD_TOOLTIPS.maxContextMessages"
             type="number"
           >
         </label>
@@ -309,16 +305,22 @@ import {
   AI_PROVIDER_PRESET_OPTIONS,
   applyAiProviderPreset,
   buildAiModelOptionItems,
-  detectAiProviderPreset,
-  type AiProviderPresetKey,
 } from '@/components/ai-provider-presets'
+import {
+  AI_FIELD_TOOLTIPS,
+  buildSiliconFlowModelSelectPlaceholder,
+  shouldAutoLoadSiliconFlowModelCatalog,
+} from '@/components/setting-panel-ai'
 import { loadSettingPanelData, type NotebookOption } from '@/components/setting-panel-data'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
+import type { AiProviderPresetKey } from '@/types/ai-provider'
 import { ensureConfigDefaults, type PluginConfig } from '@/types/config'
 
 const props = defineProps<{
   config: PluginConfig
 }>()
+
+ensureConfigDefaults(props.config)
 
 const notebooks = ref<NotebookOption[]>([])
 const readTagOptions = ref<Array<{ value: string, label: string, key: string }>>([])
@@ -326,23 +328,55 @@ const summaryCardSettings = SUMMARY_CARD_DEFINITIONS
 const aiTestingConnection = ref(false)
 const aiConnectionMessage = ref('')
 const aiConnectionError = ref('')
-const selectedAiProviderPreset = ref<AiProviderPresetKey>(detectAiProviderPreset(props.config.aiBaseUrl))
+const selectedAiProviderPreset = ref<AiProviderPresetKey>(props.config.aiProviderPreset ?? 'custom')
 const siliconFlowChatModelOptions = ref<Array<{ value: string, label: string, key: string }>>([])
 const siliconFlowEmbeddingModelOptions = ref<Array<{ value: string, label: string, key: string }>>([])
 const siliconFlowModelCatalogLoading = ref(false)
 const siliconFlowModelCatalogError = ref('')
 const siliconFlowModelCatalogLoaded = ref(false)
 
-ensureConfigDefaults(props.config)
-
 const aiService = createAiInboxService({ forwardProxy })
 const aiConfigComplete = computed(() => isAiConfigComplete(props.config))
 const aiProviderPresetOptions = AI_PROVIDER_PRESET_OPTIONS
 const aiProviderPresetMeta = computed(() => AI_PROVIDER_PRESETS[selectedAiProviderPreset.value])
-const showSiliconFlowModelCatalog = computed(() => selectedAiProviderPreset.value === 'siliconflow')
+const showSiliconFlowModelSelects = computed(() => selectedAiProviderPreset.value === 'siliconflow')
 const canLoadSiliconFlowModels = computed(() => Boolean(props.config.aiApiKey?.trim()))
-const showSiliconFlowChatModelSelect = computed(() => showSiliconFlowModelCatalog.value && siliconFlowChatModelOptions.value.length > 0)
-const showSiliconFlowEmbeddingModelSelect = computed(() => showSiliconFlowModelCatalog.value && siliconFlowEmbeddingModelOptions.value.length > 0)
+const showSiliconFlowChatModelSelect = computed(() => showSiliconFlowModelSelects.value)
+const showSiliconFlowEmbeddingModelSelect = computed(() => showSiliconFlowModelSelects.value)
+const siliconFlowChatModelSelectOptions = computed(() => buildAiModelOptionItems(
+  siliconFlowChatModelOptions.value.map(option => option.value),
+  props.config.aiModel,
+))
+const siliconFlowEmbeddingModelSelectOptions = computed(() => buildAiModelOptionItems(
+  siliconFlowEmbeddingModelOptions.value.map(option => option.value),
+  props.config.aiEmbeddingModel,
+))
+const siliconFlowChatModelPlaceholder = computed(() => buildSiliconFlowModelSelectPlaceholder({
+  kind: 'chat',
+  apiKey: props.config.aiApiKey,
+  loading: siliconFlowModelCatalogLoading.value,
+  loaded: siliconFlowModelCatalogLoaded.value,
+  error: siliconFlowModelCatalogError.value,
+  optionCount: siliconFlowChatModelOptions.value.length,
+}))
+const siliconFlowEmbeddingModelPlaceholder = computed(() => buildSiliconFlowModelSelectPlaceholder({
+  kind: 'embedding',
+  apiKey: props.config.aiApiKey,
+  loading: siliconFlowModelCatalogLoading.value,
+  loaded: siliconFlowModelCatalogLoaded.value,
+  error: siliconFlowModelCatalogError.value,
+  optionCount: siliconFlowEmbeddingModelOptions.value.length,
+}))
+const siliconFlowChatModelSelectTitle = computed(() => buildSiliconFlowModelSelectTitle({
+  baseTitle: AI_FIELD_TOOLTIPS.siliconFlowChatModel,
+  placeholder: siliconFlowChatModelPlaceholder.value,
+  error: siliconFlowModelCatalogError.value,
+}))
+const siliconFlowEmbeddingModelSelectTitle = computed(() => buildSiliconFlowModelSelectTitle({
+  baseTitle: AI_FIELD_TOOLTIPS.siliconFlowEmbeddingModel,
+  placeholder: siliconFlowEmbeddingModelPlaceholder.value,
+  error: siliconFlowModelCatalogError.value,
+}))
 
 onMounted(async () => {
   const data = await loadSettingPanelData({
@@ -354,9 +388,28 @@ onMounted(async () => {
   readTagOptions.value = data.readTagOptions
 })
 
-watch(() => props.config.aiBaseUrl, (nextBaseUrl) => {
-  selectedAiProviderPreset.value = detectAiProviderPreset(nextBaseUrl)
-})
+watch(
+  [
+    () => selectedAiProviderPreset.value,
+    () => props.config.aiBaseUrl ?? '',
+    () => props.config.aiApiKey ?? '',
+    () => props.config.aiModel ?? '',
+    () => props.config.aiEmbeddingModel ?? '',
+  ],
+  ([provider, aiBaseUrl, aiApiKey, aiModel, aiEmbeddingModel]) => {
+    props.config.aiProviderPreset = provider
+    if (!props.config.aiProviderConfigs || typeof props.config.aiProviderConfigs !== 'object') {
+      props.config.aiProviderConfigs = {}
+    }
+    props.config.aiProviderConfigs[provider] = {
+      aiBaseUrl,
+      aiApiKey,
+      aiModel,
+      aiEmbeddingModel,
+    }
+  },
+  { immediate: true },
+)
 
 watch(
   [() => selectedAiProviderPreset.value, () => props.config.aiApiKey?.trim() ?? ''],
@@ -374,9 +427,9 @@ watch(
     }
 
     const providerChanged = provider !== previousProvider
-    const apiKeyBecameAvailable = !previousApiKey && Boolean(apiKey)
-    if (providerChanged || apiKeyBecameAvailable) {
-      void loadSiliconFlowModelCatalog()
+    const apiKeyChanged = apiKey !== previousApiKey
+    if (providerChanged || apiKeyChanged) {
+      resetSiliconFlowModelCatalog()
     }
   },
   { immediate: true },
@@ -401,8 +454,8 @@ async function handleTestConnection() {
 
 function handleAiProviderPresetChange(event: Event) {
   const nextProvider = (event.target as HTMLSelectElement).value as AiProviderPresetKey
-  selectedAiProviderPreset.value = nextProvider
   applyAiProviderPreset(props.config, nextProvider)
+  selectedAiProviderPreset.value = props.config.aiProviderPreset ?? nextProvider
 
   aiConnectionMessage.value = ''
   aiConnectionError.value = ''
@@ -412,9 +465,27 @@ function handleAiProviderPresetChange(event: Event) {
   }
 }
 
+function handleSiliconFlowModelSelectOpen() {
+  void ensureSiliconFlowModelCatalogLoaded()
+}
+
+async function ensureSiliconFlowModelCatalogLoaded() {
+  if (!showSiliconFlowModelSelects.value) {
+    return
+  }
+  if (!shouldAutoLoadSiliconFlowModelCatalog({
+    apiKey: props.config.aiApiKey,
+    loading: siliconFlowModelCatalogLoading.value,
+    loaded: siliconFlowModelCatalogLoaded.value,
+    error: siliconFlowModelCatalogError.value,
+  })) {
+    return
+  }
+  await loadSiliconFlowModelCatalog()
+}
+
 async function loadSiliconFlowModelCatalog() {
   if (selectedAiProviderPreset.value !== 'siliconflow' || !canLoadSiliconFlowModels.value) {
-    siliconFlowModelCatalogError.value = '加载模型列表前，请先选择硅基流动并填写 API Key'
     return
   }
 
@@ -442,6 +513,20 @@ function resetSiliconFlowModelCatalog() {
   siliconFlowModelCatalogLoading.value = false
   siliconFlowModelCatalogError.value = ''
   siliconFlowModelCatalogLoaded.value = false
+}
+
+function buildSiliconFlowModelSelectTitle(params: {
+  baseTitle: string
+  placeholder: string
+  error: string
+}) {
+  return [
+    params.baseTitle,
+    params.placeholder,
+    params.error ? `最近一次加载失败：${params.error}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 </script>
 
@@ -558,25 +643,10 @@ function resetSiliconFlowModelCatalog() {
   font-weight: 500;
 }
 
-.setting-inline-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
-  align-items: center;
-}
-
-.setting-field__hint {
-  font-size: 12px;
-  line-height: 1.5;
-  color: color-mix(in srgb, var(--b3-theme-on-background) 58%, transparent);
-}
-
-.setting-field__hint code {
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
-  color: var(--b3-theme-primary);
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+.setting-field__label--hint {
+  cursor: help;
+  text-decoration: underline dotted color-mix(in srgb, var(--b3-theme-primary) 22%, transparent);
+  text-underline-offset: 3px;
 }
 
 .setting-select-shell,

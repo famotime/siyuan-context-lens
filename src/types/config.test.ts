@@ -43,4 +43,36 @@ describe('config defaults', () => {
     expect(config.aiMaxContextMessages).toBe(7)
     expect(config.aiContextCapacity).toBe('balanced')
   })
+
+  it('restores the active ai config from the selected provider snapshot', () => {
+    const config = {
+      showSummaryCards: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '/专题',
+      themeNamePrefix: '',
+      themeNameSuffix: '',
+      aiEnabled: true,
+      aiBaseUrl: 'https://api.openai.com/v1',
+      aiApiKey: 'stale-openai-key',
+      aiModel: 'stale-openai-model',
+      aiEmbeddingModel: 'stale-openai-embedding',
+      aiProviderPreset: 'gemini',
+      aiProviderConfigs: {
+        gemini: {
+          aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+          aiApiKey: 'gemini-key',
+          aiModel: 'gemini-2.5-flash',
+          aiEmbeddingModel: 'gemini-embedding-001',
+        },
+      },
+    } as any
+
+    ensureConfigDefaults(config)
+
+    expect(config.aiProviderPreset).toBe('gemini')
+    expect(config.aiBaseUrl).toBe('https://generativelanguage.googleapis.com/v1beta/openai')
+    expect(config.aiApiKey).toBe('gemini-key')
+    expect(config.aiModel).toBe('gemini-2.5-flash')
+    expect(config.aiEmbeddingModel).toBe('gemini-embedding-001')
+  })
 })
