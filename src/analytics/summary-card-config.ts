@@ -22,6 +22,7 @@ export interface SummaryCardDefinition {
   defaultVisible: boolean
   settingLabel: string
   settingDescription: string
+  showInSettings?: boolean
   legacyVisibilityConfigKey?: LegacySummaryCardVisibilityConfigKey
 }
 
@@ -39,6 +40,7 @@ export const SUMMARY_CARD_DEFINITIONS: SummaryCardDefinition[] = [
     defaultVisible: true,
     settingLabel: '今日建议卡片',
     settingDescription: '展示 AI 汇总的今日整理建议数，并联动下方详情',
+    showInSettings: false,
   },
   {
     key: 'orphans',
@@ -134,9 +136,12 @@ export function buildSummaryCardVisibilityDefaults(): Record<SummaryCardVisibili
 }
 
 export function isSummaryCardVisible(
-  config: Partial<Record<SummaryCardVisibilityConfigKey, boolean>>,
+  config: Partial<Record<SummaryCardVisibilityConfigKey, boolean>> & { aiEnabled?: boolean },
   key: SummaryCardKey,
 ): boolean {
+  if (key === 'todaySuggestions') {
+    return Boolean(config.aiEnabled)
+  }
   const definition = getSummaryCardDefinition(key)
   return config[definition.visibilityConfigKey] ?? definition.defaultVisible
 }

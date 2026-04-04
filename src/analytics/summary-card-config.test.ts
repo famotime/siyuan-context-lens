@@ -70,6 +70,14 @@ describe('summary card config', () => {
     expect(getSummaryCardVisibilityConfigKey('ranking')).toBe('showRanking')
     expect(getSummaryCardVisibilityConfigKey('largeDocuments')).toBe('showLargeDocuments')
     expect(isSummaryCardVisible({
+      aiEnabled: false,
+      showTodaySuggestions: true,
+    } as any, 'todaySuggestions')).toBe(false)
+    expect(isSummaryCardVisible({
+      aiEnabled: true,
+      showTodaySuggestions: false,
+    } as any, 'todaySuggestions')).toBe(true)
+    expect(isSummaryCardVisible({
       showSummaryCards: true,
       showRanking: false,
       themeNotebookId: '',

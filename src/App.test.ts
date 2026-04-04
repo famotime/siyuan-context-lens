@@ -37,6 +37,7 @@ describe('App trend detail layout', () => {
     expect(source).toContain('watch(visibleSummaryCards')
     expect(source).toContain("from '@/analytics/summary-card-config'")
     expect(source).toContain('isSummaryCardVisible')
+    expect(source).not.toContain("card.key === 'todaySuggestions'")
     expect(source).not.toContain("if (card.key === 'documents')")
     expect(source).not.toContain("if (card.key === 'read')")
     expect(source).not.toContain("if (card.key === 'references')")

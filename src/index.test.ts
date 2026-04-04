@@ -14,4 +14,11 @@ describe('plugin lifecycle release hygiene', () => {
 
     expect(source).not.toContain('this.addTopBar(')
   })
+
+  it('opens the setting dialog with a taller default viewport', async () => {
+    const source = await readFile(new URL('./index.ts', import.meta.url), 'utf8')
+
+    expect(source).toContain("width: '680px'")
+    expect(source).toContain("height: '720px'")
+  })
 })

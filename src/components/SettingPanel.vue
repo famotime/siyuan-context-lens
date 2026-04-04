@@ -103,11 +103,11 @@
         </span>
         <input type="checkbox" v-model="config.showSummaryCards" class="b3-switch">
       </label>
-      <div class="setting-item-wrapper" v-if="config.showSummaryCards">
+      <div class="setting-item-wrapper setting-item-grid" v-if="config.showSummaryCards">
         <label
           v-for="cardSetting in summaryCardSettings"
           :key="cardSetting.key"
-          class="setting-item setting-item--nested"
+          class="setting-item setting-item--nested setting-item--grid"
         >
           <span class="setting-item__text">
             <strong>{{ cardSetting.settingLabel }}</strong>
@@ -135,18 +135,45 @@
           </span>
           <input type="checkbox" v-model="config.aiEnabled" class="b3-switch">
         </label>
-        <label class="setting-field setting-field--full">
+        <div class="setting-field setting-field--full">
           <span>AI 服务商</span>
-          <select :value="selectedAiProviderPreset" @change="handleAiProviderPresetChange">
-            <option
-              v-for="providerOption in aiProviderPresetOptions"
-              :key="providerOption.value"
-              :value="providerOption.value"
-            >
-              {{ providerOption.label }}
-            </option>
-          </select>
-        </label>
+          <div class="setting-field__inline">
+            <select :value="selectedAiProviderPreset" @change="handleAiProviderPresetChange">
+              <option
+                v-for="providerOption in aiProviderPresetOptions"
+                :key="providerOption.value"
+                :value="providerOption.value"
+              >
+                {{ providerOption.label }}
+              </option>
+            </select>
+            <div class="setting-field__actions">
+              <button
+                class="setting-button setting-button--ghost setting-button--compact"
+                type="button"
+                @click="handleImportAiSettingsClick"
+              >
+                导入设置
+              </button>
+              <button
+                class="setting-button setting-button--ghost setting-button--compact"
+                type="button"
+                @click="handleExportAiSettings"
+              >
+                导出设置
+              </button>
+              <input
+                ref="aiSettingsFileInput"
+                class="setting-file-input"
+                type="file"
+                accept="application/json,.json"
+                @change="handleImportAiSettingsFileChange"
+              >
+            </div>
+          </div>
+          <span v-if="aiTransferMessage" class="setting-feedback setting-feedback--success">{{ aiTransferMessage }}</span>
+          <span v-if="aiTransferError" class="setting-feedback setting-feedback--error">{{ aiTransferError }}</span>
+        </div>
         <label class="setting-field setting-field--full">
           <span class="setting-field__label setting-field__label--hint" :title="AI_FIELD_TOOLTIPS.baseUrl">Base URL</span>
           <input
@@ -158,11 +185,66 @@
         </label>
         <label class="setting-field setting-field--full">
           <span>API Key</span>
-          <input
-            v-model.trim="config.aiApiKey"
-            placeholder="sk-..."
-            type="password"
-          >
+          <div class="setting-input-with-action setting-input-with-action--overlay">
+            <input
+              v-model.trim="config.aiApiKey"
+              placeholder="sk-..."
+              :type="aiApiKeyFieldMeta.inputType"
+            >
+            <button
+              class="setting-icon-button setting-icon-button--inline"
+              type="button"
+              :aria-label="aiApiKeyFieldMeta.actionLabel"
+              :title="aiApiKeyFieldMeta.actionLabel"
+              @click="toggleAiApiKeyVisibility"
+            >
+              <svg
+                v-if="aiApiKeyFieldMeta.icon === 'eye'"
+                class="setting-icon-button__svg"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3.25"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                />
+              </svg>
+              <svg
+                v-else
+                class="setting-icon-button__svg"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 3l18 18"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.8"
+                />
+                <path
+                  d="M10.7 5.52A10.56 10.56 0 0 1 12 5.25c6 0 9.75 6.75 9.75 6.75a18.78 18.78 0 0 1-4.02 4.85M6.68 6.69C4.04 8.42 2.25 12 2.25 12s3.75 6.75 9.75 6.75c1.85 0 3.47-.64 4.85-1.55M9.88 9.88A3 3 0 0 0 9 12a3 3 0 0 0 3 3c.8 0 1.53-.31 2.07-.82"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.8"
+                />
+              </svg>
+            </button>
+          </div>
         </label>
         <label class="setting-field setting-field--full">
           <span>Model</span>
@@ -311,6 +393,13 @@ import {
   buildSiliconFlowModelSelectPlaceholder,
   shouldAutoLoadSiliconFlowModelCatalog,
 } from '@/components/setting-panel-ai'
+import {
+  AI_SETTINGS_TRANSFER_FILE_NAME,
+  applyImportedAiSettings,
+  parseAiSettingsTransferPayload,
+  stringifyAiSettingsTransferPayload,
+} from '@/components/setting-panel-ai-transfer'
+import { resolveSecretFieldMeta } from '@/components/setting-panel-secret-field'
 import { loadSettingPanelData, type NotebookOption } from '@/components/setting-panel-data'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import type { AiProviderPresetKey } from '@/types/ai-provider'
@@ -324,7 +413,7 @@ ensureConfigDefaults(props.config)
 
 const notebooks = ref<NotebookOption[]>([])
 const readTagOptions = ref<Array<{ value: string, label: string, key: string }>>([])
-const summaryCardSettings = SUMMARY_CARD_DEFINITIONS
+const summaryCardSettings = SUMMARY_CARD_DEFINITIONS.filter(item => item.showInSettings !== false)
 const aiTestingConnection = ref(false)
 const aiConnectionMessage = ref('')
 const aiConnectionError = ref('')
@@ -334,11 +423,16 @@ const siliconFlowEmbeddingModelOptions = ref<Array<{ value: string, label: strin
 const siliconFlowModelCatalogLoading = ref(false)
 const siliconFlowModelCatalogError = ref('')
 const siliconFlowModelCatalogLoaded = ref(false)
+const aiSettingsFileInput = ref<HTMLInputElement | null>(null)
+const aiTransferMessage = ref('')
+const aiTransferError = ref('')
+const isAiApiKeyVisible = ref(false)
 
 const aiService = createAiInboxService({ forwardProxy })
 const aiConfigComplete = computed(() => isAiConfigComplete(props.config))
 const aiProviderPresetOptions = AI_PROVIDER_PRESET_OPTIONS
 const aiProviderPresetMeta = computed(() => AI_PROVIDER_PRESETS[selectedAiProviderPreset.value])
+const aiApiKeyFieldMeta = computed(() => resolveSecretFieldMeta(isAiApiKeyVisible.value, 'API Key'))
 const showSiliconFlowModelSelects = computed(() => selectedAiProviderPreset.value === 'siliconflow')
 const canLoadSiliconFlowModels = computed(() => Boolean(props.config.aiApiKey?.trim()))
 const showSiliconFlowChatModelSelect = computed(() => showSiliconFlowModelSelects.value)
@@ -459,9 +553,54 @@ function handleAiProviderPresetChange(event: Event) {
 
   aiConnectionMessage.value = ''
   aiConnectionError.value = ''
+  clearAiTransferFeedback()
 
   if (nextProvider !== 'siliconflow') {
     resetSiliconFlowModelCatalog()
+  }
+}
+
+function handleImportAiSettingsClick() {
+  aiSettingsFileInput.value?.click()
+}
+
+function toggleAiApiKeyVisibility() {
+  isAiApiKeyVisible.value = !isAiApiKeyVisible.value
+}
+
+function handleExportAiSettings() {
+  clearAiTransferFeedback()
+
+  try {
+    const content = stringifyAiSettingsTransferPayload(props.config)
+    downloadAiSettingsFile(content)
+    aiTransferMessage.value = '已导出 AI 服务设置'
+  } catch (error) {
+    aiTransferError.value = error instanceof Error ? error.message : '导出 AI 服务设置失败'
+  }
+}
+
+async function handleImportAiSettingsFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    return
+  }
+
+  clearAiTransferFeedback()
+
+  try {
+    const content = await file.text()
+    const imported = parseAiSettingsTransferPayload(content)
+    applyImportedAiSettings(props.config, imported)
+    selectedAiProviderPreset.value = props.config.aiProviderPreset ?? imported.aiProviderPreset
+    aiConnectionMessage.value = ''
+    aiConnectionError.value = ''
+    aiTransferMessage.value = '已导入 AI 服务设置'
+  } catch (error) {
+    aiTransferError.value = error instanceof Error ? error.message : '导入 AI 服务设置失败'
+  } finally {
+    input.value = ''
   }
 }
 
@@ -515,6 +654,11 @@ function resetSiliconFlowModelCatalog() {
   siliconFlowModelCatalogLoaded.value = false
 }
 
+function clearAiTransferFeedback() {
+  aiTransferMessage.value = ''
+  aiTransferError.value = ''
+}
+
 function buildSiliconFlowModelSelectTitle(params: {
   baseTitle: string
   placeholder: string
@@ -527,6 +671,23 @@ function buildSiliconFlowModelSelectTitle(params: {
   ]
     .filter(Boolean)
     .join(' ')
+}
+
+function downloadAiSettingsFile(content: string) {
+  if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') {
+    throw new Error('当前环境不支持导出文件')
+  }
+
+  const blob = new Blob([content], { type: 'application/json;charset=utf-8' })
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = objectUrl
+  link.download = AI_SETTINGS_TRANSFER_FILE_NAME
+  document.body?.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
 }
 </script>
 
@@ -585,6 +746,12 @@ function buildSiliconFlowModelSelectTitle(params: {
   overflow: hidden;
 }
 
+.setting-item-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+}
+
 .setting-item {
   display: flex;
   align-items: center;
@@ -612,6 +779,25 @@ function buildSiliconFlowModelSelectTitle(params: {
   background: color-mix(in srgb, var(--b3-theme-primary) 2%, transparent);
 }
 
+.setting-item--grid {
+  min-width: 0;
+  min-height: 100%;
+  padding-left: 20px;
+  border-top: 1px solid color-mix(in srgb, var(--b3-theme-primary) 5%, transparent);
+}
+
+.setting-item-grid .setting-item--grid {
+  border-top: 1px solid color-mix(in srgb, var(--b3-theme-primary) 5%, transparent);
+}
+
+.setting-item-grid .setting-item--grid:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.setting-item-grid .setting-item--grid:nth-child(2n) {
+  border-left: 1px solid color-mix(in srgb, var(--b3-theme-primary) 5%, transparent);
+}
+
 .setting-item__text {
   display: flex;
   flex-direction: column;
@@ -633,6 +819,19 @@ function buildSiliconFlowModelSelectTitle(params: {
   gap: 6px;
   font-size: 13px;
   color: color-mix(in srgb, var(--b3-theme-on-background) 72%, transparent);
+}
+
+.setting-field__inline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.setting-field__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .setting-field--full {
@@ -668,6 +867,14 @@ function buildSiliconFlowModelSelectTitle(params: {
   gap: 10px;
 }
 
+.setting-input-with-action {
+  position: relative;
+}
+
+.setting-input-with-action--overlay input {
+  padding-right: 48px;
+}
+
 .setting-input-with-suffix__unit {
   color: color-mix(in srgb, var(--b3-theme-on-background) 58%, transparent);
   font-weight: 500;
@@ -697,13 +904,64 @@ function buildSiliconFlowModelSelectTitle(params: {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
 }
 
+.setting-button--compact {
+  padding: 10px 12px;
+  white-space: nowrap;
+}
+
+.setting-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--b3-theme-surface) 84%, var(--b3-theme-primary) 6%);
+  color: color-mix(in srgb, var(--b3-theme-on-background) 70%, transparent);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.setting-icon-button:hover {
+  background: color-mix(in srgb, var(--b3-theme-surface) 76%, var(--b3-theme-primary) 10%);
+  color: var(--b3-theme-on-background);
+}
+
+.setting-icon-button--inline {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  transform: translateY(-50%);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.setting-icon-button--inline:hover {
+  background: color-mix(in srgb, var(--b3-theme-surface) 76%, var(--b3-theme-primary) 10%);
+  border-color: color-mix(in srgb, var(--b3-theme-primary) 12%, transparent);
+}
+
+.setting-icon-button__svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .setting-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.setting-file-input {
+  display: none;
+}
+
 .setting-feedback {
   font-size: 13px;
+  font-weight: 400;
 }
 
 .setting-feedback--success {
@@ -721,6 +979,30 @@ function buildSiliconFlowModelSelectTitle(params: {
 @media (max-width: 720px) {
   .setting-form {
     grid-template-columns: 1fr;
+  }
+
+  .setting-item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .setting-item-grid .setting-item--grid:nth-child(-n + 2) {
+    border-top: 1px solid color-mix(in srgb, var(--b3-theme-primary) 5%, transparent);
+  }
+
+  .setting-item-grid .setting-item--grid:first-child {
+    border-top: 0;
+  }
+
+  .setting-item-grid .setting-item--grid:nth-child(2n) {
+    border-left: 0;
+  }
+
+  .setting-field__inline {
+    grid-template-columns: 1fr;
+  }
+
+  .setting-field__actions {
+    flex-wrap: wrap;
   }
 }
 </style>

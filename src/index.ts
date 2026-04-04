@@ -82,8 +82,8 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
   openSetting() {
     const dialog = new Dialog({
       title: '脉络镜 设置',
-      width: '600px',
-      height: '500px',
+      width: '680px',
+      height: '720px',
       content: '<div id="reference-analytics-setting-root" style="height: 100%;"></div>',
       destroyCallback: () => {
         destroySetting()
