@@ -122,5 +122,7 @@ describe('OrphanDetailPanel', () => {
     expect(html).toContain('AI 工具')
     expect(html).toContain('新标签')
     expect(html).toContain('当前标签')
+    expect(html).not.toContain('orphan-detail__ai-card')
+    expect(html).toContain('orphan-detail__ai-item--elevated')
   })
 })

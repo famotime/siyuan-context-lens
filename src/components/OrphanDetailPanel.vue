@@ -100,22 +100,22 @@
               class="orphan-detail__ai-result"
             >
               <p class="orphan-detail__ai-summary">{{ resolveAiSuggestionState(item.documentId)?.result?.summary }}</p>
-              <div class="orphan-detail__ai-cards">
+              <div class="orphan-detail__ai-groups">
                 <section
                   v-if="resolveAiLinkSuggestions(item.documentId).length"
-                  class="orphan-detail__ai-card"
+                  class="orphan-detail__ai-group"
                 >
-                  <div class="orphan-detail__ai-card-header">
-                    <p class="orphan-detail__ai-card-title">链接建议</p>
-                    <span class="orphan-detail__ai-card-meta">{{ resolveAiLinkSuggestions(item.documentId).length }} 项</span>
+                  <div class="orphan-detail__ai-group-header">
+                    <p class="orphan-detail__ai-group-title">链接建议</p>
+                    <span class="orphan-detail__ai-group-meta">{{ resolveAiLinkSuggestions(item.documentId).length }} 项</span>
                   </div>
-                  <div class="orphan-detail__ai-card-list">
+                  <div class="orphan-detail__ai-group-list">
                     <div
                       v-for="suggestion in resolveAiLinkSuggestions(item.documentId)"
                       :key="`${item.documentId}-${suggestion.targetDocumentId}`"
-                      class="orphan-detail__ai-card-item"
+                      class="orphan-detail__ai-item orphan-detail__ai-item--elevated"
                     >
-                      <div class="orphan-detail__ai-card-item-top">
+                      <div class="orphan-detail__ai-item-top">
                         <button
                           :class="['orphan-detail__ai-pill', { 'orphan-detail__ai-pill--active': isAiLinkSuggestionActive(item.documentId, suggestion.targetDocumentId) }]"
                           type="button"
@@ -133,19 +133,19 @@
 
                 <section
                   v-if="resolveAiTagSuggestions(item.documentId).length"
-                  class="orphan-detail__ai-card"
+                  class="orphan-detail__ai-group"
                 >
-                  <div class="orphan-detail__ai-card-header">
-                    <p class="orphan-detail__ai-card-title">标签建议</p>
-                    <span class="orphan-detail__ai-card-meta">{{ resolveAiTagSuggestions(item.documentId).length }} 项</span>
+                  <div class="orphan-detail__ai-group-header">
+                    <p class="orphan-detail__ai-group-title">标签建议</p>
+                    <span class="orphan-detail__ai-group-meta">{{ resolveAiTagSuggestions(item.documentId).length }} 项</span>
                   </div>
-                  <div class="orphan-detail__ai-card-list">
+                  <div class="orphan-detail__ai-group-list">
                     <div
                       v-for="tagSuggestion in resolveAiTagSuggestions(item.documentId)"
                       :key="`${item.documentId}-${tagSuggestion.tag}`"
-                      class="orphan-detail__ai-card-item"
+                      class="orphan-detail__ai-item orphan-detail__ai-item--elevated"
                     >
-                      <div class="orphan-detail__ai-card-item-top">
+                      <div class="orphan-detail__ai-item-top">
                         <button
                           :class="['orphan-detail__ai-pill', { 'orphan-detail__ai-pill--active': isAiTagSuggestionActive(item.documentId, tagSuggestion.tag) }]"
                           type="button"
@@ -407,7 +407,7 @@ function resolveAiTagSuggestions(documentId: string): AiLinkTagSuggestion[] {
 .orphan-detail__ai-status,
 .orphan-detail__ai-error,
 .orphan-detail__ai-summary,
-.orphan-detail__ai-card-item p {
+.orphan-detail__ai-item p {
   margin: 0;
   line-height: 1.65;
 }
@@ -421,29 +421,25 @@ function resolveAiTagSuggestions(documentId: string): AiLinkTagSuggestion[] {
   gap: 10px;
 }
 
-.orphan-detail__ai-cards {
+.orphan-detail__ai-groups {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
-.orphan-detail__ai-card {
+.orphan-detail__ai-group {
   display: grid;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--surface-card);
-  border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 10%, transparent);
+  gap: 8px;
 }
 
-.orphan-detail__ai-card-header,
-.orphan-detail__ai-card-item-top {
+.orphan-detail__ai-group-header,
+.orphan-detail__ai-item-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
 }
 
-.orphan-detail__ai-card-header {
+.orphan-detail__ai-group-header {
   align-items: baseline;
 }
 
@@ -456,29 +452,34 @@ function resolveAiTagSuggestions(documentId: string): AiLinkTagSuggestion[] {
   text-transform: uppercase;
 }
 
-.orphan-detail__ai-card-title {
+.orphan-detail__ai-group-title {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
   color: color-mix(in srgb, var(--b3-theme-primary) 78%, var(--b3-theme-on-background));
 }
 
-.orphan-detail__ai-card-meta {
+.orphan-detail__ai-group-meta {
   font-size: 12px;
   color: var(--panel-muted);
 }
 
-.orphan-detail__ai-card-list {
+.orphan-detail__ai-group-list {
   display: grid;
   gap: 8px;
 }
 
-.orphan-detail__ai-card-item {
+.orphan-detail__ai-item {
   display: grid;
   gap: 4px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: color-mix(in srgb, var(--b3-theme-primary) 5%, var(--surface-card-soft, var(--surface-card)));
+}
+
+.orphan-detail__ai-item--elevated {
+  background: color-mix(in srgb, var(--surface-card) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--b3-theme-primary) 12%, var(--panel-border));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--b3-theme-on-background) 6%, transparent);
 }
 
 .orphan-detail__ai-pill {
