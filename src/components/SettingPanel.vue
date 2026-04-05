@@ -489,8 +489,12 @@ watch(
     () => props.config.aiApiKey ?? '',
     () => props.config.aiModel ?? '',
     () => props.config.aiEmbeddingModel ?? '',
+    () => props.config.aiRequestTimeoutSeconds,
+    () => props.config.aiMaxTokens,
+    () => props.config.aiTemperature,
+    () => props.config.aiMaxContextMessages,
   ],
-  ([provider, aiBaseUrl, aiApiKey, aiModel, aiEmbeddingModel]) => {
+  ([provider, aiBaseUrl, aiApiKey, aiModel, aiEmbeddingModel, aiRequestTimeoutSeconds, aiMaxTokens, aiTemperature, aiMaxContextMessages]) => {
     props.config.aiProviderPreset = provider
     if (!props.config.aiProviderConfigs || typeof props.config.aiProviderConfigs !== 'object') {
       props.config.aiProviderConfigs = {}
@@ -500,6 +504,10 @@ watch(
       aiApiKey,
       aiModel,
       aiEmbeddingModel,
+      aiRequestTimeoutSeconds,
+      aiMaxTokens,
+      aiTemperature,
+      aiMaxContextMessages,
     }
   },
   { immediate: true },

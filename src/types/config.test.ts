@@ -63,8 +63,17 @@ describe('config defaults', () => {
           aiApiKey: 'gemini-key',
           aiModel: 'gemini-2.5-flash',
           aiEmbeddingModel: 'gemini-embedding-001',
+          aiRequestTimeoutSeconds: 120,
+          aiMaxTokens: 102400,
+          aiTemperature: 0.2,
+          aiMaxContextMessages: 1,
         },
       },
+      aiRequestTimeoutSeconds: 30,
+      aiMaxTokens: 10240,
+      aiTemperature: 0.7,
+      aiMaxContextMessages: 7,
+      aiContextCapacity: 'balanced',
     } as any
 
     ensureConfigDefaults(config)
@@ -74,5 +83,10 @@ describe('config defaults', () => {
     expect(config.aiApiKey).toBe('gemini-key')
     expect(config.aiModel).toBe('gemini-2.5-flash')
     expect(config.aiEmbeddingModel).toBe('gemini-embedding-001')
+    expect(config.aiRequestTimeoutSeconds).toBe(120)
+    expect(config.aiMaxTokens).toBe(102400)
+    expect(config.aiTemperature).toBe(0.2)
+    expect(config.aiMaxContextMessages).toBe(1)
+    expect(config.aiContextCapacity).toBe('balanced')
   })
 })

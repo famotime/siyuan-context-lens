@@ -62,12 +62,21 @@ describe('ai provider presets', () => {
           aiApiKey: 'sk-openai',
           aiModel: 'gpt-5-custom',
           aiEmbeddingModel: 'text-embedding-3-large',
+          aiRequestTimeoutSeconds: 45,
+          aiMaxTokens: 4096,
+          aiTemperature: 0.4,
+          aiMaxContextMessages: 5,
         },
       },
       aiBaseUrl: 'https://api.openai.com/v1',
       aiApiKey: 'sk-openai',
       aiModel: 'gpt-5-custom',
       aiEmbeddingModel: 'text-embedding-3-large',
+      aiRequestTimeoutSeconds: 45,
+      aiMaxTokens: 4096,
+      aiTemperature: 0.4,
+      aiMaxContextMessages: 5,
+      aiContextCapacity: 'full',
     } as any
 
     applyAiProviderPreset(config, 'gemini')
@@ -78,15 +87,28 @@ describe('ai provider presets', () => {
       aiApiKey: 'sk-openai',
       aiModel: 'gpt-5-custom',
       aiEmbeddingModel: 'text-embedding-3-large',
+      aiRequestTimeoutSeconds: 45,
+      aiMaxTokens: 4096,
+      aiTemperature: 0.4,
+      aiMaxContextMessages: 5,
     })
     expect(config.aiBaseUrl).toBe('https://generativelanguage.googleapis.com/v1beta/openai')
     expect(config.aiApiKey).toBe('')
     expect(config.aiModel).toBe('gemini-2.5-flash')
     expect(config.aiEmbeddingModel).toBe('gemini-embedding-001')
+    expect(config.aiRequestTimeoutSeconds).toBe(30)
+    expect(config.aiMaxTokens).toBe(10240)
+    expect(config.aiTemperature).toBe(0.7)
+    expect(config.aiMaxContextMessages).toBe(7)
+    expect(config.aiContextCapacity).toBe('full')
 
     config.aiApiKey = 'gemini-key'
     config.aiModel = 'gemini-2.5-pro-exp'
     config.aiEmbeddingModel = 'gemini-embedding-custom'
+    config.aiRequestTimeoutSeconds = 120
+    config.aiMaxTokens = 102400
+    config.aiTemperature = 0.2
+    config.aiMaxContextMessages = 1
 
     applyAiProviderPreset(config, 'openai')
 
@@ -96,11 +118,20 @@ describe('ai provider presets', () => {
       aiApiKey: 'gemini-key',
       aiModel: 'gemini-2.5-pro-exp',
       aiEmbeddingModel: 'gemini-embedding-custom',
+      aiRequestTimeoutSeconds: 120,
+      aiMaxTokens: 102400,
+      aiTemperature: 0.2,
+      aiMaxContextMessages: 1,
     })
     expect(config.aiBaseUrl).toBe('https://api.openai.com/v1')
     expect(config.aiApiKey).toBe('sk-openai')
     expect(config.aiModel).toBe('gpt-5-custom')
     expect(config.aiEmbeddingModel).toBe('text-embedding-3-large')
+    expect(config.aiRequestTimeoutSeconds).toBe(45)
+    expect(config.aiMaxTokens).toBe(4096)
+    expect(config.aiTemperature).toBe(0.4)
+    expect(config.aiMaxContextMessages).toBe(5)
+    expect(config.aiContextCapacity).toBe('full')
   })
 
   it('builds unique sorted model option items and preserves the current value', () => {

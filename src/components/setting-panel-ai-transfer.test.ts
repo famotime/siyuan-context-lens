@@ -22,12 +22,20 @@ describe('setting panel ai transfer', () => {
           aiApiKey: 'sk-openai',
           aiModel: 'gpt-5',
           aiEmbeddingModel: 'text-embedding-3-small',
+          aiRequestTimeoutSeconds: 60,
+          aiMaxTokens: 8192,
+          aiTemperature: 0.2,
+          aiMaxContextMessages: 5,
         },
         gemini: {
           aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
           aiApiKey: 'sk-gemini',
           aiModel: 'gemini-2.5-flash',
           aiEmbeddingModel: 'gemini-embedding-001',
+          aiRequestTimeoutSeconds: 45,
+          aiMaxTokens: 4096,
+          aiTemperature: 0.3,
+          aiMaxContextMessages: 11,
         },
       },
       aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
@@ -43,7 +51,7 @@ describe('setting panel ai transfer', () => {
 
     expect(JSON.parse(json)).toEqual({
       kind: 'network-lens-ai-settings',
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: '2026-04-04T09:08:07.000Z',
       config: {
         aiEnabled: true,
@@ -54,22 +62,22 @@ describe('setting panel ai transfer', () => {
             aiApiKey: 'sk-openai',
             aiModel: 'gpt-5',
             aiEmbeddingModel: 'text-embedding-3-small',
+            aiRequestTimeoutSeconds: 60,
+            aiMaxTokens: 8192,
+            aiTemperature: 0.2,
+            aiMaxContextMessages: 5,
           },
           gemini: {
             aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
             aiApiKey: 'sk-gemini',
             aiModel: 'gemini-2.5-flash',
             aiEmbeddingModel: 'gemini-embedding-001',
+            aiRequestTimeoutSeconds: 45,
+            aiMaxTokens: 4096,
+            aiTemperature: 0.3,
+            aiMaxContextMessages: 11,
           },
         },
-        aiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-        aiApiKey: 'sk-gemini',
-        aiModel: 'gemini-2.5-flash',
-        aiEmbeddingModel: 'gemini-embedding-001',
-        aiRequestTimeoutSeconds: 45,
-        aiMaxTokens: 4096,
-        aiTemperature: 0.3,
-        aiMaxContextMessages: 11,
         aiContextCapacity: 'full',
       },
     })
@@ -85,14 +93,18 @@ describe('setting panel ai transfer', () => {
       readPaths: '/已读',
       aiEnabled: false,
       aiProviderPreset: 'custom',
-      aiProviderConfigs: {
-        custom: {
-          aiBaseUrl: 'https://custom.example.com/v1',
-          aiApiKey: 'sk-custom',
-          aiModel: 'custom-model',
-          aiEmbeddingModel: 'custom-embedding',
+        aiProviderConfigs: {
+          custom: {
+            aiBaseUrl: 'https://custom.example.com/v1',
+            aiApiKey: 'sk-custom',
+            aiModel: 'custom-model',
+            aiEmbeddingModel: 'custom-embedding',
+            aiRequestTimeoutSeconds: 30,
+            aiMaxTokens: 10240,
+            aiTemperature: 0.7,
+            aiMaxContextMessages: 7,
+          },
         },
-      },
       aiBaseUrl: 'https://custom.example.com/v1',
       aiApiKey: 'sk-custom',
       aiModel: 'custom-model',
@@ -106,7 +118,7 @@ describe('setting panel ai transfer', () => {
 
     const imported = parseAiSettingsTransferPayload(JSON.stringify({
       kind: 'network-lens-ai-settings',
-      schemaVersion: 1,
+      schemaVersion: 2,
       config: {
         aiEnabled: true,
         aiProviderPreset: 'openai',
@@ -116,16 +128,12 @@ describe('setting panel ai transfer', () => {
             aiApiKey: 'sk-openai',
             aiModel: 'gpt-5',
             aiEmbeddingModel: 'text-embedding-3-small',
+            aiRequestTimeoutSeconds: '60',
+            aiMaxTokens: '8192',
+            aiTemperature: '0.4',
+            aiMaxContextMessages: '9',
           },
         },
-        aiBaseUrl: 'https://stale.example.com/v1',
-        aiApiKey: 'stale',
-        aiModel: 'stale-model',
-        aiEmbeddingModel: 'stale-embedding',
-        aiRequestTimeoutSeconds: '60',
-        aiMaxTokens: '8192',
-        aiTemperature: '0.4',
-        aiMaxContextMessages: '9',
         aiContextCapacity: 'compact',
       },
     }))
@@ -151,12 +159,22 @@ describe('setting panel ai transfer', () => {
         aiApiKey: 'sk-openai',
         aiModel: 'gpt-5',
         aiEmbeddingModel: 'text-embedding-3-small',
+        aiRequestTimeoutSeconds: 60,
+        aiMaxTokens: 8192,
+        aiTemperature: 0.4,
+        aiMaxContextMessages: 9,
       },
     })
   })
 
   it('rejects invalid ai settings payloads', () => {
     expect(() => parseAiSettingsTransferPayload('{"kind":"other"}')).toThrow('AI 服务设置文件格式无效')
+    expect(() => parseAiSettingsTransferPayload(JSON.stringify({
+      aiEnabled: true,
+      aiBaseUrl: 'https://api.openai.com/v1',
+      aiApiKey: 'sk-openai',
+      aiModel: 'gpt-5',
+    }))).toThrow('AI 服务设置文件格式无效')
     expect(() => parseAiSettingsTransferPayload('not-json')).toThrow('AI 服务设置文件不是有效的 JSON')
   })
 })

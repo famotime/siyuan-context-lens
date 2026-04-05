@@ -5,6 +5,10 @@ export interface AiProviderConfigSnapshot {
   aiApiKey: string
   aiModel: string
   aiEmbeddingModel: string
+  aiRequestTimeoutSeconds: number
+  aiMaxTokens: number
+  aiTemperature: number
+  aiMaxContextMessages: number
 }
 
 export type AiProviderConfigMap = Partial<Record<AiProviderPresetKey, Partial<AiProviderConfigSnapshot>>>

@@ -3,21 +3,13 @@ import type { AiProviderConfigMap, AiProviderPresetKey } from '@/types/ai-provid
 import { DEFAULT_CONFIG, ensureConfigDefaults, type PluginConfig } from '@/types/config'
 
 export const AI_SETTINGS_TRANSFER_KIND = 'network-lens-ai-settings'
-export const AI_SETTINGS_TRANSFER_SCHEMA_VERSION = 1
+export const AI_SETTINGS_TRANSFER_SCHEMA_VERSION = 2
 export const AI_SETTINGS_TRANSFER_FILE_NAME = 'network-lens-ai-settings.json'
 
 export interface AiSettingsTransferSnapshot {
   aiEnabled: boolean
   aiProviderPreset: AiProviderPresetKey
   aiProviderConfigs: AiProviderConfigMap
-  aiBaseUrl: string
-  aiApiKey: string
-  aiModel: string
-  aiEmbeddingModel: string
-  aiRequestTimeoutSeconds: number
-  aiMaxTokens: number
-  aiTemperature: number
-  aiMaxContextMessages: number
   aiContextCapacity: AiContextCapacity
 }
 
@@ -65,14 +57,6 @@ export function applyImportedAiSettings(config: PluginConfig, imported: AiSettin
   config.aiEnabled = imported.aiEnabled
   config.aiProviderPreset = imported.aiProviderPreset
   config.aiProviderConfigs = cloneAiProviderConfigMap(imported.aiProviderConfigs)
-  config.aiBaseUrl = imported.aiBaseUrl
-  config.aiApiKey = imported.aiApiKey
-  config.aiModel = imported.aiModel
-  config.aiEmbeddingModel = imported.aiEmbeddingModel
-  config.aiRequestTimeoutSeconds = imported.aiRequestTimeoutSeconds
-  config.aiMaxTokens = imported.aiMaxTokens
-  config.aiTemperature = imported.aiTemperature
-  config.aiMaxContextMessages = imported.aiMaxContextMessages
   config.aiContextCapacity = imported.aiContextCapacity
   ensureConfigDefaults(config)
 }
@@ -85,14 +69,6 @@ function extractAiSettingsTransferSnapshot(config: PluginConfig): AiSettingsTran
     aiEnabled: normalized.aiEnabled ?? false,
     aiProviderPreset: normalized.aiProviderPreset ?? 'custom',
     aiProviderConfigs: cloneAiProviderConfigMap(normalized.aiProviderConfigs),
-    aiBaseUrl: normalized.aiBaseUrl ?? '',
-    aiApiKey: normalized.aiApiKey ?? '',
-    aiModel: normalized.aiModel ?? '',
-    aiEmbeddingModel: normalized.aiEmbeddingModel ?? '',
-    aiRequestTimeoutSeconds: normalized.aiRequestTimeoutSeconds ?? DEFAULT_CONFIG.aiRequestTimeoutSeconds ?? 30,
-    aiMaxTokens: normalized.aiMaxTokens ?? DEFAULT_CONFIG.aiMaxTokens ?? 10240,
-    aiTemperature: normalized.aiTemperature ?? DEFAULT_CONFIG.aiTemperature ?? 0.7,
-    aiMaxContextMessages: normalized.aiMaxContextMessages ?? DEFAULT_CONFIG.aiMaxContextMessages ?? 7,
     aiContextCapacity: normalized.aiContextCapacity ?? DEFAULT_CONFIG.aiContextCapacity ?? 'balanced',
   }
 }
@@ -126,18 +102,11 @@ function buildAiSettingsDraft(source: Partial<PluginConfig>): PluginConfig {
 }
 
 function resolveImportCandidate(parsed: Record<string, unknown>) {
-  if (parsed.kind === AI_SETTINGS_TRANSFER_KIND) {
+  if (parsed.kind === AI_SETTINGS_TRANSFER_KIND && parsed.schemaVersion === AI_SETTINGS_TRANSFER_SCHEMA_VERSION) {
     return isRecord(parsed.config) ? parsed.config : null
   }
 
-  const hasAiField = 'aiEnabled' in parsed
-    || 'aiProviderPreset' in parsed
-    || 'aiBaseUrl' in parsed
-    || 'aiApiKey' in parsed
-    || 'aiModel' in parsed
-    || 'aiEmbeddingModel' in parsed
-
-  return hasAiField ? parsed : null
+  return null
 }
 
 function cloneAiProviderConfigMap(value: unknown): AiProviderConfigMap {
@@ -157,6 +126,10 @@ function cloneAiProviderConfigMap(value: unknown): AiProviderConfigMap {
       aiApiKey: typeof snapshot.aiApiKey === 'string' ? snapshot.aiApiKey : '',
       aiModel: typeof snapshot.aiModel === 'string' ? snapshot.aiModel : '',
       aiEmbeddingModel: typeof snapshot.aiEmbeddingModel === 'string' ? snapshot.aiEmbeddingModel : '',
+      aiRequestTimeoutSeconds: snapshot.aiRequestTimeoutSeconds,
+      aiMaxTokens: snapshot.aiMaxTokens,
+      aiTemperature: snapshot.aiTemperature,
+      aiMaxContextMessages: snapshot.aiMaxContextMessages,
     }
   }
   return result

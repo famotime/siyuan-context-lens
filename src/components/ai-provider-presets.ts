@@ -4,6 +4,11 @@ import type {
   AiProviderPresetKey,
 } from '@/types/ai-provider'
 
+const DEFAULT_AI_REQUEST_TIMEOUT_SECONDS = 60
+const DEFAULT_AI_MAX_TOKENS = 10240
+const DEFAULT_AI_TEMPERATURE = 0.7
+const DEFAULT_AI_MAX_CONTEXT_MESSAGES = 1
+
 interface AiProviderPresetDefinition {
   label: string
   baseUrl?: string
@@ -80,6 +85,10 @@ export function applyAiProviderPreset(config: {
   aiApiKey?: string
   aiModel?: string
   aiEmbeddingModel?: string
+  aiRequestTimeoutSeconds?: number
+  aiMaxTokens?: number
+  aiTemperature?: number
+  aiMaxContextMessages?: number
 }, provider: AiProviderPresetKey) {
   const providerConfigs = ensureAiProviderConfigMap(config)
   const currentProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
@@ -90,6 +99,10 @@ export function applyAiProviderPreset(config: {
     aiApiKey: config.aiApiKey,
     aiModel: config.aiModel,
     aiEmbeddingModel: config.aiEmbeddingModel,
+    aiRequestTimeoutSeconds: config.aiRequestTimeoutSeconds,
+    aiMaxTokens: config.aiMaxTokens,
+    aiTemperature: config.aiTemperature,
+    aiMaxContextMessages: config.aiMaxContextMessages,
   })
 
   config.aiProviderPreset = provider
@@ -105,6 +118,10 @@ export function ensureAiProviderConfigState(config: {
   aiApiKey?: string
   aiModel?: string
   aiEmbeddingModel?: string
+  aiRequestTimeoutSeconds?: number
+  aiMaxTokens?: number
+  aiTemperature?: number
+  aiMaxContextMessages?: number
 }) {
   const providerConfigs = ensureAiProviderConfigMap(config)
   const activeProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
@@ -117,6 +134,10 @@ export function ensureAiProviderConfigState(config: {
         aiApiKey: config.aiApiKey,
         aiModel: config.aiModel,
         aiEmbeddingModel: config.aiEmbeddingModel,
+        aiRequestTimeoutSeconds: config.aiRequestTimeoutSeconds,
+        aiMaxTokens: config.aiMaxTokens,
+        aiTemperature: config.aiTemperature,
+        aiMaxContextMessages: config.aiMaxContextMessages,
       })
 
   config.aiProviderPreset = activeProvider
@@ -160,6 +181,10 @@ function getAiProviderDefaultConfig(provider: AiProviderPresetKey): AiProviderCo
     aiApiKey: '',
     aiModel: preset.defaultModel ?? '',
     aiEmbeddingModel: preset.defaultEmbeddingModel ?? '',
+    aiRequestTimeoutSeconds: DEFAULT_AI_REQUEST_TIMEOUT_SECONDS,
+    aiMaxTokens: DEFAULT_AI_MAX_TOKENS,
+    aiTemperature: DEFAULT_AI_TEMPERATURE,
+    aiMaxContextMessages: DEFAULT_AI_MAX_CONTEXT_MESSAGES,
   }
 }
 
@@ -173,6 +198,10 @@ function resolveAiProviderConfigSnapshot(
     aiApiKey: typeof snapshot?.aiApiKey === 'string' ? snapshot.aiApiKey : defaults.aiApiKey,
     aiModel: typeof snapshot?.aiModel === 'string' ? snapshot.aiModel : defaults.aiModel,
     aiEmbeddingModel: typeof snapshot?.aiEmbeddingModel === 'string' ? snapshot.aiEmbeddingModel : defaults.aiEmbeddingModel,
+    aiRequestTimeoutSeconds: normalizePositiveInteger(snapshot?.aiRequestTimeoutSeconds, defaults.aiRequestTimeoutSeconds),
+    aiMaxTokens: normalizePositiveInteger(snapshot?.aiMaxTokens, defaults.aiMaxTokens),
+    aiTemperature: normalizeTemperature(snapshot?.aiTemperature, defaults.aiTemperature),
+    aiMaxContextMessages: normalizePositiveInteger(snapshot?.aiMaxContextMessages, defaults.aiMaxContextMessages),
   }
 }
 
@@ -182,12 +211,20 @@ function buildAiProviderConfigSnapshot(params: {
   aiApiKey?: string
   aiModel?: string
   aiEmbeddingModel?: string
+  aiRequestTimeoutSeconds?: number
+  aiMaxTokens?: number
+  aiTemperature?: number
+  aiMaxContextMessages?: number
 }): AiProviderConfigSnapshot {
   return resolveAiProviderConfigSnapshot({
     aiBaseUrl: params.aiBaseUrl,
     aiApiKey: params.aiApiKey,
     aiModel: params.aiModel,
     aiEmbeddingModel: params.aiEmbeddingModel,
+    aiRequestTimeoutSeconds: params.aiRequestTimeoutSeconds,
+    aiMaxTokens: params.aiMaxTokens,
+    aiTemperature: params.aiTemperature,
+    aiMaxContextMessages: params.aiMaxContextMessages,
   }, params.provider)
 }
 
@@ -196,11 +233,19 @@ function applyAiProviderConfigSnapshot(config: {
   aiApiKey?: string
   aiModel?: string
   aiEmbeddingModel?: string
+  aiRequestTimeoutSeconds?: number
+  aiMaxTokens?: number
+  aiTemperature?: number
+  aiMaxContextMessages?: number
 }, snapshot: AiProviderConfigSnapshot) {
   config.aiBaseUrl = snapshot.aiBaseUrl
   config.aiApiKey = snapshot.aiApiKey
   config.aiModel = snapshot.aiModel
   config.aiEmbeddingModel = snapshot.aiEmbeddingModel
+  config.aiRequestTimeoutSeconds = snapshot.aiRequestTimeoutSeconds
+  config.aiMaxTokens = snapshot.aiMaxTokens
+  config.aiTemperature = snapshot.aiTemperature
+  config.aiMaxContextMessages = snapshot.aiMaxContextMessages
 }
 
 function ensureAiProviderConfigMap(config: {
@@ -216,4 +261,28 @@ function normalizeAiProviderPreset(provider: AiProviderPresetKey | undefined, ba
   return provider === 'siliconflow' || provider === 'openai' || provider === 'gemini' || provider === 'custom'
     ? provider
     : detectAiProviderPreset(baseUrl)
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  const normalized = typeof value === 'string' && value.trim()
+    ? Number.parseInt(value, 10)
+    : typeof value === 'number'
+      ? Math.floor(value)
+      : Number.NaN
+
+  return Number.isFinite(normalized) && normalized > 0
+    ? normalized
+    : fallback
+}
+
+function normalizeTemperature(value: unknown, fallback: number): number {
+  const normalized = typeof value === 'string' && value.trim()
+    ? Number.parseFloat(value)
+    : typeof value === 'number'
+      ? value
+      : Number.NaN
+
+  return Number.isFinite(normalized) && normalized >= 0 && normalized <= 2
+    ? normalized
+    : fallback
 }
