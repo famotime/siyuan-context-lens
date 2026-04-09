@@ -228,7 +228,7 @@ export function buildSummaryDetailSections(params: {
   filters?: AnalyticsFilters
   themeDocumentIds?: Iterable<string>
   dormantDays: number
-  config?: Pick<PluginConfig, 'readTagNames' | 'readTitlePrefixes' | 'readTitleSuffixes' | 'readPaths'>
+  config?: Pick<PluginConfig, 'readTagNames' | 'readTitlePrefixes' | 'readTitleSuffixes' | 'readPaths' | 'wikiPageSuffix'>
   readCardMode?: ReadCardMode
   largeDocumentMetrics?: ReadonlyMap<string, LargeDocumentMetric>
   largeDocumentCardMode?: LargeDocumentCardMode
@@ -240,6 +240,7 @@ export function buildSummaryDetailSections(params: {
     now: params.now,
     timeRange: params.timeRange,
     filters: params.filters,
+    wikiPageSuffix: params.config?.wikiPageSuffix,
   })
   const documentMap = new Map(filteredDocuments.map(document => [document.id, document]))
   const activeReferences = filterActiveReferences({

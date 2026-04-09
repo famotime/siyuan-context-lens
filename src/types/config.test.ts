@@ -42,6 +42,10 @@ describe('config defaults', () => {
     expect(config.aiTemperature).toBe(0.7)
     expect(config.aiMaxContextMessages).toBe(7)
     expect(config.aiContextCapacity).toBe('balanced')
+    expect(config.wikiEnabled).toBe(false)
+    expect(config.wikiPageSuffix).toBe('-llm-wiki')
+    expect(config.wikiIndexTitle).toBe('LLM-Wiki-索引')
+    expect(config.wikiLogTitle).toBe('LLM-Wiki-维护日志')
   })
 
   it('restores the active ai config from the selected provider snapshot', () => {
@@ -88,5 +92,26 @@ describe('config defaults', () => {
     expect(config.aiTemperature).toBe(0.2)
     expect(config.aiMaxContextMessages).toBe(1)
     expect(config.aiContextCapacity).toBe('balanced')
+  })
+
+  it('normalizes invalid wiki config values back to stable defaults', () => {
+    const config = {
+      showSummaryCards: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '/专题',
+      themeNamePrefix: '',
+      themeNameSuffix: '',
+      wikiEnabled: 'yes',
+      wikiPageSuffix: '   ',
+      wikiIndexTitle: 123,
+      wikiLogTitle: null,
+    } as any
+
+    ensureConfigDefaults(config)
+
+    expect(config.wikiEnabled).toBe(false)
+    expect(config.wikiPageSuffix).toBe('-llm-wiki')
+    expect(config.wikiIndexTitle).toBe('LLM-Wiki-索引')
+    expect(config.wikiLogTitle).toBe('LLM-Wiki-维护日志')
   })
 })

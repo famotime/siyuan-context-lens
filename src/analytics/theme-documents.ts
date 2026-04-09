@@ -1,5 +1,6 @@
 import type { DocumentRecord } from './analysis'
 import { normalizeTags, resolveDocumentTitle as resolveTitle } from './document-utils'
+import { isWikiDocumentTitle } from './wiki-page-model'
 import type { PluginConfig } from '@/types/config'
 
 export interface ThemeDocument {
@@ -33,6 +34,7 @@ export function collectThemeDocuments(params: {
   const configuredPath = normalizePath(params.config.themeDocumentPath)
   const prefix = params.config.themeNamePrefix.trim()
   const suffix = params.config.themeNameSuffix.trim()
+  const wikiPageSuffix = params.config.wikiPageSuffix?.trim() ?? ''
 
   if (!notebookId || !configuredPath) {
     return []
@@ -43,6 +45,9 @@ export function collectThemeDocuments(params: {
     .filter(document => isDocumentInConfiguredPath(document, configuredPath))
     .map((document) => {
       const title = resolveTitle(document)
+      if (isWikiDocumentTitle(title, wikiPageSuffix)) {
+        return null
+      }
       if (!matchesAffix(title, prefix, suffix)) {
         return null
       }

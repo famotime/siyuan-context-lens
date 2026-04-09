@@ -14,11 +14,13 @@ const config: PluginConfig = {
   themeDocumentPath: '/专题',
   themeNamePrefix: '主题-',
   themeNameSuffix: '-索引',
+  wikiPageSuffix: '-llm-wiki',
 }
 
 const documents = [
   { id: 'doc-root', box: 'box-1', path: '/topics.sy', hpath: '/专题', title: '专题总览', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-theme-ai', box: 'box-1', path: '/topics/theme-ai.sy', hpath: '/专题/主题-AI-索引', title: '主题-AI-索引', name: '人工智能', alias: 'AIGC,智能体', tags: [], created: '20260301090000', updated: '20260301120000' },
+  { id: 'doc-theme-ai-wiki', box: 'box-1', path: '/topics/theme-ai-wiki.sy', hpath: '/专题/主题-AI-索引-llm-wiki', title: '主题-AI-索引-llm-wiki', name: '人工智能', alias: 'AIGC,智能体', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-theme-ml', box: 'box-1', path: '/topics/theme-ml.sy', hpath: '/专题/主题-机器学习-索引', title: '主题-机器学习-索引', name: '机器学习', alias: 'ML', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-theme-skills', box: 'box-1', path: '/topics/theme-skills.sy', hpath: '/专题/主题-Skills-索引', title: '主题-Skills-索引', name: 'skill', alias: 'abc,def', tags: [], created: '20260301090000', updated: '20260301120000' },
   { id: 'doc-theme-ignore', box: 'box-1', path: '/topics/theme-ignore.sy', hpath: '/专题/无前后缀', title: '无前后缀', tags: [], created: '20260301090000', updated: '20260301120000' },
@@ -38,6 +40,7 @@ describe('theme documents', () => {
       expect.objectContaining({ documentId: 'doc-theme-ml', themeName: '机器学习' }),
       expect.objectContaining({ documentId: 'doc-theme-skills', themeName: 'Skills' }),
     ]))
+    expect(themeDocuments.some(item => item.documentId === 'doc-theme-ai-wiki')).toBe(false)
   })
 
   it('counts theme matches in document title, path and tags and sorts by match count', () => {

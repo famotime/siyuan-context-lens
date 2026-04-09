@@ -61,6 +61,14 @@ export interface DocumentLinkSuggestionCacheRecord {
   createdAt: string
 }
 
+export interface DocumentSummarySnapshot {
+  summaryShort: string
+  summaryMedium: string
+  keywords: string[]
+  evidenceSnippets: string[]
+  updatedAt: string
+}
+
 export interface AiDocumentIndexSnapshot {
   schemaVersion: number
   semanticProfiles: Record<string, DocumentSemanticProfileRecord>
@@ -88,6 +96,7 @@ export interface AiDocumentIndexStore {
   }) => Promise<void>
   getSemanticProfile: (documentId: string) => Promise<DocumentSemanticProfileRecord | null>
   getFreshSemanticProfile: (documentId: string, sourceUpdatedAt: string) => Promise<DocumentSemanticProfileRecord | null>
+  getFreshDocumentSummary: (documentId: string, sourceUpdatedAt: string) => Promise<DocumentSummarySnapshot | null>
   invalidateSuggestionCache: (documentId: string) => Promise<void>
 }
 
@@ -156,6 +165,15 @@ export function createAiDocumentIndexStore(storage: PluginStorageLike): AiDocume
       }
       return profile.sourceUpdatedAt === sourceUpdatedAt ? profile : null
     },
+    async getFreshDocumentSummary(documentId, sourceUpdatedAt) {
+      const snapshot = await loadSnapshot(storage)
+      const profile = snapshot.semanticProfiles[documentId]
+      if (!profile || profile.sourceUpdatedAt !== sourceUpdatedAt) {
+        return null
+      }
+
+      return buildFreshDocumentSummarySnapshot(profile)
+    },
     async invalidateSuggestionCache(documentId) {
       const snapshot = await loadSnapshot(storage)
       const keys = Object.keys(snapshot.suggestionCache)
@@ -171,6 +189,20 @@ export function createAiDocumentIndexStore(storage: PluginStorageLike): AiDocume
 
       await saveSnapshot(storage, snapshot)
     },
+  }
+}
+
+function buildFreshDocumentSummarySnapshot(profile: DocumentSemanticProfileRecord): DocumentSummarySnapshot | null {
+  if (!profile.documentSummaryShort || !profile.documentSummaryMedium) {
+    return null
+  }
+
+  return {
+    summaryShort: profile.documentSummaryShort,
+    summaryMedium: profile.documentSummaryMedium,
+    keywords: parseStringArray(profile.documentKeywordsJson),
+    evidenceSnippets: parseStringArray(profile.documentEvidenceSnippetsJson),
+    updatedAt: profile.documentSummaryUpdatedAt ?? profile.updatedAt,
   }
 }
 
@@ -413,6 +445,20 @@ function buildSuggestionCacheStorageKey(documentId: string, cacheKey: string): s
 
 function deduplicateStrings(values: string[]): string[] {
   return [...new Set(values.map(value => value.trim()).filter(Boolean))]
+}
+
+function parseStringArray(value?: string): string[] {
+  if (!value) {
+    return []
+  }
+
+  try {
+    return Array.isArray(JSON.parse(value))
+      ? JSON.parse(value).filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+      : []
+  } catch {
+    return []
+  }
 }
 
 function simpleHash(value: string): string {

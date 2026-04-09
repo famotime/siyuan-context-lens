@@ -9,6 +9,7 @@ import type {
 import type { SummaryCardItem } from './summary-details'
 import { parseSiyuanTimestamp } from './document-utils'
 import { countThemeMatchesForDocument, type ThemeDocument } from './theme-documents'
+import { isWikiDocumentTitle } from './wiki-page-model'
 import {
   DEFAULT_AI_MAX_CONTEXT_MESSAGES,
   DEFAULT_AI_MAX_TOKENS,
@@ -148,6 +149,7 @@ export interface AiInboxService {
     dormantDays: number
     contextCapacity?: AiContextCapacity
     themeDocuments?: ThemeDocument[]
+    wikiPageSuffix?: string
   }) => AiInboxPayload
   generateInbox: (params: {
     config: AiConfig
@@ -278,9 +280,14 @@ function buildAiInboxPayload(params: {
   dormantDays: number
   contextCapacity?: AiContextCapacity
   themeDocuments?: ThemeDocument[]
+  wikiPageSuffix?: string
 }): AiInboxPayload {
-  const documentMap = new Map(params.documents.map(document => [document.id, document]))
-  const communityById = new Map(params.report.communities.map(community => [community.id, community]))
+  const ordinaryDocuments = filterOutWikiDocuments(params.documents, params.wikiPageSuffix)
+  const ordinaryDocumentIds = new Set(ordinaryDocuments.map(document => document.id))
+  const filteredReport = filterReportForInbox(params.report, ordinaryDocumentIds)
+  const filteredTrends = filterTrendReportForInbox(params.trends, ordinaryDocumentIds)
+  const documentMap = new Map(ordinaryDocuments.map(document => [document.id, document]))
+  const communityById = new Map(filteredReport.communities.map(community => [community.id, community]))
   const contextCapacity = params.contextCapacity ?? 'balanced'
   const limits = CAPACITY_LIMITS[contextCapacity]
 
@@ -305,38 +312,38 @@ function buildAiInboxPayload(params: {
     },
     actionCandidates: buildActionCandidates({
       documentMap,
-      report: params.report,
-      trends: params.trends,
+      report: filteredReport,
+      trends: filteredTrends,
       themeDocuments: params.themeDocuments ?? [],
       actionCandidateLimit: limits.actionCandidateLimit,
     }),
     signals: {
-      ranking: params.report.ranking.slice(0, limits.signalLimit).map(item => ({
+      ranking: filteredReport.ranking.slice(0, limits.signalLimit).map(item => ({
         documentId: item.documentId,
         title: item.title,
         inboundReferences: item.inboundReferences,
         distinctSourceDocuments: item.distinctSourceDocuments,
         outboundReferences: item.outboundReferences,
       })),
-      orphans: params.report.orphans.slice(0, limits.signalLimit).map(item => ({
+      orphans: filteredReport.orphans.slice(0, limits.signalLimit).map(item => ({
         documentId: item.documentId,
         title: item.title,
         updatedAt: item.updatedAt,
         historicalReferenceCount: item.historicalReferenceCount,
         hasSparseEvidence: item.hasSparseEvidence,
       })),
-      dormant: params.report.dormantDocuments.slice(0, limits.signalLimit).map(item => ({
+      dormant: filteredReport.dormantDocuments.slice(0, limits.signalLimit).map(item => ({
         documentId: item.documentId,
         title: item.title,
         inactivityDays: item.inactivityDays,
         historicalReferenceCount: item.historicalReferenceCount,
       })),
-      bridges: params.report.bridgeDocuments.slice(0, limits.signalLimit).map(item => ({
+      bridges: filteredReport.bridgeDocuments.slice(0, limits.signalLimit).map(item => ({
         documentId: item.documentId,
         title: item.title,
         degree: item.degree,
       })),
-      propagation: params.report.propagationNodes.slice(0, limits.signalLimit).map(item => ({
+      propagation: filteredReport.propagationNodes.slice(0, limits.signalLimit).map(item => ({
         documentId: item.documentId,
         title: item.title,
         score: item.score,
@@ -344,7 +351,7 @@ function buildAiInboxPayload(params: {
         communitySpan: item.communitySpan,
         bridgeRole: item.bridgeRole,
       })),
-      communities: params.trends.communityTrends.slice(0, limits.signalLimit).map((item) => {
+      communities: filteredTrends.communityTrends.slice(0, limits.signalLimit).map((item) => {
         const community = communityById.get(item.communityId)
         return {
           communityId: item.communityId,
@@ -354,14 +361,14 @@ function buildAiInboxPayload(params: {
           missingTopicPage: community?.missingTopicPage ?? false,
         }
       }),
-      risingDocuments: params.trends.risingDocuments.slice(0, limits.signalLimit).map(item => mapTrendItem(item)),
-      fallingDocuments: params.trends.fallingDocuments.slice(0, limits.signalLimit).map(item => mapTrendItem(item)),
-      newConnections: params.trends.connectionChanges.newEdges.slice(0, limits.connectionLimit).map(item => ({
+      risingDocuments: filteredTrends.risingDocuments.slice(0, limits.signalLimit).map(item => mapTrendItem(item)),
+      fallingDocuments: filteredTrends.fallingDocuments.slice(0, limits.signalLimit).map(item => mapTrendItem(item)),
+      newConnections: filteredTrends.connectionChanges.newEdges.slice(0, limits.connectionLimit).map(item => ({
         title: buildConnectionTitle(documentMap, item.documentIds),
         documentIds: [...item.documentIds],
         referenceCount: item.referenceCount,
       })),
-      brokenConnections: params.trends.connectionChanges.brokenEdges.slice(0, limits.connectionLimit).map(item => ({
+      brokenConnections: filteredTrends.connectionChanges.brokenEdges.slice(0, limits.connectionLimit).map(item => ({
         title: buildConnectionTitle(documentMap, item.documentIds),
         documentIds: [...item.documentIds],
         referenceCount: item.referenceCount,
@@ -723,6 +730,59 @@ function mapTrendItem(item: TrendDocumentItem) {
     currentReferences: item.currentReferences,
     previousReferences: item.previousReferences,
     delta: item.delta,
+  }
+}
+
+function filterOutWikiDocuments(documents: DocumentRecord[], wikiPageSuffix?: string): DocumentRecord[] {
+  if (!wikiPageSuffix?.trim()) {
+    return documents
+  }
+
+  return documents.filter(document => !isWikiDocumentTitle(document.title || document.hpath || document.path || document.id, wikiPageSuffix))
+}
+
+function filterReportForInbox(report: ReferenceGraphReport, ordinaryDocumentIds: Set<string>): ReferenceGraphReport {
+  return {
+    ...report,
+    ranking: report.ranking.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    communities: report.communities
+      .map(item => ({
+        ...item,
+        documentIds: item.documentIds.filter(documentId => ordinaryDocumentIds.has(documentId)),
+        hubDocumentIds: item.hubDocumentIds.filter(documentId => ordinaryDocumentIds.has(documentId)),
+      }))
+      .filter(item => item.documentIds.length > 0),
+    bridgeDocuments: report.bridgeDocuments.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    orphans: report.orphans.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    dormantDocuments: report.dormantDocuments.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    propagationNodes: report.propagationNodes.filter(item => ordinaryDocumentIds.has(item.documentId)),
+  }
+}
+
+function filterTrendReportForInbox(trends: TrendReport, ordinaryDocumentIds: Set<string>): TrendReport {
+  const communityTrends = trends.communityTrends
+    .map(item => ({
+      ...item,
+      documentIds: item.documentIds.filter(documentId => ordinaryDocumentIds.has(documentId)),
+      hubDocumentIds: item.hubDocumentIds.filter(documentId => ordinaryDocumentIds.has(documentId)),
+    }))
+    .filter(item => item.documentIds.length > 0)
+  const newEdges = trends.connectionChanges.newEdges.filter(item => item.documentIds.every(documentId => ordinaryDocumentIds.has(documentId)))
+  const brokenEdges = trends.connectionChanges.brokenEdges.filter(item => item.documentIds.every(documentId => ordinaryDocumentIds.has(documentId)))
+
+  return {
+    ...trends,
+    risingDocuments: trends.risingDocuments.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    fallingDocuments: trends.fallingDocuments.filter(item => ordinaryDocumentIds.has(item.documentId)),
+    communityTrends,
+    risingCommunities: communityTrends.filter(item => item.delta > 0),
+    dormantCommunities: communityTrends.filter(item => item.currentReferences === 0 || (item.delta < 0 && item.currentReferences <= 1)),
+    connectionChanges: {
+      newCount: newEdges.length,
+      brokenCount: brokenEdges.length,
+      newEdges,
+      brokenEdges,
+    },
   }
 }
 

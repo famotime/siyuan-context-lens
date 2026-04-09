@@ -126,6 +126,37 @@ describe('analyzeReferenceGraph', () => {
     expect(report.ranking.map(item => item.documentId)).toEqual(['doc-target'])
   })
 
+  it('excludes wiki pages from filtered samples and graph analysis when a wiki suffix is configured', () => {
+    const wikiDocuments = [
+      { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: ['topic'], created: '20260309120000', updated: '20260310120000' },
+      { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: ['topic'], created: '20260309120000', updated: '20260310120000' },
+      { id: 'doc-wiki', box: 'box-1', path: '/wiki.sy', hpath: '/Alpha-llm-wiki', title: 'Alpha-llm-wiki', tags: ['index'], created: '20260309120000', updated: '20260310120000' },
+    ]
+    const wikiReferences = [
+      { id: 'ref-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-b', targetBlockId: 'blk-b1', content: '[[Beta]]', sourceUpdated: '20260310120000' },
+      { id: 'ref-2', sourceDocumentId: 'doc-wiki', sourceBlockId: 'blk-w1', targetDocumentId: 'doc-a', targetBlockId: 'blk-a2', content: '[[Alpha]]', sourceUpdated: '20260310120000' },
+    ]
+
+    const filtered = filterDocumentsByTimeRange({
+      documents: wikiDocuments,
+      references: wikiReferences,
+      now,
+      timeRange: '7d',
+      wikiPageSuffix: '-llm-wiki',
+    })
+    const report = analyzeReferenceGraph({
+      documents: wikiDocuments,
+      references: wikiReferences,
+      now,
+      timeRange: '7d',
+      wikiPageSuffix: '-llm-wiki',
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-a', 'doc-b'])
+    expect(report.summary.totalDocuments).toBe(2)
+    expect(report.ranking.map(item => item.documentId)).toEqual(['doc-b'])
+  })
+
   it('aggregates ranking, communities, orphan documents, and actionable suggestions', () => {
     const report = analyzeReferenceGraph({
       documents: [...documents],
@@ -319,6 +350,27 @@ describe('analyzeTrends', () => {
       documentIds: ['doc-a', 'doc-b', 'doc-c'],
       delta: 4,
     })
+  })
+
+  it('excludes wiki pages from trend samples when a wiki suffix is configured', () => {
+    const trends = analyzeTrends({
+      documents: [
+        { id: 'doc-a', box: 'box-1', path: '/a.sy', hpath: '/Alpha', title: 'Alpha', tags: [], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-b', box: 'box-1', path: '/b.sy', hpath: '/Beta', title: 'Beta', tags: [], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-wiki', box: 'box-1', path: '/wiki.sy', hpath: '/Alpha-llm-wiki', title: 'Alpha-llm-wiki', tags: [], created: '20260309120000', updated: '20260310120000' },
+      ],
+      references: [
+        { id: 'ref-1', sourceDocumentId: 'doc-a', sourceBlockId: 'blk-a1', targetDocumentId: 'doc-b', targetBlockId: 'blk-b1', content: '[[Beta]]', sourceUpdated: '20260310120000' },
+        { id: 'ref-2', sourceDocumentId: 'doc-wiki', sourceBlockId: 'blk-w1', targetDocumentId: 'doc-a', targetBlockId: 'blk-a2', content: '[[Alpha]]', sourceUpdated: '20260310120000' },
+      ],
+      now,
+      days: 7,
+      timeRange: '7d',
+      wikiPageSuffix: '-llm-wiki',
+    })
+
+    expect(trends.current.referenceCount).toBe(1)
+    expect(trends.risingDocuments.map(item => item.documentId)).toEqual(['doc-b'])
   })
 
   it('deduplicates trend counts by document pairs', () => {

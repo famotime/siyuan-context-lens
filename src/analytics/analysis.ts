@@ -6,6 +6,7 @@ import {
   parseSiyuanTimestamp as parseTimestamp,
   resolveDocumentTitle,
 } from './document-utils'
+import { isWikiDocumentTitle } from './wiki-page-model'
 
 export type TimeRange = '3d' | '7d' | '30d' | '60d' | '90d' | 'all'
 
@@ -191,10 +192,12 @@ export function filterDocumentsByTimeRange(params: {
   now: Date
   timeRange: TimeRange
   filters?: AnalyticsFilters
+  wikiPageSuffix?: string
 }): DocumentRecord[] {
-  const normalizedDocuments = normalizeDocuments(params.documents)
+  const visibleDocuments = excludeWikiDocuments(params.documents, params.wikiPageSuffix)
+  const normalizedDocuments = normalizeDocuments(visibleDocuments)
   const filteredDocuments = normalizedDocuments.filter(document => matchesFilters(document, params.filters))
-  const documentById = new Map(params.documents.map(document => [document.id, document]))
+  const documentById = new Map(visibleDocuments.map(document => [document.id, document]))
 
   if (params.timeRange === 'all') {
     return filteredDocuments
@@ -231,7 +234,7 @@ export function filterDocumentsByTimeRange(params: {
       .map(document => document.id),
   )
 
-  return params.documents.filter(document => windowDocumentIds.has(document.id))
+  return visibleDocuments.filter(document => windowDocumentIds.has(document.id))
 }
 
 export function analyzeReferenceGraph(params: {
@@ -242,6 +245,7 @@ export function analyzeReferenceGraph(params: {
   filters?: AnalyticsFilters
   orphanSort?: OrphanSort
   dormantDays?: number
+  wikiPageSuffix?: string
 }): ReferenceGraphReport {
   const documentRecords = filterDocumentsByTimeRange({
     documents: params.documents,
@@ -249,6 +253,7 @@ export function analyzeReferenceGraph(params: {
     now: params.now,
     timeRange: params.timeRange,
     filters: params.filters,
+    wikiPageSuffix: params.wikiPageSuffix,
   })
   const documents = normalizeDocuments(documentRecords)
   const documentMap = new Map(documents.map(document => [document.id, document]))
@@ -423,6 +428,7 @@ export function analyzeTrends(params: {
   days: number
   timeRange: TimeRange
   filters?: AnalyticsFilters
+  wikiPageSuffix?: string
 }): TrendReport {
   const documentRecords = filterDocumentsByTimeRange({
     documents: params.documents,
@@ -430,6 +436,7 @@ export function analyzeTrends(params: {
     now: params.now,
     timeRange: params.timeRange,
     filters: params.filters,
+    wikiPageSuffix: params.wikiPageSuffix,
   })
   const documents = normalizeDocuments(documentRecords)
   const documentMap = new Map(documents.map(document => [document.id, document]))
@@ -556,6 +563,7 @@ export function findReferencePath(params: {
   filters?: AnalyticsFilters
   now?: Date
   timeRange?: TimeRange
+  wikiPageSuffix?: string
 }): string[] {
   const documentRecords = params.now && params.timeRange
     ? filterDocumentsByTimeRange({
@@ -564,8 +572,9 @@ export function findReferencePath(params: {
         now: params.now,
         timeRange: params.timeRange,
         filters: params.filters,
+        wikiPageSuffix: params.wikiPageSuffix,
       })
-    : params.documents.filter((document) => {
+    : excludeWikiDocuments(params.documents, params.wikiPageSuffix).filter((document) => {
         const normalized = normalizeDocuments([document])[0]
         return matchesFilters(normalized, params.filters)
       })
@@ -637,6 +646,14 @@ function normalizeReferences(references: ReferenceRecord[]): NormalizedReference
     ...reference,
     sourceUpdated: reference.sourceUpdated ?? '',
   }))
+}
+
+function excludeWikiDocuments(documents: DocumentRecord[], wikiPageSuffix?: string): DocumentRecord[] {
+  if (!wikiPageSuffix?.trim()) {
+    return documents
+  }
+
+  return documents.filter(document => !isWikiDocumentTitle(resolveDocumentTitle(document), wikiPageSuffix))
 }
 
 function matchesFilters(document: NormalizedDocument, filters?: AnalyticsFilters): boolean {

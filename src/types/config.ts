@@ -1,12 +1,23 @@
 import { ensureAiProviderConfigState } from '@/components/ai-provider-presets'
 import { SUMMARY_CARD_DEFINITIONS, buildSummaryCardVisibilityDefaults } from '@/analytics/summary-card-config'
 import type { AiContextCapacity } from '@/analytics/ai-inbox'
+import {
+  DEFAULT_AI_MAX_CONTEXT_MESSAGES,
+  DEFAULT_AI_MAX_TOKENS,
+  DEFAULT_AI_REQUEST_TIMEOUT_SECONDS,
+  DEFAULT_AI_TEMPERATURE,
+} from '@/types/ai-defaults'
 import type { AiProviderConfigMap, AiProviderPresetKey } from '@/types/ai-provider'
 
-export const DEFAULT_AI_REQUEST_TIMEOUT_SECONDS = 30
-export const DEFAULT_AI_MAX_TOKENS = 10240
-export const DEFAULT_AI_TEMPERATURE = 0.7
-export const DEFAULT_AI_MAX_CONTEXT_MESSAGES = 7
+export {
+  DEFAULT_AI_MAX_CONTEXT_MESSAGES,
+  DEFAULT_AI_MAX_TOKENS,
+  DEFAULT_AI_REQUEST_TIMEOUT_SECONDS,
+  DEFAULT_AI_TEMPERATURE,
+} from '@/types/ai-defaults'
+export const DEFAULT_WIKI_PAGE_SUFFIX = '-llm-wiki'
+export const DEFAULT_WIKI_INDEX_TITLE = 'LLM-Wiki-索引'
+export const DEFAULT_WIKI_LOG_TITLE = 'LLM-Wiki-维护日志'
 
 export interface PluginConfig {
   showSummaryCards: boolean
@@ -43,6 +54,10 @@ export interface PluginConfig {
   aiTemperature?: number
   aiMaxContextMessages?: number
   aiContextCapacity?: AiContextCapacity
+  wikiEnabled?: boolean
+  wikiPageSuffix?: string
+  wikiIndexTitle?: string
+  wikiLogTitle?: string
   summaryCardOrder?: string[]
 }
 
@@ -69,6 +84,10 @@ export const DEFAULT_CONFIG: PluginConfig = {
   aiTemperature: DEFAULT_AI_TEMPERATURE,
   aiMaxContextMessages: DEFAULT_AI_MAX_CONTEXT_MESSAGES,
   aiContextCapacity: 'balanced',
+  wikiEnabled: false,
+  wikiPageSuffix: DEFAULT_WIKI_PAGE_SUFFIX,
+  wikiIndexTitle: DEFAULT_WIKI_INDEX_TITLE,
+  wikiLogTitle: DEFAULT_WIKI_LOG_TITLE,
   summaryCardOrder: undefined,
 }
 
@@ -144,6 +163,21 @@ export function ensureConfigDefaults(config: PluginConfig) {
   if (config.aiContextCapacity !== 'compact' && config.aiContextCapacity !== 'balanced' && config.aiContextCapacity !== 'full') {
     config.aiContextCapacity = 'balanced'
   }
+  if (typeof config.wikiEnabled !== 'boolean') {
+    config.wikiEnabled = false
+  }
+  config.wikiPageSuffix = normalizeNonEmptyString(
+    config.wikiPageSuffix,
+    DEFAULT_WIKI_PAGE_SUFFIX,
+  )
+  config.wikiIndexTitle = normalizeNonEmptyString(
+    config.wikiIndexTitle,
+    DEFAULT_WIKI_INDEX_TITLE,
+  )
+  config.wikiLogTitle = normalizeNonEmptyString(
+    config.wikiLogTitle,
+    DEFAULT_WIKI_LOG_TITLE,
+  )
   ensureAiProviderConfigState(config)
 }
 
@@ -168,5 +202,11 @@ function normalizeTemperature(value: unknown, fallback: number): number {
 
   return Number.isFinite(normalized) && normalized >= 0 && normalized <= 2
     ? normalized
+    : fallback
+}
+
+function normalizeNonEmptyString(value: unknown, fallback: string): string {
+  return typeof value === 'string' && value.trim()
+    ? value.trim()
     : fallback
 }

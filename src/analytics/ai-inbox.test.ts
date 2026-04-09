@@ -282,6 +282,61 @@ describe('ai inbox payload', () => {
     expect(payload.signals.brokenConnections).toHaveLength(7)
     expect(payload.actionCandidates.length).toBeGreaterThan(6)
   })
+
+  it('excludes wiki pages from payload signals and action candidates when a wiki suffix is configured', () => {
+    const service = createAiInboxService({
+      forwardProxy: async () => {
+        throw new Error('not used')
+      },
+    })
+
+    const payload = service.buildPayload({
+      documents: [
+        ...documents,
+        {
+          id: 'doc-wiki',
+          box: 'box-1',
+          path: '/wiki/doc-wiki.sy',
+          hpath: '/专题/主题-AI-索引-llm-wiki',
+          title: '主题-AI-索引-llm-wiki',
+          updated: '20260311120000',
+        },
+      ],
+      report: {
+        ...report,
+        ranking: [
+          { documentId: 'doc-wiki', title: '主题-AI-索引-llm-wiki', inboundReferences: 9, distinctSourceDocuments: 5, outboundReferences: 2, lastActiveAt: '20260311120000' },
+          ...report.ranking.slice(0, 2),
+        ],
+        orphans: [
+          {
+            documentId: 'doc-wiki',
+            title: '主题-AI-索引-llm-wiki',
+            degree: 0,
+            createdAt: '20260301090000',
+            updatedAt: '20260311120000',
+            historicalReferenceCount: 2,
+            lastHistoricalAt: '20260310120000',
+            hasSparseEvidence: true,
+          },
+          ...report.orphans.slice(0, 1),
+        ],
+      } as any,
+      trends,
+      summaryCards: [
+        { key: 'orphans', label: '孤立文档', value: '2', hint: '当前窗口内没有有效文档级连接' },
+      ] as any,
+      filters: {},
+      timeRange: '7d',
+      dormantDays: 30,
+      wikiPageSuffix: '-llm-wiki',
+      themeDocuments: [],
+    })
+
+    expect(payload.signals.ranking.some(item => item.documentId === 'doc-wiki')).toBe(false)
+    expect(payload.signals.orphans.some(item => item.documentId === 'doc-wiki')).toBe(false)
+    expect(payload.actionCandidates.some(item => item.focusDocumentIds.includes('doc-wiki'))).toBe(false)
+  })
 })
 
 describe('ai inbox request options', () => {

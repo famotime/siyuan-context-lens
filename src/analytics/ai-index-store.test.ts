@@ -138,6 +138,33 @@ describe('ai index store', () => {
     await expect(store.getFreshSemanticProfile('doc-1', '20260404120000')).resolves.toBeNull()
   })
 
+  it('returns a fresh document summary snapshot when the stored source timestamp still matches', async () => {
+    const storage = createMemoryStorage()
+    const store = createAiDocumentIndexStore(storage)
+
+    await store.saveDocumentSummary({
+      config: {
+        aiModel: 'gpt-test',
+        aiEmbeddingModel: 'embed-test',
+      },
+      sourceDocument: baseDocument,
+      summaryShort: '这是正文摘要。',
+      summaryMedium: '这是正文中摘要。',
+      keywords: ['AI', '索引'],
+      evidenceSnippets: ['这是第一段。'],
+      updatedAt: '2026-04-03T12:05:00.000Z',
+    })
+
+    await expect(store.getFreshDocumentSummary('doc-1', '20260403120000')).resolves.toEqual({
+      summaryShort: '这是正文摘要。',
+      summaryMedium: '这是正文中摘要。',
+      keywords: ['AI', '索引'],
+      evidenceSnippets: ['这是第一段。'],
+      updatedAt: '2026-04-03T12:05:00.000Z',
+    })
+    await expect(store.getFreshDocumentSummary('doc-1', '20260404120000')).resolves.toBeNull()
+  })
+
   it('loads a legacy snapshot without document summary fields', async () => {
     const storage = createMemoryStorage({
       schemaVersion: 1,

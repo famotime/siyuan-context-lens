@@ -46,6 +46,7 @@ import {
   createThemeSuggestionController,
 } from './use-analytics-interactions'
 import { createAiInboxService, isAiConfigComplete, type AiInboxResult, type AiInboxService } from '@/analytics/ai-inbox'
+import { buildDocumentSummary } from '@/analytics/ai-document-summary'
 import {
   createAiDocumentIndexStoreFromPlugin,
   type AiDocumentIndexStore,
@@ -242,6 +243,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       now: analysisNow.value,
       timeRange: timeRange.value,
       filters: filters.value,
+      wikiPageSuffix: params.config.wikiPageSuffix,
     })
   })
   const associationDocuments = computed(() => {
@@ -254,6 +256,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       now: analysisNow.value,
       timeRange: 'all',
       filters: filters.value,
+      wikiPageSuffix: params.config.wikiPageSuffix,
     })
   })
 
@@ -273,6 +276,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       filters: filters.value,
       orphanSort: orphanSort.value,
       dormantDays: dormantDays.value,
+      wikiPageSuffix: params.config.wikiPageSuffix,
     })
   })
 
@@ -296,6 +300,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       days: trendDays.value,
       timeRange: timeRange.value,
       filters: filters.value,
+      wikiPageSuffix: params.config.wikiPageSuffix,
     })
   })
 
@@ -750,6 +755,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         dormantDays: dormantDays.value,
         contextCapacity: params.config.aiContextCapacity,
         themeDocuments: themeDocuments.value,
+        wikiPageSuffix: params.config.wikiPageSuffix,
       })
       aiInboxResult.value = await aiInboxService.generateInbox({
         config: params.config,
@@ -822,7 +828,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         },
       })
       if (aiIndexStore) {
-        const documentSummary = buildStoredDocumentSummary(sourceDocument)
+        const documentSummary = buildDocumentSummary(sourceDocument)
 
         if (aiIndexStore.saveDocumentSummary) {
           try {
@@ -982,39 +988,6 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     toggleOrphanAiTagSuggestion: aiSuggestionActions.toggleOrphanAiTagSuggestion,
     isAiTagSuggestionActive: aiSuggestionActions.isAiTagSuggestionActive,
   }
-}
-
-function buildStoredDocumentSummary(sourceDocument: DocumentRecord) {
-  const title = resolveDocumentTitle(sourceDocument)
-  const contentLines = (sourceDocument.content ?? '')
-    .split(/\r?\n/)
-    .map(line => line.replace(/\s+/g, ' ').trim())
-    .filter(Boolean)
-  const evidenceSnippets = deduplicateStrings(contentLines.slice(0, 2))
-  const flattenedContent = contentLines.join(' ').trim()
-  const summaryShort = flattenedContent.slice(0, 120) || `文档《${title}》`
-  const summaryMediumParts = [
-    `标题：${title}`,
-    sourceDocument.hpath ? `路径：${sourceDocument.hpath}` : '',
-    evidenceSnippets.length ? `正文要点：${evidenceSnippets.join(' ')}` : '',
-  ].filter(Boolean)
-
-  return {
-    summaryShort,
-    summaryMedium: summaryMediumParts.join('；'),
-    keywords: deduplicateStrings([
-      ...normalizeTags(sourceDocument.tags),
-      ...splitTitleKeywords(title),
-    ]),
-    evidenceSnippets,
-  }
-}
-
-function splitTitleKeywords(title: string): string[] {
-  return title
-    .split(/[\s,，、/]+/)
-    .map(part => part.trim())
-    .filter(part => part.length >= 2)
 }
 
 function deduplicateStrings(values: string[]): string[] {

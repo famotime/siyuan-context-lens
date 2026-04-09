@@ -3,11 +3,12 @@ import type {
   AiProviderConfigSnapshot,
   AiProviderPresetKey,
 } from '@/types/ai-provider'
-
-const DEFAULT_AI_REQUEST_TIMEOUT_SECONDS = 60
-const DEFAULT_AI_MAX_TOKENS = 10240
-const DEFAULT_AI_TEMPERATURE = 0.7
-const DEFAULT_AI_MAX_CONTEXT_MESSAGES = 1
+import {
+  DEFAULT_AI_MAX_CONTEXT_MESSAGES,
+  DEFAULT_AI_MAX_TOKENS,
+  DEFAULT_AI_REQUEST_TIMEOUT_SECONDS,
+  DEFAULT_AI_TEMPERATURE,
+} from '@/types/ai-defaults'
 
 interface AiProviderPresetDefinition {
   label: string
