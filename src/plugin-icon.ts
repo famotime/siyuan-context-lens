@@ -2,19 +2,6 @@ export const PLUGIN_ICON = 'iconNetworkLens'
 
 export const PLUGIN_ICON_SYMBOL = `
 <symbol id="iconNetworkLens" viewBox="0 0 32 32">
-  <!-- Magnifying glass body -->
-  <circle cx="14" cy="14" r="9.5" fill="none" stroke="currentColor" stroke-width="2" />
-  <!-- Magnifying glass handle -->
-  <line x1="21" y1="21" x2="28" y2="28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
-  <!-- Network nodes inside the lens -->
-  <circle cx="14" cy="11" r="1.8" fill="currentColor" />
-  <circle cx="10" cy="16" r="1.5" fill="currentColor" />
-  <circle cx="18" cy="15" r="1.5" fill="currentColor" />
-  <circle cx="14" cy="19" r="1.2" fill="currentColor" />
-  <!-- Network edges -->
-  <line x1="14" y1="11" x2="10" y2="16" stroke="currentColor" stroke-width="1.2" />
-  <line x1="14" y1="11" x2="18" y2="15" stroke="currentColor" stroke-width="1.2" />
-  <line x1="10" y1="16" x2="14" y2="19" stroke="currentColor" stroke-width="1.2" />
-  <line x1="18" y1="15" x2="14" y2="19" stroke="currentColor" stroke-width="1.2" />
+  <path d="M26 20c-.694 0-1.338.194-1.907.506l-4.333-3.189c.145-.414.24-.853.24-1.317 0-.14-.027-.272-.041-.409l4.002-2.402A2.983 2.983 0 0 0 26 14a3 3 0 1 0-3-3c0 .14.023.274.041.409l-3.792 2.275A3.993 3.993 0 0 0 17 12.142V9.858c1.72-.447 3-2 3-3.858 0-2.206-1.794-4-4-4s-4 1.794-4 4c0 1.858 1.28 3.411 3 3.858v2.284a3.998 3.998 0 0 0-2.364 1.712l-3.705-2.223A3 3 0 1 0 6 14a2.97 2.97 0 0 0 1.871-.672l4.147 2.489c-.002.062-.018.12-.018.183 0 .465.095.904.241 1.319l-4.285 3.214A3.942 3.942 0 0 0 6 20c-2.206 0-4 1.794-4 4s1.794 4 4 4 4-1.794 4-4c0-.756-.223-1.455-.588-2.059l3.947-2.96a3.98 3.98 0 0 0 1.641.877v4.326A2.99 2.99 0 0 0 13 27a3 3 0 1 0 6 0 2.99 2.99 0 0 0-2-2.816v-4.326a3.972 3.972 0 0 0 1.643-.878l3.968 2.92A3.957 3.957 0 0 0 22 24c0 2.206 1.794 4 4 4s4-1.794 4-4-1.794-4-4-4zM14 6c0-1.103.897-2 2-2s2 .897 2 2-.897 2-2 2-2-.897-2-2zM6 26c-1.103 0-2-.897-2-2s.897-2 2-2 2 .897 2 2-.897 2-2 2zm10-8c-1.103 0-2-.897-2-2s.897-2 2-2 2 .897 2 2-.897 2-2 2zm10 8c-1.103 0-2-.897-2-2s.897-2 2-2 2 .897 2 2-.897 2-2 2z" fill="currentColor" />
 </symbol>
 `
