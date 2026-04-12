@@ -523,6 +523,37 @@ describe('buildSummaryDetailSections', () => {
 })
 
 describe('buildSummaryCards', () => {
+  it('keeps the summary card order stable across read and large document modes', () => {
+    const cards = buildSummaryCards({
+      report: report as any,
+      dormantDays: 30,
+      documentCount: 5,
+      readDocumentCount: 2,
+      readCardMode: 'read',
+      trends: trends as any,
+      largeDocumentSummary: {
+        wordDocumentCount: 3,
+        storageDocumentCount: 2,
+      },
+      largeDocumentCardMode: 'storage',
+    })
+
+    expect(cards.map(card => card.key)).toEqual([
+      'documents',
+      'read',
+      'todaySuggestions',
+      'largeDocuments',
+      'references',
+      'ranking',
+      'trends',
+      'communities',
+      'orphans',
+      'dormant',
+      'bridges',
+      'propagation',
+    ])
+  })
+
   it('uses provided document count when available', () => {
     const cards = buildSummaryCards({
       report: report as any,

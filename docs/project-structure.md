@@ -1,6 +1,6 @@
 # 项目结构
 
-更新时间：2026-04-10
+更新时间：2026-04-12
 
 ## 顶层目录
 
@@ -23,11 +23,19 @@
 ## 分析层
 
 - `src/analytics/analysis.ts`
-  - 文档级引用网络的核心分析入口，负责时间窗口过滤、社区、桥接、孤立、沉没、传播节点与趋势分析。
+  - 文档级引用网络的核心分析入口，负责高层分析编排、报告组装与对外导出。
+- `src/analytics/analysis-context.ts`
+  - 图分析与趋势分析的阶段上下文构建器，负责时间窗口过滤、邻接/计数 helper 与图阶段输入准备。
 - `src/analytics/document-utils.ts`
   - 新增共享基础 helper，统一标题回退、标签拆分、思源时间戳解析、时间窗口判断与紧凑日期格式化。
 - `src/analytics/summary-details.ts`
-  - 顶部统计卡片定义与详情 section 组装。
+  - 顶部统计卡片与详情 section 的统一导出入口，保持原有调用边界稳定。
+- `src/analytics/summary-cards.ts`
+  - 顶部统计卡片构建器，集中处理卡片顺序、标题、数值与 tooltip 提示。
+- `src/analytics/summary-detail-sections.ts`
+  - 详情 section 构建器，集中处理文档样本、已读/未读、社区、孤立、沉没、桥接与传播详情。
+- `src/analytics/summary-detail-types.ts`
+  - 顶部卡片与详情 section 共享类型定义。
 - `src/analytics/siyuan-data.ts`
   - 从思源数据库读取文档和引用快照，并合并 `refs` 与 markdown fallback。
 - `src/analytics/internal-links.ts`
@@ -78,20 +86,30 @@
 ## 组合式状态层
 
 - `src/composables/use-analytics.ts`
-  - 主状态容器。负责组合快照、筛选、分析结果、AI Inbox、LLM Wiki 预览/写入状态、watcher、公开 API 与 UI 联动状态。
+  - 主状态容器。负责组合快照、筛选、分析结果、watcher、公开 API 与 UI 联动状态。
+- `src/composables/use-analytics-ai.ts`
+  - AI Inbox、连接测试与孤立文档 AI 补链相关状态与动作。
 - `src/composables/use-analytics-derived.ts`
   - 新增纯派生选择器。负责标签选项、路径候选、孤立主题建议映射、详情计数和关联映射构建。
 - `src/composables/use-analytics-interactions.ts`
   - 新增交互副作用控制器。负责关联同步和孤立主题建议写入/撤销的状态与消息反馈。
+- `src/composables/use-analytics-wiki.ts`
+  - Wiki 预览与写回相关类型、局部 helper 与共享状态边界。
+- `src/composables/use-app-wiki-panel.ts`
+  - 页面级 wiki 面板控制器，负责 request 构造、placement 与显隐切换。
 
 ## UI 层
 
 - `src/App.vue`
-  - 主界面，消费 `useAnalyticsState`，负责筛选器、顶部操作区、LLM Wiki 维护入口和页面级布局组装。
+  - 主界面，消费 `useAnalyticsState` 与页面级 wiki 面板控制器，负责筛选器、顶部操作区和页面级布局组装。
 - `src/components/SettingPanel.vue`
-  - 设置界面，负责主题文档、统计卡片开关、已读规则、AI 接入和 LLM Wiki 配置。
+  - 设置界面，负责主题文档、统计卡片开关、已读规则、AI 接入和 LLM Wiki 配置的页面组装。
 - `src/components/setting-panel-data.ts`
   - 新增设置页数据 helper，负责默认值修正、标签选项收集和笔记本/标签初始化加载。
+- `src/components/use-setting-panel-ai.ts`
+  - AI 设置区控制器，负责 provider 切换、连接测试、导入导出与 SiliconFlow 模型目录加载。
+- `src/components/setting-panel-ai-state.ts`
+  - AI 设置区纯函数 helper，负责 provider 配置镜像、catalog 重置判定与标题文案拼装。
 - `src/components/RankingPanel.vue`
   - 核心文档排行与关联明细展示。
 - `src/components/OrphanDetailPanel.vue`
@@ -129,9 +147,11 @@
 - `src/analytics/*.test.ts`
   - 覆盖图分析、趋势、fallback 引用采集、主题文档、已读规则、wiki 生成/写入流程、卡片详情与共享 helper。
 - `src/composables/use-analytics.test.ts`
-  - 覆盖主 composable 的公开行为，包括 LLM Wiki 预览与写入闭环。
+  - 覆盖主 composable 的公开行为，包括 AI/Wiki 状态重置与 LLM Wiki 预览/写入闭环。
 - `src/composables/use-analytics-derived.test.ts`
   - 覆盖新拆分出的纯派生选择器。
+- `src/composables/use-app-wiki-panel.test.ts`
+  - 覆盖页面级 wiki 面板 request 构造、去重与显隐控制。
 - `src/components/*.test.ts`
   - 覆盖关键 UI 组件、统计卡片区、详情区、LLM Wiki 面板与设置界面结构。
 - `src/App.test.ts`

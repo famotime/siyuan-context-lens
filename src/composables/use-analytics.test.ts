@@ -186,6 +186,87 @@ describe('useAnalyticsState', () => {
     expect(state.themeOptions.value.map(item => item.label)).toEqual(['机器学习', 'AI'])
   })
 
+  it('clears transient AI and wiki state on refresh', async () => {
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showLargeDocuments: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.example.com/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'gpt-4.1-mini',
+        wikiEnabled: true,
+        wikiPageSuffix: '-llm-wiki',
+      },
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    } as any)
+
+    await state.refresh()
+    await nextTick()
+
+    ;(state as any).aiInboxError.value = '旧 AI 错误'
+    ;(state as any).aiConnectionMessage.value = '旧连接结果'
+    ;(state as any).aiInboxResult.value = {
+      generatedAt: '2026-03-12T08:00:00.000Z',
+      summary: '旧建议',
+      items: [],
+    }
+    ;(state as any).orphanAiSuggestionStates.value = new Map([
+      ['doc-orphan', {
+        loading: false,
+        statusMessage: '',
+        error: '',
+        result: null,
+      }],
+    ])
+    ;(state as any).wikiError.value = '旧 wiki 错误'
+    ;(state as any).wikiPreview.value = {
+      generatedAt: '2026-03-12T08:00:00.000Z',
+      scope: {
+        summary: {
+          sourceDocumentCount: 1,
+          themeGroupCount: 0,
+          unclassifiedDocumentCount: 1,
+          excludedWikiDocumentCount: 0,
+        },
+        descriptionLines: ['- 范围来源：测试'],
+      },
+      themePages: [],
+      unclassifiedDocuments: [],
+      excludedWikiDocuments: [],
+    }
+
+    await state.refresh()
+    await nextTick()
+
+    expect((state as any).aiInboxError.value).toBe('')
+    expect((state as any).aiConnectionMessage.value).toBe('')
+    expect((state as any).aiInboxResult.value).toBeNull()
+    expect((state as any).orphanAiSuggestionStates.value.size).toBe(0)
+    expect((state as any).wikiError.value).toBe('')
+    expect((state as any).wikiPreview.value).toBeNull()
+  })
+
   it('toggles the read card between unread and read modes', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,

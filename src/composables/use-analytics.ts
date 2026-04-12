@@ -45,8 +45,18 @@ import {
   createLinkAssociationInteractions,
   createThemeSuggestionController,
 } from './use-analytics-interactions'
+import { createAnalyticsAiController } from './use-analytics-ai'
+import {
+  buildWikiScopeDescriptionLines,
+  buildWikiSourceSummaryMap,
+  resolveExistingWikiPage,
+  resolveWikiScopeDocuments,
+  type WikiPreviewRequest,
+  type WikiPreviewState,
+  type WikiPreviewThemePageItem,
+} from './use-analytics-wiki'
 import { createAiInboxService, isAiConfigComplete, type AiInboxResult, type AiInboxService } from '@/analytics/ai-inbox'
-import { buildDocumentSummary, ensureDocumentSummary } from '@/analytics/ai-document-summary'
+import { buildDocumentSummary } from '@/analytics/ai-document-summary'
 import {
   createAiDocumentIndexStoreFromPlugin,
   type AiDocumentIndexStore,
@@ -58,51 +68,21 @@ import {
   type AiLinkSuggestionService,
   type OrphanAiSuggestionState,
 } from '@/analytics/ai-link-suggestions'
-import { buildWikiScope, type WikiScopeSummary } from '@/analytics/wiki-scope'
+import { buildWikiScope } from '@/analytics/wiki-scope'
 import { buildWikiGenerationPayloads } from '@/analytics/wiki-generation'
-import { renderThemeWikiDraft, type RenderedWikiDraft } from '@/analytics/wiki-renderer'
-import { buildWikiPreview, type WikiPagePreviewResult } from '@/analytics/wiki-diff'
-import { applyWikiDocuments, buildSiblingDocumentPath, type WikiApplyBatchResult } from '@/analytics/wiki-documents'
+import { renderThemeWikiDraft } from '@/analytics/wiki-renderer'
+import { buildWikiPreview } from '@/analytics/wiki-diff'
+import { applyWikiDocuments, buildSiblingDocumentPath } from '@/analytics/wiki-documents'
 import {
   buildWikiPageStorageKey,
   createAiWikiStoreFromPlugin,
   type AiWikiStore,
-  type WikiPageSnapshotRecord,
 } from '@/analytics/wiki-store'
 import { normalizeTags, resolveDocumentTitle } from '@/analytics/document-utils'
 import type { PluginConfig } from '@/types/config'
 
 export type { PathScope } from './use-analytics-derived'
-
-export interface WikiPreviewThemePageItem {
-  pageTitle: string
-  themeName: string
-  themeDocumentId: string
-  themeDocumentTitle: string
-  themeDocumentBox: string
-  themeDocumentHPath: string
-  sourceDocumentIds: string[]
-  preview: WikiPagePreviewResult
-  draft: RenderedWikiDraft
-  hasManualNotes: boolean
-}
-
-export interface WikiPreviewState {
-  generatedAt: string
-  scope: {
-    summary: WikiScopeSummary
-    descriptionLines: string[]
-  }
-  themePages: WikiPreviewThemePageItem[]
-  unclassifiedDocuments: Array<{ documentId: string, title: string }>
-  excludedWikiDocuments: Array<{ documentId: string, title: string }>
-  applyResult?: WikiApplyBatchResult
-}
-
-export interface WikiPreviewRequest {
-  sourceDocumentIds?: string[]
-  scopeDescriptionLine?: string
-}
+export type { WikiPreviewRequest, WikiPreviewState, WikiPreviewThemePageItem } from './use-analytics-wiki'
 
 const panelKeys = [
   'summary-detail',
@@ -517,6 +497,30 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     }).format(new Date(snapshot.value.fetchedAt))
   })
 
+  const aiController = createAnalyticsAiController({
+    config: params.config,
+    snapshot,
+    report,
+    trends,
+    summaryCards,
+    filters,
+    timeRange,
+    dormantDays,
+    themeDocuments,
+    tagOptions,
+    aiInboxLoading,
+    aiConnectionTesting,
+    aiInboxError,
+    aiConnectionMessage,
+    aiInboxResult,
+    orphanAiSuggestionStates,
+    aiInboxService,
+    aiLinkSuggestionService,
+    aiIndexStore,
+    notify,
+  })
+  const { generateAiInbox, generateOrphanAiSuggestion, testAiConnection } = aiController
+
   watch(pathOptions, (options) => {
     if (options.length === 0) {
       fromDocumentId.value = ''
@@ -649,6 +653,17 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     })
   }
 
+  function resetTransientAsyncState() {
+    themeSuggestionController.clearPendingThemeSuggestionBlocks()
+    aiSuggestionActions.clearPendingAiSuggestionActions()
+    aiInboxError.value = ''
+    aiConnectionMessage.value = ''
+    aiInboxResult.value = null
+    orphanAiSuggestionStates.value = new Map()
+    wikiError.value = ''
+    wikiPreview.value = null
+  }
+
   async function refresh() {
     loading.value = true
     errorMessage.value = ''
@@ -658,14 +673,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       largeDocumentMetrics.value = snapshot.value
         ? await loadLargeDocumentMetricsFn(snapshot.value.documents)
         : new Map()
-      themeSuggestionController.clearPendingThemeSuggestionBlocks()
-      aiSuggestionActions.clearPendingAiSuggestionActions()
-      aiInboxError.value = ''
-      aiConnectionMessage.value = ''
-      aiInboxResult.value = null
-      orphanAiSuggestionStates.value = new Map()
-      wikiError.value = ''
-      wikiPreview.value = null
+      resetTransientAsyncState()
     } catch (error) {
       const message = error instanceof Error ? error.message : '读取思源数据失败'
       errorMessage.value = message
@@ -1002,182 +1010,6 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     openDocument(documentId)
   }
 
-  async function testAiConnection() {
-    aiConnectionTesting.value = true
-    aiInboxError.value = ''
-    aiConnectionMessage.value = ''
-
-    try {
-      if (!aiInboxService) {
-        throw new Error('AI 网络代理未初始化')
-      }
-      const result = await aiInboxService.testConnection({
-        config: params.config,
-      })
-      aiConnectionMessage.value = result.message
-      return result
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'AI 连接测试失败'
-      aiInboxError.value = message
-      notify(message, 5000, 'error')
-      return {
-        ok: false,
-        message,
-      }
-    } finally {
-      aiConnectionTesting.value = false
-    }
-  }
-
-  async function generateAiInbox() {
-    if (!report.value || !trends.value || !snapshot.value) {
-      aiInboxError.value = '当前分析结果还未准备好，请先刷新分析'
-      return
-    }
-
-    aiInboxLoading.value = true
-    aiInboxError.value = ''
-    aiConnectionMessage.value = ''
-
-    try {
-      if (!aiInboxService) {
-        throw new Error('AI 网络代理未初始化')
-      }
-      const payload = aiInboxService.buildPayload({
-        documents: snapshot.value.documents,
-        report: report.value,
-        trends: trends.value,
-        summaryCards: summaryCards.value,
-        filters: filters.value,
-        timeRange: timeRange.value,
-        dormantDays: dormantDays.value,
-        contextCapacity: params.config.aiContextCapacity,
-        themeDocuments: themeDocuments.value,
-        wikiPageSuffix: params.config.wikiPageSuffix,
-      })
-      aiInboxResult.value = await aiInboxService.generateInbox({
-        config: params.config,
-        payload,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'AI 收件箱生成失败'
-      aiInboxError.value = message
-      notify(message, 5000, 'error')
-    } finally {
-      aiInboxLoading.value = false
-    }
-  }
-
-  function updateOrphanAiSuggestionState(documentId: string, nextState: OrphanAiSuggestionState) {
-    const nextMap = new Map(orphanAiSuggestionStates.value)
-    nextMap.set(documentId, nextState)
-    orphanAiSuggestionStates.value = nextMap
-  }
-
-  async function generateOrphanAiSuggestion(documentId: string) {
-    if (!snapshot.value || !report.value) {
-      updateOrphanAiSuggestionState(documentId, {
-        loading: false,
-        statusMessage: '',
-        error: '当前分析结果还未准备好，请先刷新分析',
-        result: null,
-      })
-      return
-    }
-
-    const sourceDocument = snapshot.value.documents.find(document => document.id === documentId)
-    const orphan = report.value.orphans.find(item => item.documentId === documentId)
-    if (!sourceDocument || !orphan) {
-      updateOrphanAiSuggestionState(documentId, {
-        loading: false,
-        statusMessage: '',
-        error: '当前文档不在孤立文档列表中',
-        result: null,
-      })
-      return
-    }
-
-    updateOrphanAiSuggestionState(documentId, {
-      loading: true,
-      statusMessage: '正在分析文档语义并生成 embedding…',
-      error: '',
-      result: null,
-    })
-
-    try {
-      if (!aiLinkSuggestionService) {
-        throw new Error('AI 网络代理未初始化')
-      }
-      const result = await aiLinkSuggestionService.suggestForOrphan({
-        config: params.config,
-        sourceDocument,
-        orphan,
-        documents: snapshot.value.documents,
-        themeDocuments: themeDocuments.value,
-        availableTags: tagOptions.value,
-        report: report.value,
-        onProgress: (message) => {
-          updateOrphanAiSuggestionState(documentId, {
-            loading: true,
-            statusMessage: message,
-            error: '',
-            result: null,
-          })
-        },
-      })
-      if (aiIndexStore) {
-        const documentSummary = buildDocumentSummary(sourceDocument)
-
-        if (aiIndexStore.saveDocumentSummary) {
-          try {
-            await aiIndexStore.saveDocumentSummary({
-              config: params.config,
-              sourceDocument,
-              summaryShort: documentSummary.summaryShort,
-              summaryMedium: documentSummary.summaryMedium,
-              keywords: documentSummary.keywords,
-              evidenceSnippets: documentSummary.evidenceSnippets,
-              updatedAt: result.generatedAt,
-            })
-          } catch (error) {
-            const message = error instanceof Error ? error.message : '文档摘要索引保存失败'
-            notify(message, 5000, 'error')
-          }
-        }
-
-        try {
-          await aiIndexStore.saveSuggestionIndex({
-            config: params.config,
-            sourceDocument,
-            orphan,
-            themeDocuments: themeDocuments.value,
-            filters: filters.value,
-            timeRange: timeRange.value,
-            result,
-          })
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'AI 索引记录保存失败'
-          notify(message, 5000, 'error')
-        }
-      }
-      updateOrphanAiSuggestionState(documentId, {
-        loading: false,
-        statusMessage: '',
-        error: '',
-        result,
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'AI 补链建议生成失败'
-      updateOrphanAiSuggestionState(documentId, {
-        loading: false,
-        statusMessage: '',
-        error: message,
-        result: null,
-      })
-      notify(message, 5000, 'error')
-    }
-  }
-
   const linkInteractions = createLinkAssociationInteractions({
     resolveTitle,
     appendBlock,
@@ -1293,116 +1125,4 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     toggleOrphanAiTagSuggestion: aiSuggestionActions.toggleOrphanAiTagSuggestion,
     isAiTagSuggestionActive: aiSuggestionActions.isAiTagSuggestionActive,
   }
-}
-
-function deduplicateStrings(values: string[]): string[] {
-  return [...new Set(values.map(value => value.trim()).filter(Boolean))]
-}
-
-async function buildWikiSourceSummaryMap(params: {
-  sourceDocuments: DocumentRecord[]
-  config: PluginConfig
-  aiIndexStore: AiDocumentIndexStore | null
-  generatedAt: string
-}) {
-  const entries = await Promise.all(params.sourceDocuments.map(async (document) => {
-    const summary = await ensureDocumentSummary({
-      config: params.config,
-      sourceDocument: document,
-      indexStore: params.aiIndexStore,
-      updatedAt: params.generatedAt,
-    })
-
-    return [document.id, summary] as const
-  }))
-
-  return new Map(entries)
-}
-
-async function resolveExistingWikiPage(params: {
-  notebook: string
-  pageHPath: string
-  storedRecord: WikiPageSnapshotRecord | null
-  getIDsByHPath?: GetIDsByHPathFn
-  getBlockKramdown: GetBlockKramdownFn
-}): Promise<{
-  pageId: string
-  fullMarkdown: string
-  managedMarkdown: string
-  hasManualNotes: boolean
-} | null> {
-  const storedPageId = params.storedRecord?.pageId
-  let pageId = storedPageId
-
-  if (!pageId && params.getIDsByHPath) {
-    const ids = await params.getIDsByHPath(params.notebook, params.pageHPath)
-    pageId = ids[0] ?? ''
-  }
-
-  if (!pageId) {
-    return null
-  }
-
-  try {
-    const block = await params.getBlockKramdown(pageId)
-    const fullMarkdown = block?.kramdown ?? ''
-    return {
-      pageId,
-      fullMarkdown,
-      managedMarkdown: extractManagedMarkdown(fullMarkdown),
-      hasManualNotes: fullMarkdown.includes('\n## 人工备注'),
-    }
-  } catch {
-    return null
-  }
-}
-
-function buildWikiScopeDescriptionLines(params: {
-  timeRange: TimeRange
-  filters: AnalyticsFilters
-  resolveNotebookName: (notebookId: string) => string
-  scopeDescriptionLine?: string
-}) {
-  return [
-    params.scopeDescriptionLine ?? '- 范围来源：当前文档样本',
-    `- 时间窗口：${params.timeRange}`,
-    `- 笔记本：${params.filters.notebook ? params.resolveNotebookName(params.filters.notebook) : '全部笔记本'}`,
-    `- 标签：${params.filters.tags?.length ? params.filters.tags.join('、') : '全部标签'}`,
-    `- 主题：${params.filters.themeNames?.length ? params.filters.themeNames.join('、') : '全部主题'}`,
-    `- 关键词：${params.filters.keyword?.trim() || '无'}`,
-  ]
-}
-
-function resolveWikiScopeDocuments(params: {
-  sourceDocumentIds?: string[]
-  fallbackDocuments: DocumentRecord[]
-  associationDocumentMap: Map<string, DocumentRecord>
-  documentMap: Map<string, DocumentRecord>
-}): DocumentRecord[] {
-  if (!params.sourceDocumentIds?.length) {
-    return params.fallbackDocuments
-  }
-
-  const documents: DocumentRecord[] = []
-  const visited = new Set<string>()
-
-  for (const documentId of params.sourceDocumentIds) {
-    const document = params.associationDocumentMap.get(documentId) ?? params.documentMap.get(documentId)
-    if (!document || visited.has(document.id)) {
-      continue
-    }
-    documents.push(document)
-    visited.add(document.id)
-  }
-
-  return documents
-}
-
-function extractManagedMarkdown(fullMarkdown: string): string {
-  const manualHeading = '\n## 人工备注'
-  const manualHeadingIndex = fullMarkdown.indexOf(manualHeading)
-  if (manualHeadingIndex < 0) {
-    return fullMarkdown.trim()
-  }
-  return fullMarkdown.slice(0, manualHeadingIndex).trim()
 }

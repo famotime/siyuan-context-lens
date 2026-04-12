@@ -246,7 +246,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { openTab, showMessage, type Plugin } from 'siyuan'
 
 import FilterSelect from '@/components/FilterSelect.vue'
@@ -255,7 +255,8 @@ import SummaryDetailSection from '@/components/SummaryDetailSection.vue'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import WikiMaintainPanel from '@/components/WikiMaintainPanel.vue'
 import { isSummaryCardVisible } from '@/analytics/summary-card-config'
-import { useAnalyticsState, type WikiPreviewRequest } from '@/composables/use-analytics'
+import { useAnalyticsState } from '@/composables/use-analytics'
+import { createAppWikiPanelController } from '@/composables/use-app-wiki-panel'
 import { appendBlock, createDocWithMd, deleteBlock, forwardProxy, getBlockAttrs, getBlockKramdown, getChildBlocks, getIDsByHPath, prependBlock, setBlockAttrs, updateBlock } from '@/api'
 import { isAlphaSettingVisible, isAlphaSummaryCardVisible } from '@/plugin/alpha-feature-config'
 import { ensureConfigDefaults, type PluginConfig } from '@/types/config'
@@ -367,9 +368,18 @@ const {
   isAiTagSuggestionActive,
 } = analytics
 
-const wikiPanelPlacement = ref<'documents' | 'ranking' | ''>('')
-const wikiPanelCoreDocumentId = ref('')
-const activeWikiPreviewRequest = ref<WikiPreviewRequest | null>(null)
+const {
+  wikiPanelPlacement,
+  isCoreDocumentWikiPanelVisible,
+  prepareCurrentWikiPreview,
+  toggleDocumentWikiPanel,
+  toggleCoreDocumentWikiPanel,
+} = createAppWikiPanelController({
+  filteredDocuments,
+  resolveLinkAssociations,
+  resolveTitle,
+  prepareWikiPreview,
+})
 
 const wikiPanelProps = computed(() => ({
   wikiEnabled: Boolean(props.config.wikiEnabled),
@@ -442,54 +452,6 @@ function updateFromDocumentId(value: string) {
 
 function updateToDocumentId(value: string) {
   toDocumentId.value = value
-}
-
-function isCoreDocumentWikiPanelVisible(documentId: string) {
-  return wikiPanelPlacement.value === 'ranking' && wikiPanelCoreDocumentId.value === documentId
-}
-
-async function prepareCurrentWikiPreview() {
-  await prepareWikiPreview(activeWikiPreviewRequest.value ?? undefined)
-}
-
-async function toggleDocumentWikiPanel() {
-  if (wikiPanelPlacement.value === 'documents') {
-    wikiPanelPlacement.value = ''
-    wikiPanelCoreDocumentId.value = ''
-    return
-  }
-
-  activeWikiPreviewRequest.value = {
-    sourceDocumentIds: filteredDocuments.value.map(document => document.id),
-    scopeDescriptionLine: '- 范围来源：当前文档样本',
-  }
-  wikiPanelPlacement.value = 'documents'
-  wikiPanelCoreDocumentId.value = ''
-  await prepareCurrentWikiPreview()
-}
-
-async function toggleCoreDocumentWikiPanel(documentId: string) {
-  if (isCoreDocumentWikiPanelVisible(documentId)) {
-    wikiPanelPlacement.value = ''
-    wikiPanelCoreDocumentId.value = ''
-    return
-  }
-
-  const associations = resolveLinkAssociations(documentId)
-  const sourceDocumentIds = [
-    documentId,
-    ...associations.outbound.map(item => item.documentId),
-    ...associations.inbound.map(item => item.documentId),
-    ...associations.childDocuments.map(item => item.documentId),
-  ]
-
-  activeWikiPreviewRequest.value = {
-    sourceDocumentIds: [...new Set(sourceDocumentIds)],
-    scopeDescriptionLine: `- 范围来源：核心文档《${resolveTitle(documentId)}》关联范围（正链 / 反链 / 子文档）`,
-  }
-  wikiPanelPlacement.value = 'ranking'
-  wikiPanelCoreDocumentId.value = documentId
-  await prepareCurrentWikiPreview()
 }
 </script>
 
