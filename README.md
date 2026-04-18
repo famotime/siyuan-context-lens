@@ -1,5 +1,7 @@
 # Network Lens
 
+**English** · [简体中文](README_zh_CN.md)
+
 Network Lens is a SiYuan plugin for document-level reference analytics.
 
 It focuses on structure, evidence, and cleanup actions, not large graph rendering.
