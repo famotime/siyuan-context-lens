@@ -178,8 +178,21 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
       id: notebook.id,
       name: notebook.name,
     })),
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: formatCurrentSiyuanTimestamp(),
   }
+}
+
+function formatCurrentSiyuanTimestamp(now = new Date()): string {
+  const pad = (value: number) => value.toString().padStart(2, '0')
+
+  return [
+    now.getFullYear().toString(),
+    pad(now.getMonth() + 1),
+    pad(now.getDate()),
+    pad(now.getHours()),
+    pad(now.getMinutes()),
+    pad(now.getSeconds()),
+  ].join('')
 }
 
 async function loadInternalLinkTargets(targetIds: string[]): Promise<InternalLinkTargetRow[]> {

@@ -5,6 +5,7 @@ import {
   formatCompactDate,
   isTimestampInTrailingWindow,
   normalizeTags,
+  parseSiyuanTimestamp,
   resolveDocumentTitle,
 } from './document-utils'
 
@@ -81,6 +82,11 @@ describe('document-utils', () => {
     expect(isTimestampInTrailingWindow('20260313213430', now, 7)).toBe(true)
     expect(isTimestampInTrailingWindow('20260313213430', new Date('2026-03-13T21:00:00+08:00'), 7)).toBe(false)
     expect(compareSiyuanTimestamps('20260313213430', '20260313203300')).toBeGreaterThan(0)
+  })
+
+  it('returns null for non-SiYuan timestamp formats instead of NaN', () => {
+    expect(parseSiyuanTimestamp('2026-04-18T08:07:38.596Z')).toBeNull()
+    expect(parseSiyuanTimestamp('not-a-timestamp')).toBeNull()
   })
 
   it('formats compact dates directly from SiYuan timestamps', () => {

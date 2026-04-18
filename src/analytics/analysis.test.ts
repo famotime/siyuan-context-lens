@@ -126,6 +126,24 @@ describe('analyzeReferenceGraph', () => {
     expect(filtered.map(document => document.id)).toEqual(['doc-keep'])
   })
 
+  it('excludes descendant documents recursively when their parent path is configured', () => {
+    const filtered = filterDocumentsByTimeRange({
+      documents: [
+        { id: 'doc-keep', box: 'box-1', path: '/notes/keep.sy', hpath: '/笔记/保留', title: '保留', tags: [], created: '20260309120000', updated: '20260310120000' },
+        { id: 'doc-excluded-child', box: 'box-1', path: '/excluded/topic/child.sy', hpath: '/排除区/专题/子文档', title: '子文档', tags: [], created: '20260309120000', updated: '20260310120000' },
+      ],
+      references: [],
+      now,
+      timeRange: 'all',
+      excludedPaths: '/Knowledge Base/排除区',
+      notebooks: [
+        { id: 'box-1', name: 'Knowledge Base' },
+      ],
+    })
+
+    expect(filtered.map(document => document.id)).toEqual(['doc-keep'])
+  })
+
   it('excludes only documents whose names match the configured exclusion affixes', () => {
     const filtered = filterDocumentsByTimeRange({
       documents: [

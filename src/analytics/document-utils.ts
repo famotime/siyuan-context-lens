@@ -98,16 +98,23 @@ export function resolveNormalizedDocumentTitle(
 }
 
 export function parseSiyuanTimestamp(timestamp: string): number | null {
-  if (!timestamp || timestamp.length < 8) {
+  if (!timestamp) {
     return null
   }
-  const year = Number.parseInt(timestamp.slice(0, 4), 10)
-  const month = Number.parseInt(timestamp.slice(4, 6), 10) - 1
-  const day = Number.parseInt(timestamp.slice(6, 8), 10)
-  const hour = Number.parseInt(timestamp.slice(8, 10) || '0', 10)
-  const minute = Number.parseInt(timestamp.slice(10, 12) || '0', 10)
-  const second = Number.parseInt(timestamp.slice(12, 14) || '0', 10)
-  return new Date(year, month, day, hour, minute, second).getTime()
+  const normalized = timestamp.trim()
+  if (!/^\d{8}(\d{2}){0,3}$/.test(normalized)) {
+    return null
+  }
+
+  const year = Number.parseInt(normalized.slice(0, 4), 10)
+  const month = Number.parseInt(normalized.slice(4, 6), 10) - 1
+  const day = Number.parseInt(normalized.slice(6, 8), 10)
+  const hour = Number.parseInt(normalized.slice(8, 10) || '0', 10)
+  const minute = Number.parseInt(normalized.slice(10, 12) || '0', 10)
+  const second = Number.parseInt(normalized.slice(12, 14) || '0', 10)
+  const parsed = new Date(year, month, day, hour, minute, second).getTime()
+
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 export function compareSiyuanTimestamps(left: string, right: string): number {

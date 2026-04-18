@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { nextTick, reactive } from 'vue'
 
 const now = new Date('2026-03-12T00:00:00Z')
 
@@ -74,6 +74,44 @@ describe('useAnalyticsState', () => {
     expect(state.snapshotLabel.value).toBe('03/12, 12:00 AM')
 
     delete (globalThis as typeof globalThis & { siyuan?: unknown }).siyuan
+  })
+
+  it('falls back to "--" when snapshot fetchedAt is not a SiYuan timestamp', async () => {
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: {
+        showSummaryCards: true,
+        showRanking: true,
+        showLargeDocuments: true,
+        showCommunities: true,
+        showOrphanBridge: true,
+        showTrends: true,
+        showPropagation: true,
+        themeNotebookId: 'box-1',
+        themeDocumentPath: '/专题',
+        themeNamePrefix: '主题-',
+        themeNameSuffix: '-索引',
+      },
+      loadSnapshot: async () => ({
+        ...snapshot,
+        fetchedAt: '2026-04-18T08:07:38.596Z',
+      }) as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.snapshotLabel.value).toBe('--')
   })
 
   it('reorders summary cards and persists the manual order into config', async () => {
@@ -233,6 +271,89 @@ describe('useAnalyticsState', () => {
     expect(state.report.value?.ranking.map(item => item.documentId)).toEqual(['doc-b'])
     expect(state.selectedEvidenceDocument.value).toBe('doc-b')
     expect(state.themeOptions.value.map(item => item.label)).toEqual(['机器学习', 'AI'])
+  })
+
+  it('applies analysis exclusion settings only after refresh and keeps path matching recursive', async () => {
+    const scopedSnapshot = {
+      documents: [
+        { id: 'doc-keep', box: 'box-1', path: '/notes/keep.sy', hpath: '/笔记/保留', title: '保留', tags: [], created: '20260310120000', updated: '20260311120000' },
+        { id: 'doc-excluded-child', box: 'box-1', path: '/excluded/topic/child.sy', hpath: '/排除区/专题/临时-子文档', title: '临时-子文档', tags: [], created: '20260310120000', updated: '20260311120000' },
+        { id: 'doc-excluded-keep', box: 'box-1', path: '/excluded/topic/keep.sy', hpath: '/排除区/专题/普通文档', title: '普通文档', tags: [], created: '20260310120000', updated: '20260311120000' },
+      ],
+      references: [],
+      notebooks: [
+        { id: 'box-1', name: 'Knowledge Base' },
+      ],
+      fetchedAt: '20260312000000',
+    }
+    const config = reactive({
+      showSummaryCards: true,
+      showRanking: true,
+      showLargeDocuments: true,
+      showCommunities: true,
+      showOrphanBridge: true,
+      showTrends: true,
+      showPropagation: true,
+      themeNotebookId: '',
+      themeDocumentPath: '',
+      themeNamePrefix: '',
+      themeNameSuffix: '',
+      analysisExcludedPaths: '',
+      analysisExcludedNamePrefixes: '',
+      analysisExcludedNameSuffixes: '',
+    })
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: config as any,
+      loadSnapshot: async () => scopedSnapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual([
+      'doc-keep',
+      'doc-excluded-child',
+      'doc-excluded-keep',
+    ])
+
+    config.analysisExcludedPaths = '/Knowledge Base/排除区'
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual([
+      'doc-keep',
+      'doc-excluded-child',
+      'doc-excluded-keep',
+    ])
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual(['doc-keep'])
+
+    config.analysisExcludedNamePrefixes = '临时-'
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual(['doc-keep'])
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.filteredDocuments.value.map(document => document.id)).toEqual([
+      'doc-keep',
+      'doc-excluded-keep',
+    ])
   })
 
   it('clears transient AI and wiki state on refresh', async () => {

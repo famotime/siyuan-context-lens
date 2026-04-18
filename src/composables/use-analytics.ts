@@ -160,6 +160,12 @@ type UseAnalyticsParams = {
   todaySuggestionHistoryStore?: TodaySuggestionHistoryStore | null
 }
 
+type AppliedAnalysisScopeConfig = {
+  excludedPaths: string
+  excludedNamePrefixes: string
+  excludedNameSuffixes: string
+}
+
 export function useAnalyticsState(params: UseAnalyticsParams) {
   const loadSnapshot = params.loadSnapshot ?? loadAnalyticsSnapshot
   const loadLargeDocumentMetricsFn = params.loadLargeDocumentMetrics ?? (documents => loadLargeDocumentMetrics({ documents }))
@@ -233,6 +239,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const wikiApplyLoading = ref(false)
   const wikiError = ref('')
   const wikiPreview = ref<WikiPreviewState | null>(null)
+  const appliedAnalysisScope = ref(readAppliedAnalysisScopeConfig(params.config))
   const timeRangeOptions = computed(() => buildTimeRangeOptions())
   let disposeActiveDocumentSync: (() => void) | null = null
 
@@ -304,9 +311,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       timeRange: timeRange.value,
       filters: filters.value,
       wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: params.config.analysisExcludedPaths,
-      excludedNamePrefixes: params.config.analysisExcludedNamePrefixes,
-      excludedNameSuffixes: params.config.analysisExcludedNameSuffixes,
+      excludedPaths: appliedAnalysisScope.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -321,9 +328,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       timeRange: 'all',
       filters: filters.value,
       wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: params.config.analysisExcludedPaths,
-      excludedNamePrefixes: params.config.analysisExcludedNamePrefixes,
-      excludedNameSuffixes: params.config.analysisExcludedNameSuffixes,
+      excludedPaths: appliedAnalysisScope.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -345,9 +352,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       orphanSort: orphanSort.value,
       dormantDays: dormantDays.value,
       wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: params.config.analysisExcludedPaths,
-      excludedNamePrefixes: params.config.analysisExcludedNamePrefixes,
-      excludedNameSuffixes: params.config.analysisExcludedNameSuffixes,
+      excludedPaths: appliedAnalysisScope.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -373,9 +380,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       timeRange: timeRange.value,
       filters: filters.value,
       wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: params.config.analysisExcludedPaths,
-      excludedNamePrefixes: params.config.analysisExcludedNamePrefixes,
-      excludedNameSuffixes: params.config.analysisExcludedNameSuffixes,
+      excludedPaths: appliedAnalysisScope.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -447,7 +454,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       filters: filters.value,
       themeDocumentIds: themeDocumentIds.value,
       dormantDays: dormantDays.value,
-      config: params.config,
+      config: buildAppliedAnalysisConfig(params.config, appliedAnalysisScope.value),
       readCardMode: readCardMode.value,
       largeDocumentMetrics: largeDocumentMetrics.value,
       largeDocumentCardMode: largeDocumentCardMode.value,
@@ -704,10 +711,16 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     analysisNow.value = nowProvider()
     try {
       await loadTodaySuggestionHistory()
-      snapshot.value = await loadSnapshot()
-      largeDocumentMetrics.value = snapshot.value
-        ? await loadLargeDocumentMetricsFn(snapshot.value.documents)
+      const nextSnapshot = await loadSnapshot()
+      const nextLargeDocumentMetrics = nextSnapshot
+        ? await loadLargeDocumentMetricsFn(nextSnapshot.documents)
         : new Map()
+      const nextAppliedAnalysisScope = readAppliedAnalysisScopeConfig(params.config)
+      snapshot.value = nextSnapshot
+      largeDocumentMetrics.value = snapshot.value
+        ? nextLargeDocumentMetrics
+        : new Map()
+      appliedAnalysisScope.value = nextAppliedAnalysisScope
       resetTransientAsyncState()
     } catch (error) {
       const message = error instanceof Error ? error.message : t('analytics.controller.failedToReadSiYuanData')
@@ -1200,5 +1213,25 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     isAiLinkSuggestionActive: aiSuggestionActions.isAiLinkSuggestionActive,
     toggleOrphanAiTagSuggestion: aiSuggestionActions.toggleOrphanAiTagSuggestion,
     isAiTagSuggestionActive: aiSuggestionActions.isAiTagSuggestionActive,
+  }
+}
+
+function readAppliedAnalysisScopeConfig(config: PluginConfig): AppliedAnalysisScopeConfig {
+  return {
+    excludedPaths: config.analysisExcludedPaths ?? '',
+    excludedNamePrefixes: config.analysisExcludedNamePrefixes ?? '',
+    excludedNameSuffixes: config.analysisExcludedNameSuffixes ?? '',
+  }
+}
+
+function buildAppliedAnalysisConfig(
+  config: PluginConfig,
+  appliedAnalysisScope: AppliedAnalysisScopeConfig,
+): PluginConfig {
+  return {
+    ...config,
+    analysisExcludedPaths: appliedAnalysisScope.excludedPaths,
+    analysisExcludedNamePrefixes: appliedAnalysisScope.excludedNamePrefixes,
+    analysisExcludedNameSuffixes: appliedAnalysisScope.excludedNameSuffixes,
   }
 }
