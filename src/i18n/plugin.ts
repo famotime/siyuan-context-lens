@@ -1,4 +1,4 @@
-import { pickUiText } from './ui'
+import { pickUiText, resolveUiLocale, type UiLocale } from './ui'
 
 const PLUGIN_TEXT = {
   pluginEyebrow: {
@@ -27,4 +27,12 @@ export type PluginTextKey = keyof typeof PLUGIN_TEXT
 
 export function pickPluginText(key: PluginTextKey) {
   return pickUiText(PLUGIN_TEXT[key])
+}
+
+function resolveOppositeLocale(locale: UiLocale): UiLocale {
+  return locale === 'zh_CN' ? 'en_US' : 'zh_CN'
+}
+
+export function pickOppositePluginText(key: PluginTextKey, locale = resolveUiLocale()) {
+  return pickUiText(PLUGIN_TEXT[key], resolveOppositeLocale(locale))
 }

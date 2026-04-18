@@ -20,7 +20,7 @@ describe('App trend detail layout', () => {
     expect(source).toContain(':alt="pluginIconAlt"')
     expect(source).toContain('{{ pluginEyebrow }}')
     expect(source).not.toContain('<p class="eyebrow">Network lens</p>')
-    expect(source).toContain("import { pickPluginText } from '@/i18n/plugin'")
+    expect(source).toContain("import { pickOppositePluginText, pickPluginText } from '@/i18n/plugin'")
     expect(source).toContain("import { t } from '@/i18n/ui'")
     expect(source).toContain("{{ loading ? t('app.analyzing') : t('app.refreshAnalysis') }}")
     expect(source).toContain("{{ t('app.resetOrder') }}")
@@ -31,8 +31,8 @@ describe('App trend detail layout', () => {
     expect(source).toContain("{{ t('app.filter.keyword') }}")
     expect(source).toContain("{{ wikiPanelPlacement === 'documents' ? t('app.wiki.hide') : t('app.wiki.maintain') }}")
     expect(source).not.toContain('uiText(')
-    expect(source).toContain("const pluginTitle = computed(() => props.plugin.i18n?.pluginTitle ?? props.plugin.displayName ?? pickPluginText('pluginTitle'))")
-    expect(source).toContain("const pluginEyebrow = computed(() => props.plugin.i18n?.pluginEyebrow ?? pickPluginText('pluginEyebrow'))")
+    expect(source).toContain("const pluginTitle = computed(() => pickOppositePluginText('pluginTitle'))")
+    expect(source).toContain("const pluginEyebrow = computed(() => pickOppositePluginText('pluginEyebrow'))")
     expect(source).toContain("const pluginTagline = computed(() => props.plugin.i18n?.pluginTagline ?? pickPluginText('pluginTagline'))")
     expect(source).toContain("const pluginIconAlt = computed(() => props.plugin.i18n?.pluginIconAlt ?? pickPluginText('pluginIconAlt'))")
     expect(source).toContain('white-space: nowrap;')
@@ -43,6 +43,26 @@ describe('App trend detail layout', () => {
   align-items: flex-start;`)
     expect(source).not.toContain('radial-gradient(circle at 30% 30%')
     expect(source).not.toContain('border: 1px solid color-mix(in srgb, var(--accent-cool) 18%, var(--panel-border));')
+  })
+
+  it('uses opposite-language brand text in the hero header and renders the tagline in its own full-width row', async () => {
+    const source = await readFile(new URL('./App.vue', import.meta.url), 'utf8')
+    const normalizedSource = source.replace(/\r\n/g, '\n')
+
+    expect(source).toContain("import { pickOppositePluginText, pickPluginText } from '@/i18n/plugin'")
+    expect(source).toContain("const pluginTitle = computed(() => pickOppositePluginText('pluginTitle'))")
+    expect(source).toContain("const pluginEyebrow = computed(() => pickOppositePluginText('pluginEyebrow'))")
+    expect(source).toContain("const pluginTagline = computed(() => props.plugin.i18n?.pluginTagline ?? pickPluginText('pluginTagline'))")
+    expect(source).toContain('<div class="hero__header">')
+    expect(source).toContain('<p class="hero__tagline">')
+    expect(source).not.toContain(`<div class="hero__copy-block">
+          <p class="eyebrow">{{ pluginEyebrow }}</p>
+          <h1>{{ pluginTitle }}</h1>
+          <p class="hero-copy">
+            {{ pluginTagline }}
+          </p>`)
+    expect(normalizedSource).toContain(`.hero__tagline {
+  width: 100%;`)
   })
 
   it('keeps filter layout and summary visibility selection in App composition', async () => {

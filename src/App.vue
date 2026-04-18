@@ -1,40 +1,42 @@
 <template>
   <div class="reference-analytics">
     <div class="hero">
-      <div class="hero__intro">
-        <div class="hero__copy-block">
-          <p class="eyebrow">{{ pluginEyebrow }}</p>
-          <h1>{{ pluginTitle }}</h1>
-          <p class="hero-copy">
-            {{ pluginTagline }}
-          </p>
+      <div class="hero__header">
+        <div class="hero__intro">
+          <div class="hero__copy-block">
+            <p class="eyebrow">{{ pluginEyebrow }}</p>
+            <h1>{{ pluginTitle }}</h1>
+          </div>
+          <div class="hero__icon-shell">
+            <img
+              class="hero__icon"
+              :src="pluginIconUrl"
+              :alt="pluginIconAlt"
+            >
+          </div>
         </div>
-        <div class="hero__icon-shell">
-          <img
-            class="hero__icon"
-            :src="pluginIconUrl"
-            :alt="pluginIconAlt"
+        <div class="hero__actions">
+          <button
+            class="action-button"
+            type="button"
+            :disabled="loading"
+            @click="refresh"
           >
+            {{ loading ? t('app.analyzing') : t('app.refreshAnalysis') }}
+          </button>
+          <button
+            class="ghost-button hero__reset-button"
+            type="button"
+            :disabled="loading || !visibleSummaryCards.length"
+            @click="resetSummaryCardOrder"
+          >
+            {{ t('app.resetOrder') }}
+          </button>
         </div>
       </div>
-      <div class="hero__actions">
-        <button
-          class="action-button"
-          type="button"
-          :disabled="loading"
-          @click="refresh"
-        >
-          {{ loading ? t('app.analyzing') : t('app.refreshAnalysis') }}
-        </button>
-        <button
-          class="ghost-button hero__reset-button"
-          type="button"
-          :disabled="loading || !visibleSummaryCards.length"
-          @click="resetSummaryCardOrder"
-        >
-          {{ t('app.resetOrder') }}
-        </button>
-      </div>
+      <p class="hero__tagline">
+        {{ pluginTagline }}
+      </p>
     </div>
 
     <div class="filter-panel">
@@ -258,7 +260,7 @@ import SummaryDetailSection from '@/components/SummaryDetailSection.vue'
 import ThemeMultiSelect from '@/components/ThemeMultiSelect.vue'
 import WikiMaintainPanel from '@/components/WikiMaintainPanel.vue'
 import { isSummaryCardVisible } from '@/analytics/summary-card-config'
-import { pickPluginText } from '@/i18n/plugin'
+import { pickOppositePluginText, pickPluginText } from '@/i18n/plugin'
 import { useAnalyticsState } from '@/composables/use-analytics'
 import { createAppWikiPanelController } from '@/composables/use-app-wiki-panel'
 import { appendBlock, createDocWithMd, deleteBlock, forwardProxy, getBlockAttrs, getBlockKramdown, getChildBlocks, getIDsByHPath, prependBlock, setBlockAttrs, updateBlock } from '@/api'
@@ -274,8 +276,8 @@ const props = defineProps<{
 
 ensureConfigDefaults(props.config)
 
-const pluginTitle = computed(() => props.plugin.i18n?.pluginTitle ?? props.plugin.displayName ?? pickPluginText('pluginTitle'))
-const pluginEyebrow = computed(() => props.plugin.i18n?.pluginEyebrow ?? pickPluginText('pluginEyebrow'))
+const pluginTitle = computed(() => pickOppositePluginText('pluginTitle'))
+const pluginEyebrow = computed(() => pickOppositePluginText('pluginEyebrow'))
 const pluginTagline = computed(() => props.plugin.i18n?.pluginTagline ?? pickPluginText('pluginTagline'))
 const pluginIconAlt = computed(() => props.plugin.i18n?.pluginIconAlt ?? pickPluginText('pluginIconAlt'))
 
@@ -497,11 +499,16 @@ function updateToDocumentId(value: string) {
 }
 
 .hero {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.hero__header {
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
-  margin-bottom: 24px;
 }
 
 .hero__intro {
@@ -558,9 +565,8 @@ h1 {
   font-weight: 600;
 }
 
-.hero-copy {
-  margin-top: 8px;
-  max-width: 44ch;
+.hero__tagline {
+  width: 100%;
   color: var(--panel-muted);
   line-height: 1.6;
 }
@@ -1490,7 +1496,7 @@ input {
     grid-column: span 1;
   }
 
-  .hero {
+  .hero__header {
     flex-direction: column;
     align-items: stretch;
   }
