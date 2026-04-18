@@ -174,4 +174,72 @@ describe('OrphanDetailPanel', () => {
     expect(html).toContain('当前卡片下暂无文档。')
     expect(html).not.toContain('No docs to show under this card.')
   })
+
+  it('localizes AI confidence badges and tag source labels when the workspace locale is zh_CN', async () => {
+    ;(globalThis as any).siyuan = {
+      config: {
+        lang: 'zh_CN',
+      },
+    }
+
+    const app = createSSRApp({
+      render: () => h(OrphanDetailPanel, {
+        items: [
+          {
+            documentId: 'doc-a',
+            title: 'Alpha',
+            meta: 'meta',
+          },
+        ],
+        orphanSort: 'updated-desc',
+        onUpdateOrphanSort: vi.fn(),
+        openDocument: vi.fn(),
+        onToggleThemeSuggestion: vi.fn(),
+        isThemeSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiLinkSuggestion: vi.fn(),
+        isAiLinkSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiTagSuggestion: vi.fn(),
+        isAiTagSuggestionActive: vi.fn().mockImplementation((_documentId, tag) => tag === 'Agent'),
+        aiEnabled: true,
+        aiConfigReady: true,
+        aiSuggestionStates: new Map([
+          ['doc-a', {
+            loading: false,
+            statusMessage: '',
+            error: '',
+            result: {
+              generatedAt: '2026-04-18T08:00:00.000Z',
+              summary: '这篇文档适合优先挂到主题入口。',
+              suggestions: [
+                {
+                  targetDocumentId: 'doc-theme-ai',
+                  targetTitle: 'ClaudeCode',
+                  targetType: 'theme-document',
+                  confidence: 'medium',
+                  reason: '与主题文档直接匹配。',
+                  tagSuggestions: [
+                    { tag: 'Agent', source: 'existing', reason: '当前标签集合里已有该标签。' },
+                    { tag: 'Prompt', source: 'new', reason: '适合作为新增整理标签。' },
+                  ],
+                },
+              ],
+            },
+          }],
+        ]),
+        onGenerateAiSuggestion: vi.fn(),
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('AI 建议')
+    expect(html).toContain('链接建议')
+    expect(html).toContain('标签建议')
+    expect(html).toContain('中')
+    expect(html).toContain('当前标签')
+    expect(html).toContain('新标签')
+    expect(html).not.toContain('medium')
+    expect(html).not.toContain('Existing tag')
+    expect(html).not.toContain('New tag')
+  })
 })

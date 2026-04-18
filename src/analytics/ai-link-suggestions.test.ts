@@ -667,4 +667,155 @@ describe('ai link suggestions', () => {
       'AI 正在分析……',
     ])
   })
+
+  it('rewrites english AI suggestion copy to Chinese when the workspace locale is zh_CN', async () => {
+    ;(globalThis as any).siyuan = {
+      config: {
+        lang: 'zh_CN',
+      },
+    }
+
+    const requests: Array<{ url: string, body: any }> = []
+    let chatRequestCount = 0
+    const service = createAiLinkSuggestionService({
+      forwardProxy: async (url, method, payload) => {
+        requests.push({
+          url,
+          body: JSON.parse(payload),
+        })
+
+        if (!url.endsWith('/chat/completions')) {
+          throw new Error(`unexpected request: ${url}`)
+        }
+
+        chatRequestCount += 1
+        return {
+          status: 200,
+          body: JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify(chatRequestCount === 1
+                    ? {
+                        summary: 'The source document discusses hidden commands and tips for Claude Code, which aligns with existing themes related to AI programming and tools.',
+                        suggestions: [
+                          {
+                            targetDocumentId: 'doc-theme-claude',
+                            targetTitle: 'ClaudeCode',
+                            targetType: 'theme-document',
+                            confidence: 'medium',
+                            reason: 'Directly matches the topic document, serving as the most relevant thematic entry point.',
+                            draftText: 'Can fit under ClaudeCode: ((doc-theme-claude "ClaudeCode"))',
+                            tagSuggestions: [
+                              {
+                                tag: 'Agent',
+                                source: 'existing',
+                                reason: 'Discusses multi-agent collaboration, relevant to the document topic.',
+                              },
+                            ],
+                          },
+                        ],
+                      }
+                    : {
+                        summary: '源文档讨论了 Claude Code 的隐藏命令与技巧，和现有的 AI 编程与工具主题高度匹配。',
+                        suggestions: [
+                          {
+                            targetDocumentId: 'doc-theme-claude',
+                            targetTitle: 'ClaudeCode',
+                            targetType: 'theme-document',
+                            confidence: 'medium',
+                            reason: '和主题文档直接匹配，适合作为当前最相关的主题入口。',
+                            draftText: '可归入 ClaudeCode：((doc-theme-claude "ClaudeCode"))',
+                            tagSuggestions: [
+                              {
+                                tag: 'Agent',
+                                source: 'existing',
+                                reason: '涉及多智能体协作，和当前文档主题相关。',
+                              },
+                            ],
+                          },
+                        ],
+                      }),
+                },
+              },
+            ],
+          }),
+        } as any
+      },
+    })
+
+    const result = await service.suggestForOrphan({
+      config: {
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.example.com/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'gpt-4.1-mini',
+        aiEmbeddingModel: '',
+      } as any,
+      sourceDocument: {
+        id: 'doc-orphan',
+        box: 'box-1',
+        path: '/notes/orphan.sy',
+        hpath: '/笔记/Claude Code',
+        title: '分享10个你可能不知道的Claude Code隐藏命令和技巧',
+        tags: ['Agent'],
+        content: 'Claude Code hidden commands and multi-agent tips.',
+        updated: '20260418120000',
+      },
+      orphan: {
+        documentId: 'doc-orphan',
+        title: '分享10个你可能不知道的Claude Code隐藏命令和技巧',
+        degree: 0,
+        createdAt: '20260417120000',
+        updatedAt: '20260418120000',
+        historicalReferenceCount: 0,
+        lastHistoricalAt: null,
+        hasSparseEvidence: false,
+      },
+      documents: [
+        { id: 'doc-orphan', box: 'box-1', path: '/notes/orphan.sy', hpath: '/笔记/Claude Code', title: '分享10个你可能不知道的Claude Code隐藏命令和技巧', tags: ['Agent'], content: 'Claude Code hidden commands and multi-agent tips.', updated: '20260418120000' },
+        { id: 'doc-theme-claude', box: 'box-1', path: '/topics/claude.sy', hpath: '/专题/ClaudeCode', title: 'ClaudeCode', tags: [], content: 'Claude Code topic page', updated: '20260418120000' },
+      ],
+      themeDocuments: [
+        {
+          documentId: 'doc-theme-claude',
+          title: 'ClaudeCode',
+          themeName: 'ClaudeCode',
+          matchTerms: ['Claude Code', 'ClaudeCode'],
+          box: 'box-1',
+          path: '/topics/claude.sy',
+          hpath: '/专题/ClaudeCode',
+        },
+      ],
+      availableTags: ['Agent', 'Codex', 'Prompt'],
+      report: {
+        ranking: [],
+      } as any,
+    })
+
+    const chatRequests = requests.filter(request => request.url.endsWith('/chat/completions'))
+    expect(chatRequests).toHaveLength(2)
+    expect(JSON.parse(chatRequests[1]!.body.messages[1].content)).toEqual(expect.objectContaining({
+      locale: 'zh_CN',
+      summary: 'The source document discusses hidden commands and tips for Claude Code, which aligns with existing themes related to AI programming and tools.',
+    }))
+    expect(result).toEqual(expect.objectContaining({
+      summary: '源文档讨论了 Claude Code 的隐藏命令与技巧，和现有的 AI 编程与工具主题高度匹配。',
+      suggestions: [
+        expect.objectContaining({
+          targetDocumentId: 'doc-theme-claude',
+          confidence: 'medium',
+          reason: '和主题文档直接匹配，适合作为当前最相关的主题入口。',
+          draftText: '可归入 ClaudeCode：((doc-theme-claude "ClaudeCode"))',
+          tagSuggestions: [
+            expect.objectContaining({
+              tag: 'Agent',
+              source: 'existing',
+              reason: '涉及多智能体协作，和当前文档主题相关。',
+            }),
+          ],
+        }),
+      ],
+    }))
+  })
 })

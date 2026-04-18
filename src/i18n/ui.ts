@@ -916,7 +916,7 @@ const UI_TEXT = {
       },
     },
   },
-  orphanDetail: {
+    orphanDetail: {
     sortLabel: {
       en_US: 'Orphan sort',
       zh_CN: '孤立排序',
@@ -973,11 +973,23 @@ const UI_TEXT = {
       en_US: 'Existing tag',
       zh_CN: '当前标签',
     },
-    newTag: {
-      en_US: 'New tag',
-      zh_CN: '新标签',
+      newTag: {
+        en_US: 'New tag',
+        zh_CN: '新标签',
+      },
+      confidenceHigh: {
+        en_US: 'HIGH',
+        zh_CN: '高',
+      },
+      confidenceMedium: {
+        en_US: 'MEDIUM',
+        zh_CN: '中',
+      },
+      confidenceLow: {
+        en_US: 'LOW',
+        zh_CN: '低',
+      },
     },
-  },
   rankingPanel: {
     title: {
       en_US: 'Core docs ranking',
@@ -2215,6 +2227,38 @@ const UI_TEXT = {
       generatedForCurrentOrphan: {
         en_US: 'AI link suggestions generated for the current orphan doc.',
         zh_CN: '已为当前孤立文档生成 AI 补链建议。',
+      },
+      candidateThemeMatch: {
+        en_US: 'Topic match hit {count} times',
+        zh_CN: '主题匹配命中 {count} 次',
+      },
+      candidateTopicEntry: {
+        en_US: 'Acts as a topic entry point',
+        zh_CN: '可作为主题入口页',
+      },
+      candidateReferencedByDocs: {
+        en_US: 'Referenced by {count} docs',
+        zh_CN: '被 {count} 篇文档引用',
+      },
+      candidateInboundRefsCurrentWindow: {
+        en_US: '{count} inbound refs in the current window',
+        zh_CN: '当前窗口内有 {count} 条入链',
+      },
+      embeddingInputTitle: {
+        en_US: 'Title',
+        zh_CN: '标题',
+      },
+      embeddingInputPath: {
+        en_US: 'Path',
+        zh_CN: '路径',
+      },
+      embeddingInputTags: {
+        en_US: 'Tags',
+        zh_CN: '标签',
+      },
+      embeddingInputContentPreview: {
+        en_US: 'Content preview',
+        zh_CN: '内容摘要',
       },
     },
     aiInbox: {

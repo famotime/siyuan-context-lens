@@ -123,7 +123,7 @@
                         >
                           {{ suggestion.targetTitle }}
                         </button>
-                        <span class="orphan-detail__ai-badge">{{ suggestion.confidence }}</span>
+                        <span class="orphan-detail__ai-badge">{{ resolveAiConfidenceLabel(suggestion.confidence) }}</span>
                       </div>
                       <p>{{ suggestion.reason }}</p>
                       <p v-if="suggestion.draftText" class="orphan-detail__ai-draft">{{ suggestion.draftText }}</p>
@@ -232,6 +232,16 @@ function resolveTagSuggestionSourceLabel(source: AiLinkTagSuggestion['source']) 
   return source === 'existing'
     ? t('orphanDetail.existingTag')
     : t('orphanDetail.newTag')
+}
+
+function resolveAiConfidenceLabel(confidence: AiLinkSuggestionItem['confidence']) {
+  if (confidence === 'high') {
+    return t('orphanDetail.confidenceHigh')
+  }
+  if (confidence === 'low') {
+    return t('orphanDetail.confidenceLow')
+  }
+  return t('orphanDetail.confidenceMedium')
 }
 
 function resolveAiLinkSuggestions(documentId: string): AiLinkSuggestionItem[] {

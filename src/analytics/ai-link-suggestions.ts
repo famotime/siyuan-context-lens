@@ -6,7 +6,7 @@ import {
 } from './document-utils'
 import { countThemeMatchesForDocument, type ThemeDocument } from './theme-documents'
 import { isAiConfigComplete, resolveAiEndpoint, resolveAiRequestOptions } from './ai-inbox'
-import { t } from '@/i18n/ui'
+import { resolveUiLocale, t, type UiLocale } from '@/i18n/ui'
 import type { PluginConfig } from '@/types/config'
 
 type ForwardProxyFn = (
@@ -101,6 +101,14 @@ const SUGGESTION_SYSTEM_PROMPT = [
   'All user-visible text must follow the current workspace UI language.',
 ].join(' ')
 
+const SUGGESTION_REWRITE_SYSTEM_PROMPT = [
+  'You normalize SiYuan link suggestion JSON into the requested workspace language.',
+  'Return JSON only.',
+  'Keep targetDocumentId, targetTitle, targetType, confidence, tag text, and source unchanged.',
+  'Only rewrite summary, reason, draftText, and tagSuggestions.reason.',
+  'Do not add, remove, or reorder suggestions or tagSuggestions.',
+].join(' ')
+
 export function isAiLinkSuggestionConfigComplete(config: AiConfig): boolean {
   return isAiConfigComplete(config)
 }
@@ -110,6 +118,7 @@ export function createAiLinkSuggestionService(deps: {
 }): AiLinkSuggestionService {
   return {
     async suggestForOrphan(params) {
+      const locale = resolveUiLocale()
       if (!params.config.aiEnabled) {
         throw new Error(t('analytics.aiLink.enableAiInSettingsFirst'))
       }
@@ -123,6 +132,7 @@ export function createAiLinkSuggestionService(deps: {
         themeDocuments: params.themeDocuments,
         report: params.report,
         titleCleanupConfig: params.config,
+        locale,
       })
 
       if (!candidates.length) {
@@ -156,10 +166,11 @@ export function createAiLinkSuggestionService(deps: {
         config: params.config,
         forwardProxy: deps.forwardProxy,
         messages: [
-          { role: 'system', content: SUGGESTION_SYSTEM_PROMPT },
+          { role: 'system', content: buildSuggestionSystemPrompt(locale) },
           {
             role: 'user',
             content: JSON.stringify({
+              uiLanguage: locale,
               sourceDocument: {
                 id: params.sourceDocument.id,
                 title: resolveNormalizedDocumentTitle(normalizedSourceDocument, params.config),
@@ -194,9 +205,91 @@ export function createAiLinkSuggestionService(deps: {
         ],
       })
 
-      return normalizeSuggestionResult(parseJsonFromResponse(payload))
+      const result = normalizeSuggestionResult(parseJsonFromResponse(payload))
+      return await rewriteSuggestionResultForLocaleIfNeeded({
+        config: params.config,
+        forwardProxy: deps.forwardProxy,
+        locale,
+        result,
+      })
     },
   }
+}
+
+function buildSuggestionSystemPrompt(locale: UiLocale) {
+  const targetLanguage = locale === 'zh_CN' ? 'Simplified Chinese' : 'English'
+  return `${SUGGESTION_SYSTEM_PROMPT} Current workspace locale is ${locale}. Write summary, reason, draftText, and tagSuggestions.reason in ${targetLanguage}.`
+}
+
+async function rewriteSuggestionResultForLocaleIfNeeded(params: {
+  config: AiConfig
+  forwardProxy: ForwardProxyFn
+  locale: UiLocale
+  result: AiLinkSuggestionResult
+}) {
+  if (!shouldRewriteSuggestionResultForLocale(params.result, params.locale)) {
+    return params.result
+  }
+
+  try {
+    const payload = await requestChatCompletion({
+      config: params.config,
+      forwardProxy: params.forwardProxy,
+      messages: [
+        {
+          role: 'system',
+          content: buildSuggestionRewriteSystemPrompt(params.locale),
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            locale: params.locale,
+            summary: params.result.summary,
+            suggestions: params.result.suggestions,
+          }),
+        },
+      ],
+    })
+
+    return normalizeSuggestionResult(parseJsonFromResponse(payload))
+  } catch {
+    return params.result
+  }
+}
+
+function buildSuggestionRewriteSystemPrompt(locale: UiLocale) {
+  const targetLanguage = locale === 'zh_CN' ? 'Simplified Chinese' : 'English'
+  return `${SUGGESTION_REWRITE_SYSTEM_PROMPT} Rewrite the user-visible copy into ${targetLanguage}.`
+}
+
+function shouldRewriteSuggestionResultForLocale(result: AiLinkSuggestionResult, locale: UiLocale) {
+  if (locale !== 'zh_CN') {
+    return false
+  }
+
+  return collectUserVisibleSuggestionText(result)
+    .some(text => isLikelyEnglishSentence(text))
+}
+
+function collectUserVisibleSuggestionText(result: AiLinkSuggestionResult) {
+  return [
+    result.summary,
+    ...result.suggestions.flatMap(suggestion => [
+      suggestion.reason,
+      suggestion.draftText,
+      ...(suggestion.tagSuggestions ?? []).map(item => item.reason),
+    ]),
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+}
+
+function isLikelyEnglishSentence(text: string) {
+  const normalized = text.trim()
+  if (!normalized || /[\u3400-\u9fff]/.test(normalized)) {
+    return false
+  }
+
+  const latinWords = normalized.match(/[A-Za-z]{3,}/g) ?? []
+  return latinWords.length >= 4
 }
 
 function validateEmbeddingModelConfig(config: AiConfig) {
@@ -276,6 +369,7 @@ function buildCandidates(params: {
   themeDocuments: ThemeDocument[]
   report: ReferenceGraphReport
   titleCleanupConfig?: DocumentTitleCleanupConfig | null
+  locale: UiLocale
 }): CandidateTarget[] {
   const documentMap = new Map(params.documents.map(document => [document.id, document]))
   const themeMatches = countThemeMatchesForDocument({
@@ -296,8 +390,8 @@ function buildCandidates(params: {
         targetType: 'theme-document' as const,
         embeddingInput: buildEmbeddingInput(themeDocument, params.titleCleanupConfig),
         reasons: [
-          `Topic match hit ${match.matchCount} times`,
-          'Acts as a topic entry point',
+          t('analytics.aiLink.candidateThemeMatch', { count: match.matchCount }, params.locale),
+          t('analytics.aiLink.candidateTopicEntry', params.locale),
         ],
         baseScore: Math.min(1, 0.55 + match.matchCount * 0.08),
       }
@@ -320,8 +414,8 @@ function buildCandidates(params: {
         targetType: 'core-document' as const,
         embeddingInput: buildEmbeddingInput(document, params.titleCleanupConfig),
         reasons: [
-          `Referenced by ${item.distinctSourceDocuments} docs`,
-          `${item.inboundReferences} inbound refs in the current window`,
+          t('analytics.aiLink.candidateReferencedByDocs', { count: item.distinctSourceDocuments }, params.locale),
+          t('analytics.aiLink.candidateInboundRefsCurrentWindow', { count: item.inboundReferences }, params.locale),
         ],
         baseScore: Math.min(1, 0.3 + item.distinctSourceDocuments * 0.12),
       }
@@ -337,9 +431,9 @@ function buildEmbeddingInput(
 ): string {
   const normalizedDocument = normalizeDocumentTitleFields(document as DocumentRecord, titleCleanupConfig)
   return [
-    `Title: ${resolveNormalizedDocumentTitle(normalizedDocument, titleCleanupConfig)}`,
-    normalizedDocument.hpath ? `Path: ${normalizedDocument.hpath}` : '',
-    normalizeTags(normalizedDocument.tags).length ? `Tags: ${normalizeTags(normalizedDocument.tags).join(', ')}` : '',
+    `${t('analytics.aiLink.embeddingInputTitle')}: ${resolveNormalizedDocumentTitle(normalizedDocument, titleCleanupConfig)}`,
+    normalizedDocument.hpath ? `${t('analytics.aiLink.embeddingInputPath')}: ${normalizedDocument.hpath}` : '',
+    normalizeTags(normalizedDocument.tags).length ? `${t('analytics.aiLink.embeddingInputTags')}: ${normalizeTags(normalizedDocument.tags).join(', ')}` : '',
     extractContentPreview(normalizedDocument.content),
   ].filter(Boolean).join('\n')
 }
@@ -416,7 +510,7 @@ function extractContentPreview(content?: string) {
   if (!content) {
     return ''
   }
-  return `Content preview: ${content.replace(/\s+/g, ' ').trim().slice(0, 240)}`
+  return `${t('analytics.aiLink.embeddingInputContentPreview')}: ${content.replace(/\s+/g, ' ').trim().slice(0, 240)}`
 }
 
 function normalizeTags(tags?: readonly string[] | string): string[] {
