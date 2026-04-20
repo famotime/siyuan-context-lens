@@ -9,7 +9,7 @@ export type AlphaFeatureHideConfig = {
 
 export const ALPHA_FEATURE_HIDE_CONFIG: AlphaFeatureHideConfig = {
   hiddenSummaryCardKeys: ['communities', 'bridges', 'dormant'],
-  hiddenSettingKeys: ['llm-wiki'],
+  hiddenSettingKeys: [],
 }
 
 export function getHiddenSummaryCardKeys(
