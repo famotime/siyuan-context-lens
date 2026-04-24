@@ -1633,8 +1633,8 @@ const UI_TEXT = {
         zh_CN: '总大小超过 3 MB 的文档',
       },
       docsLargerThan10000Words: {
-        en_US: 'Docs with more than 10,000 words',
-        zh_CN: '字数超过 10,000 的文档',
+        en_US: 'Docs with text count above 10,000',
+        zh_CN: '正文统计超过 10,000 的文档',
       },
       activeLinks: {
         en_US: 'Active links',
@@ -1833,8 +1833,8 @@ const UI_TEXT = {
         zh_CN: '总大小超过 3 MB 的文档。',
       },
       largeDocsTextSentence: {
-        en_US: 'Docs with more than 10,000 words.',
-        zh_CN: '字数超过 10,000 的文档。',
+        en_US: 'Docs with text count above 10,000.',
+        zh_CN: '正文统计超过 10,000 的文档。',
       },
       docsParticipatingInLinks: {
         en_US: 'Docs participating in doc-level links in the current window.',
@@ -2553,12 +2553,12 @@ const UI_TEXT = {
     },
     largeDocuments: {
       badgeWords: {
-        en_US: '{count} words',
-        zh_CN: '{count} 字',
+        en_US: 'Text count {count}',
+        zh_CN: '正文统计 {count}',
       },
       metaWords: {
-        en_US: 'About {count} words · Threshold {threshold} words · Updated {date}',
-        zh_CN: '约 {count} 字 · 阈值 {threshold} 字 · 更新于 {date}',
+        en_US: 'Text count {count} · Threshold {threshold} · Updated {date}',
+        zh_CN: '正文统计 {count} · 阈值 {threshold} · 更新于 {date}',
       },
       metaStorage: {
         en_US: 'Total size {totalSize} · Threshold {threshold} · {assetCount} assets',

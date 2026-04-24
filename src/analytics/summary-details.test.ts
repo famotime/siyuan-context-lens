@@ -287,9 +287,9 @@ describe('buildSummaryDetailSections', () => {
       kind: 'list',
       title: 'Large docs · text',
       items: [
-        expect.objectContaining({ documentId: 'doc-big-c', badge: '15000 words' }),
-        expect.objectContaining({ documentId: 'doc-big-d', badge: '12000 words' }),
-        expect.objectContaining({ documentId: 'doc-big-a', badge: '10001 words' }),
+        expect.objectContaining({ documentId: 'doc-big-c', badge: 'Text count 15000' }),
+        expect.objectContaining({ documentId: 'doc-big-d', badge: 'Text count 12000' }),
+        expect.objectContaining({ documentId: 'doc-big-a', badge: 'Text count 10001' }),
       ],
     }))
   })
@@ -603,7 +603,7 @@ describe('buildSummaryCards', () => {
     expect(largeDocuments).toEqual(expect.objectContaining({
       label: 'Large docs · text',
       value: '3',
-      hint: 'Docs with more than 10,000 words',
+      hint: 'Docs with text count above 10,000',
     }))
   })
 

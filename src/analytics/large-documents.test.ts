@@ -72,6 +72,40 @@ describe('loadLargeDocumentMetrics', () => {
     })
     expect(statAsset).toHaveBeenCalledTimes(2)
   })
+
+  it('excludes inline data-image payloads and counts Chinese characters plus natural English words', async () => {
+    const metrics = await loadLargeDocumentMetrics({
+      documents: [
+        {
+          id: 'doc-mixed',
+          box: 'box-1',
+          path: '/mixed.sy',
+          hpath: '/Mixed',
+          title: 'Mixed',
+          content: [
+            '你好',
+            'hello world',
+            `![](data:image/bmp;base64,${'A'.repeat(20000)})`,
+            'https://example.com/foo/bar',
+            'assets/image.png',
+            'foo/bar_baz',
+          ].join(' '),
+        },
+      ],
+      getFile: vi.fn(async () => ''),
+      getDocAssets: vi.fn(async () => []),
+      statAsset: vi.fn(async () => ({ size: 0 })),
+    })
+
+    expect(metrics.get('doc-mixed')).toEqual({
+      documentId: 'doc-mixed',
+      wordCount: 4,
+      documentBytes: 0,
+      assetBytes: 0,
+      totalBytes: 0,
+      assetCount: 0,
+    })
+  })
 })
 
 describe('buildLargeDocumentRankings', () => {
@@ -113,5 +147,31 @@ describe('buildLargeDocumentRankings', () => {
       wordDocumentCount: 3,
       storageDocumentCount: 2,
     })
+  })
+
+  it('uses natural-language counting when metrics are not precomputed', () => {
+    expect(buildLargeDocumentRankings({
+      documents: [
+        {
+          id: 'doc-natural-words',
+          box: 'box-1',
+          path: '/natural.sy',
+          hpath: '/Natural',
+          title: 'Natural',
+          content: 'hello '.repeat(10001),
+          updated: '20260308120000',
+        },
+        {
+          id: 'doc-long-identifier',
+          box: 'box-1',
+          path: '/identifier.sy',
+          hpath: '/Identifier',
+          title: 'Identifier',
+          content: 'a'.repeat(12000),
+          updated: '20260307120000',
+        },
+      ],
+      mode: 'words',
+    }).map(item => item.documentId)).toEqual(['doc-natural-words'])
   })
 })

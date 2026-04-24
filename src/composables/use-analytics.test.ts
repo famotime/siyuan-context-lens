@@ -558,8 +558,8 @@ describe('useAnalyticsState', () => {
     expect(state.selectedSummaryDetail.value).toEqual(expect.objectContaining({
       title: 'Large docs · text',
       items: [
-        expect.objectContaining({ documentId: 'doc-b', badge: '12000 words' }),
-        expect.objectContaining({ documentId: 'doc-a', badge: '10001 words' }),
+        expect.objectContaining({ documentId: 'doc-b', badge: 'Text count 12000' }),
+        expect.objectContaining({ documentId: 'doc-a', badge: 'Text count 10001' }),
       ],
     }))
 

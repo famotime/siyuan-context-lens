@@ -32,6 +32,12 @@ export const LARGE_DOCUMENT_WORD_THRESHOLD = 10000
 export const LARGE_DOCUMENT_STORAGE_THRESHOLD_BYTES = 3 * 1024 * 1024
 
 const apiModulePath = '@/api'
+const INLINE_DATA_IMAGE_PATTERN = /data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+/g
+const URL_PATTERN = /\b[a-z][a-z0-9+.-]*:\/\/\S+/gi
+const DOMAIN_PATH_PATTERN = /\b(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?\b/gi
+const FILE_PATH_PATTERN = /\b(?:[A-Za-z]:)?(?:[\w.-]+[\\/])+[\w.-]+\b/g
+const HAN_CHARACTER_PATTERN = /\p{Script=Han}/gu
+const ENGLISH_WORD_PATTERN = /\b[A-Za-z]+(?:'[A-Za-z]+)?\b/g
 
 export async function loadLargeDocumentMetrics(params: {
   documents: DocumentRecord[]
@@ -68,7 +74,7 @@ export async function loadLargeDocumentMetrics(params: {
     const assetPaths = assetPathsByDocumentId.get(document.id) ?? []
     const assetBytes = assetPaths.reduce((total, assetPath) => total + (assetBytesByPath.get(assetPath) ?? 0), 0)
     const documentBytes = documentBytesById.get(document.id) ?? 0
-    const wordCount = countDocumentCharacters(document.content ?? '')
+    const wordCount = countDocumentWords(document.content ?? '')
 
     return [
       document.id,
@@ -183,7 +189,7 @@ export function formatBytes(bytes: number): string {
 function buildFallbackMetric(document: DocumentRecord): LargeDocumentMetric {
   return {
     documentId: document.id,
-    wordCount: countDocumentCharacters(document.content ?? ''),
+    wordCount: countDocumentWords(document.content ?? ''),
     documentBytes: 0,
     assetBytes: 0,
     totalBytes: 0,
@@ -191,8 +197,19 @@ function buildFallbackMetric(document: DocumentRecord): LargeDocumentMetric {
   }
 }
 
-function countDocumentCharacters(content: string): number {
-  return [...content.replace(/\s+/g, '')].length
+function countDocumentWords(content: string): number {
+  const sanitized = sanitizeDocumentText(content)
+  const chineseCharacterCount = [...sanitized.matchAll(HAN_CHARACTER_PATTERN)].length
+  const englishWordCount = [...sanitized.matchAll(ENGLISH_WORD_PATTERN)].length
+  return chineseCharacterCount + englishWordCount
+}
+
+function sanitizeDocumentText(content: string): string {
+  return content
+    .replace(INLINE_DATA_IMAGE_PATTERN, ' ')
+    .replace(URL_PATTERN, ' ')
+    .replace(FILE_PATH_PATTERN, ' ')
+    .replace(DOMAIN_PATH_PATTERN, ' ')
 }
 
 function toWorkspaceDocumentPath(document: Pick<DocumentRecord, 'box' | 'path'>): string {
