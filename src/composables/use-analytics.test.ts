@@ -356,6 +356,115 @@ describe('useAnalyticsState', () => {
     ])
   })
 
+  it('applies theme document settings only after refresh', async () => {
+    const config = reactive({
+      showSummaryCards: true,
+      showRanking: true,
+      showLargeDocuments: true,
+      showCommunities: true,
+      showOrphanBridge: true,
+      showTrends: true,
+      showPropagation: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '',
+      themeNamePrefix: '',
+      themeNameSuffix: '',
+    })
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: config as any,
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.themeOptions.value).toEqual([])
+
+    config.themeDocumentPath = '/专题'
+    config.themeNamePrefix = '主题-'
+    config.themeNameSuffix = '-索引'
+    await nextTick()
+
+    expect(state.themeOptions.value).toEqual([])
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.themeOptions.value.map(option => option.label)).toEqual(['机器学习', 'AI'])
+  })
+
+  it('applies read rule settings only after refresh', async () => {
+    const config = reactive({
+      showSummaryCards: true,
+      showRanking: true,
+      showLargeDocuments: true,
+      showCommunities: true,
+      showOrphanBridge: true,
+      showTrends: true,
+      showPropagation: true,
+      themeNotebookId: 'box-1',
+      themeDocumentPath: '/专题',
+      themeNamePrefix: '主题-',
+      themeNameSuffix: '-索引',
+      readTagNames: [] as string[],
+      readTitlePrefixes: '',
+      readTitleSuffixes: '',
+      readPaths: '',
+    })
+
+    const state = useAnalyticsState({
+      plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,
+      config: config as any,
+      loadSnapshot: async () => snapshot as any,
+      nowProvider: () => now,
+      createActiveDocumentSync: () => () => {},
+      showMessage: () => {},
+      openTab: () => {},
+      appendBlock: async () => [],
+      prependBlock: async () => [],
+      deleteBlock: async () => [],
+      updateBlock: async () => [],
+      getChildBlocks: async () => [],
+      getBlockKramdown: async () => ({ id: '', kramdown: '' }),
+    })
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.summaryCards.value.find(card => card.key === 'read')).toEqual(expect.objectContaining({
+      label: 'Unread docs',
+      value: '7',
+    }))
+
+    config.readTagNames = ['note']
+    await nextTick()
+
+    expect(state.summaryCards.value.find(card => card.key === 'read')).toEqual(expect.objectContaining({
+      label: 'Unread docs',
+      value: '7',
+    }))
+
+    await state.refresh()
+    await nextTick()
+
+    expect(state.summaryCards.value.find(card => card.key === 'read')).toEqual(expect.objectContaining({
+      label: 'Unread docs',
+      value: '5',
+    }))
+  })
+
   it('clears transient AI and wiki state on refresh', async () => {
     const state = useAnalyticsState({
       plugin: { eventBus: { on: () => {}, off: () => {} }, app: {} } as any,

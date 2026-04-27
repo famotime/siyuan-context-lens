@@ -186,7 +186,7 @@ const UI_TEXT = {
       },
       excludedPathsPlaceholder: {
         en_US: 'Separate multiple paths with |. Full notebook paths are supported, for example /Knowledge/Exclude|/Archive/Temp',
-        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库/排除|/归档/临时',
+        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库笔记本/排除|/归档/临时',
       },
       namePrefixes: {
         en_US: 'Name prefixes',
@@ -220,7 +220,7 @@ const UI_TEXT = {
       },
       pathPlaceholder: {
         en_US: 'Separate multiple paths with |. Full notebook paths are supported, for example /Knowledge/Topics|/Archive/Topics',
-        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库/主题|/归档/主题',
+        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库笔记本/主题|/归档/主题',
       },
       namePrefixes: {
         en_US: 'Name prefixes',
@@ -254,7 +254,7 @@ const UI_TEXT = {
       },
       readPathsPlaceholder: {
         en_US: 'Separate multiple paths with |. Full notebook paths are supported, for example /Knowledge/Read|/Archive/Topics',
-        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库/已读|/归档/主题',
+        zh_CN: '多个路径用 | 分隔，支持完整笔记本路径，例如 /知识库笔记本/已读|/归档/主题',
       },
       readTags: {
         en_US: 'Read tags',

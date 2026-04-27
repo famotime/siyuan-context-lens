@@ -160,10 +160,19 @@ type UseAnalyticsParams = {
   todaySuggestionHistoryStore?: TodaySuggestionHistoryStore | null
 }
 
-type AppliedAnalysisScopeConfig = {
+type AppliedAnalysisConfig = {
+  themeNotebookId: string
+  themeDocumentPath: string
+  themeNamePrefix: string
+  themeNameSuffix: string
   excludedPaths: string
   excludedNamePrefixes: string
   excludedNameSuffixes: string
+  readTagNames: string[]
+  readTitlePrefixes: string
+  readTitleSuffixes: string
+  readPaths: string
+  wikiPageSuffix: string
 }
 
 export function useAnalyticsState(params: UseAnalyticsParams) {
@@ -239,8 +248,9 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const wikiApplyLoading = ref(false)
   const wikiError = ref('')
   const wikiPreview = ref<WikiPreviewState | null>(null)
-  const appliedAnalysisScope = ref(readAppliedAnalysisScopeConfig(params.config))
+  const appliedAnalysisConfig = ref(readAppliedAnalysisConfig(params.config))
   const timeRangeOptions = computed(() => buildTimeRangeOptions())
+  const appliedConfig = computed(() => buildAppliedAnalysisConfig(params.config, appliedAnalysisConfig.value))
   let disposeActiveDocumentSync: (() => void) | null = null
 
   const filters = computed<AnalyticsFilters>(() => ({
@@ -258,7 +268,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   })
   const themeDocuments = computed(() => collectThemeDocuments({
     documents: snapshot.value?.documents ?? [],
-    config: params.config,
+    config: appliedConfig.value,
     notebooks: snapshot.value?.notebooks,
   }))
   const themeDocumentIds = computed(() => new Set(themeDocuments.value.map(document => document.documentId)))
@@ -310,10 +320,10 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       now: analysisNow.value,
       timeRange: timeRange.value,
       filters: filters.value,
-      wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: appliedAnalysisScope.value.excludedPaths,
-      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
-      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
+      wikiPageSuffix: appliedConfig.value.wikiPageSuffix,
+      excludedPaths: appliedAnalysisConfig.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisConfig.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisConfig.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -327,10 +337,10 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       now: analysisNow.value,
       timeRange: 'all',
       filters: filters.value,
-      wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: appliedAnalysisScope.value.excludedPaths,
-      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
-      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
+      wikiPageSuffix: appliedConfig.value.wikiPageSuffix,
+      excludedPaths: appliedAnalysisConfig.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisConfig.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisConfig.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -351,10 +361,10 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       filters: filters.value,
       orphanSort: orphanSort.value,
       dormantDays: dormantDays.value,
-      wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: appliedAnalysisScope.value.excludedPaths,
-      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
-      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
+      wikiPageSuffix: appliedConfig.value.wikiPageSuffix,
+      excludedPaths: appliedAnalysisConfig.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisConfig.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisConfig.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -379,10 +389,10 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       days: trendDays.value,
       timeRange: timeRange.value,
       filters: filters.value,
-      wikiPageSuffix: params.config.wikiPageSuffix,
-      excludedPaths: appliedAnalysisScope.value.excludedPaths,
-      excludedNamePrefixes: appliedAnalysisScope.value.excludedNamePrefixes,
-      excludedNameSuffixes: appliedAnalysisScope.value.excludedNameSuffixes,
+      wikiPageSuffix: appliedConfig.value.wikiPageSuffix,
+      excludedPaths: appliedAnalysisConfig.value.excludedPaths,
+      excludedNamePrefixes: appliedAnalysisConfig.value.excludedNamePrefixes,
+      excludedNameSuffixes: appliedAnalysisConfig.value.excludedNameSuffixes,
       notebooks: snapshot.value.notebooks,
     })
   })
@@ -415,7 +425,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
     const readMatches = collectReadMatches({
       documents: filteredDocuments.value,
       notebooks: snapshot.value?.notebooks,
-      config: params.config,
+      config: appliedConfig.value,
     })
     return buildSummaryCards({
       report: report.value,
@@ -454,7 +464,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       filters: filters.value,
       themeDocumentIds: themeDocumentIds.value,
       dormantDays: dormantDays.value,
-      config: buildAppliedAnalysisConfig(params.config, appliedAnalysisScope.value),
+      config: appliedConfig.value,
       readCardMode: readCardMode.value,
       largeDocumentMetrics: largeDocumentMetrics.value,
       largeDocumentCardMode: largeDocumentCardMode.value,
@@ -715,12 +725,12 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       const nextLargeDocumentMetrics = nextSnapshot
         ? await loadLargeDocumentMetricsFn(nextSnapshot.documents)
         : new Map()
-      const nextAppliedAnalysisScope = readAppliedAnalysisScopeConfig(params.config)
+      const nextAppliedAnalysisConfig = readAppliedAnalysisConfig(params.config)
       snapshot.value = nextSnapshot
       largeDocumentMetrics.value = snapshot.value
         ? nextLargeDocumentMetrics
         : new Map()
-      appliedAnalysisScope.value = nextAppliedAnalysisScope
+      appliedAnalysisConfig.value = nextAppliedAnalysisConfig
       resetTransientAsyncState()
     } catch (error) {
       const message = error instanceof Error ? error.message : t('analytics.controller.failedToReadSiYuanData')
@@ -886,7 +896,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       })
       const scope = buildWikiScope({
         documents: scopedDocuments,
-        config: params.config,
+        config: appliedConfig.value,
         notebooks: snapshot.value.notebooks,
         themeDocuments: themeDocuments.value,
       })
@@ -898,12 +908,12 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
       })
       const sourceSummaryMap = await buildWikiSourceSummaryMap({
         sourceDocuments: scope.sourceDocuments,
-        config: params.config,
+        config: appliedConfig.value,
         aiIndexStore,
         generatedAt,
       })
       const payloads = buildWikiGenerationPayloads({
-        config: params.config,
+        config: appliedConfig.value,
         scope,
         report: report.value,
         trends: trends.value,
@@ -921,14 +931,14 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
         }
 
         const llmOutput = await aiWikiService.generateThemeSections({
-          config: params.config,
+          config: appliedConfig.value,
           payload,
         })
         const draft = renderThemeWikiDraft({
           pageTitle: payload.pageTitle,
           pairedThemeTitle: payload.themeDocumentTitle,
           generatedAt,
-          model: params.config.aiModel?.trim() || 'unknown',
+          model: appliedConfig.value.aiModel?.trim() || 'unknown',
           sourceDocumentCount: payload.sourceDocuments.length,
           llmOutput: llmOutput as any,
         })
@@ -1037,11 +1047,11 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
 
       const result = await applyWikiDocuments({
         config: {
-          themeNotebookId: params.config.themeNotebookId,
-          themeDocumentPath: params.config.themeDocumentPath,
-          wikiIndexTitle: params.config.wikiIndexTitle ?? 'LLM-Wiki-Index',
-          wikiLogTitle: params.config.wikiLogTitle ?? 'LLM-Wiki-Maintenance-Log',
-          wikiPageSuffix: params.config.wikiPageSuffix ?? '-llm-wiki',
+          themeNotebookId: appliedConfig.value.themeNotebookId,
+          themeDocumentPath: appliedConfig.value.themeDocumentPath,
+          wikiIndexTitle: appliedConfig.value.wikiIndexTitle ?? 'LLM-Wiki-Index',
+          wikiLogTitle: appliedConfig.value.wikiLogTitle ?? 'LLM-Wiki-Maintenance-Log',
+          wikiPageSuffix: appliedConfig.value.wikiPageSuffix ?? '-llm-wiki',
         },
         notebooks: snapshot.value?.notebooks,
         generatedAt: new Date().toISOString(),
@@ -1216,22 +1226,40 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   }
 }
 
-function readAppliedAnalysisScopeConfig(config: PluginConfig): AppliedAnalysisScopeConfig {
+function readAppliedAnalysisConfig(config: PluginConfig): AppliedAnalysisConfig {
   return {
+    themeNotebookId: config.themeNotebookId ?? '',
+    themeDocumentPath: config.themeDocumentPath ?? '',
+    themeNamePrefix: config.themeNamePrefix ?? '',
+    themeNameSuffix: config.themeNameSuffix ?? '',
     excludedPaths: config.analysisExcludedPaths ?? '',
     excludedNamePrefixes: config.analysisExcludedNamePrefixes ?? '',
     excludedNameSuffixes: config.analysisExcludedNameSuffixes ?? '',
+    readTagNames: Array.isArray(config.readTagNames) ? [...config.readTagNames] : [],
+    readTitlePrefixes: config.readTitlePrefixes ?? '',
+    readTitleSuffixes: config.readTitleSuffixes ?? '',
+    readPaths: config.readPaths ?? '',
+    wikiPageSuffix: config.wikiPageSuffix ?? '',
   }
 }
 
 function buildAppliedAnalysisConfig(
   config: PluginConfig,
-  appliedAnalysisScope: AppliedAnalysisScopeConfig,
+  appliedAnalysisConfig: AppliedAnalysisConfig,
 ): PluginConfig {
   return {
     ...config,
-    analysisExcludedPaths: appliedAnalysisScope.excludedPaths,
-    analysisExcludedNamePrefixes: appliedAnalysisScope.excludedNamePrefixes,
-    analysisExcludedNameSuffixes: appliedAnalysisScope.excludedNameSuffixes,
+    themeNotebookId: appliedAnalysisConfig.themeNotebookId,
+    themeDocumentPath: appliedAnalysisConfig.themeDocumentPath,
+    themeNamePrefix: appliedAnalysisConfig.themeNamePrefix,
+    themeNameSuffix: appliedAnalysisConfig.themeNameSuffix,
+    analysisExcludedPaths: appliedAnalysisConfig.excludedPaths,
+    analysisExcludedNamePrefixes: appliedAnalysisConfig.excludedNamePrefixes,
+    analysisExcludedNameSuffixes: appliedAnalysisConfig.excludedNameSuffixes,
+    readTagNames: [...appliedAnalysisConfig.readTagNames],
+    readTitlePrefixes: appliedAnalysisConfig.readTitlePrefixes,
+    readTitleSuffixes: appliedAnalysisConfig.readTitleSuffixes,
+    readPaths: appliedAnalysisConfig.readPaths,
+    wikiPageSuffix: appliedAnalysisConfig.wikiPageSuffix,
   }
 }
