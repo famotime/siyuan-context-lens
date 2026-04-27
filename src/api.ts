@@ -6,6 +6,7 @@
  * API 文档见 [API_zh_CN.md](https://github.com/siyuan-note/siyuan/blob/master/API_zh_CN.md)
  */
 
+import { parseFileApiResponse } from "./file-api-response";
 import { fetchSyncPost, IWebSocketData } from "siyuan";
 
 async function request(url: string, data: any) {
@@ -356,8 +357,14 @@ export async function getFile(path: string): Promise<any> {
   };
   let url = "/api/file/getFile";
   try {
-    let file = await fetchSyncPost(url, data);
-    return file;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+    return await parseFileApiResponse(response);
   } catch (error_msg) {
     return null;
   }
