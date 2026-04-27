@@ -25,6 +25,7 @@ import {
   type NormalizedDocument,
   type NormalizedReference,
 } from './analysis-context'
+import { t } from '@/i18n/ui'
 
 export type TimeRange = '3d' | '7d' | '30d' | '60d' | '90d' | 'all'
 
@@ -902,7 +903,10 @@ function buildSuggestions(
       type: 'promote-hub',
       documentId: item.documentId,
       title: item.title,
-      reason: `Referenced by ${item.distinctSourceDocuments} docs, ${item.inboundReferences} refs in total`,
+      reason: t('analytics.summaryDetailSource.promoteHubReason', {
+        docs: item.distinctSourceDocuments,
+        refs: item.inboundReferences,
+      }),
     })
   }
 
@@ -912,8 +916,10 @@ function buildSuggestions(
       documentId: item.documentId,
       title: item.title,
       reason: item.hasSparseEvidence
-        ? `No doc-level links in the current window, but ${item.historicalReferenceCount} historical reference traces still exist`
-        : 'No doc-level links in the current window',
+        ? t('analytics.summaryDetailSource.repairOrphanHistoricalReason', {
+            count: item.historicalReferenceCount,
+          })
+        : t('analytics.summaryDetailSource.repairOrphanReason'),
     })
   }
 
@@ -922,7 +928,9 @@ function buildSuggestions(
       type: 'archive-dormant',
       documentId: item.documentId,
       title: item.title,
-      reason: `No valid links for ${item.inactivityDays} days. Good candidate for archiving or index repair`,
+      reason: t('analytics.summaryDetailSource.archiveDormantReason', {
+        days: item.inactivityDays,
+      }),
     })
   }
 
@@ -931,7 +939,9 @@ function buildSuggestions(
       type: 'maintain-bridge',
       documentId: item.documentId,
       title: item.title,
-      reason: `Connects ${item.degree} relationships. Removing it would break cluster connectivity`,
+      reason: t('analytics.summaryDetailSource.maintainBridgeReason', {
+        count: item.degree,
+      }),
     })
   }
 

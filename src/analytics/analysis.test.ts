@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   analyzeReferenceGraph,
@@ -34,6 +34,10 @@ const references = [
 ] as const
 
 describe('analyzeReferenceGraph', () => {
+  afterEach(() => {
+    delete (globalThis as any).siyuan
+  })
+
   it('exposes supported time range options', () => {
     expect(TIME_RANGE_OPTIONS).toEqual(['all', '3d', '7d', '30d', '60d', '90d'])
   })
@@ -312,6 +316,29 @@ describe('analyzeReferenceGraph', () => {
     expect(report.orphans.map(document => document.documentId)).toEqual(['doc-a', 'doc-b', 'doc-c', 'doc-d'])
 
     expect(report.summary.sparseEvidenceCount).toBe(3)
+  })
+
+  it('localizes orphan suggestion reasons to Chinese when the workspace locale is zh_CN', () => {
+    ;(globalThis as any).siyuan = {
+      config: {
+        lang: 'zh_CN',
+      },
+    }
+
+    const report = analyzeReferenceGraph({
+      documents: [...documents],
+      references: [...references],
+      now,
+      timeRange: 'all',
+    })
+
+    expect(report.suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        type: 'repair-orphan',
+        documentId: 'doc-d',
+        reason: '当前窗口内没有有效的文档级连接',
+      }),
+    ]))
   })
 
   it('deduplicates inbound and outbound counts by document pairs', () => {

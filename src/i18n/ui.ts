@@ -1876,6 +1876,18 @@ const UI_TEXT = {
         en_US: 'Docs with no valid doc-level links in the current window.',
         zh_CN: '当前窗口内没有有效文档级连接的文档。',
       },
+      promoteHubReason: {
+        en_US: 'Referenced by {docs} docs, {refs} refs in total',
+        zh_CN: '被 {docs} 篇文档引用，共 {refs} 条引用',
+      },
+      repairOrphanReason: {
+        en_US: 'No doc-level links in the current window',
+        zh_CN: '当前窗口内没有有效的文档级连接',
+      },
+      repairOrphanHistoricalReason: {
+        en_US: 'No doc-level links in the current window, but {count} historical reference traces still exist',
+        zh_CN: '当前窗口内没有有效的文档级连接，但仍保留 {count} 条历史连接证据',
+      },
       updatedCreated: {
         en_US: 'Updated {updated} · Created {created}',
         zh_CN: '更新于 {updated} · 创建于 {created}',
@@ -1883,6 +1895,10 @@ const UI_TEXT = {
       dormantDescription: {
         en_US: 'No valid links for more than {days} days, with possible historical in/out links.',
         zh_CN: '超过 {days} 天没有有效连接，但可能存在历史入链或出链。',
+      },
+      archiveDormantReason: {
+        en_US: 'No valid links for {days} days. Good candidate for archiving or index repair',
+        zh_CN: '{days} 天没有有效连接，适合归档或补一个索引入口',
       },
       inactiveDaysLastLinked: {
         en_US: '{days} inactive days · Last linked {date}',
@@ -1895,6 +1911,10 @@ const UI_TEXT = {
       bridgeDescription: {
         en_US: 'Key docs whose removal weakens community connectivity.',
         zh_CN: '移除后会削弱社区连通性的关键文档。',
+      },
+      maintainBridgeReason: {
+        en_US: 'Connects {count} relationships. Removing it would break cluster connectivity',
+        zh_CN: '当前连接 {count} 条关系，移除后会破坏社区连通性',
       },
       degree: {
         en_US: 'Degree {value}',
