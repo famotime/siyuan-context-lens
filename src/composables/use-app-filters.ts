@@ -1,5 +1,6 @@
 import { computed, watch, type ComputedRef, type Ref } from 'vue'
 
+import type { OrphanSort } from '@/analytics/analysis'
 import type { SummaryCardItem, SummaryCardKey } from '@/analytics/summary-details'
 
 export function createAppFilterController(params: {
@@ -13,7 +14,7 @@ export function createAppFilterController(params: {
   isAlphaSummaryCardVisible: (key: SummaryCardKey) => boolean
   allNotebookLabel: string
   selectSummaryCard: (cardKey: SummaryCardKey) => void
-  orphanSort?: Ref<'updated-desc' | 'created-desc' | 'title-asc'>
+  orphanSort?: Ref<OrphanSort>
   dormantDays?: Ref<number>
   pathScope?: Ref<'focused' | 'all' | 'community'>
   maxPathDepth?: Ref<number>
@@ -59,7 +60,7 @@ export function createAppFilterController(params: {
     }
   }, { immediate: true })
 
-  function updateOrphanSort(value: 'updated-desc' | 'created-desc' | 'title-asc') {
+  function updateOrphanSort(value: OrphanSort) {
     if (params.orphanSort) {
       params.orphanSort.value = value
     }

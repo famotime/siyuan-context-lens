@@ -1,21 +1,5 @@
 <template>
   <div class="orphan-detail">
-    <div class="orphan-detail__controls">
-      <span>{{ t('orphanDetail.sortLabel') }}</span>
-      <select
-        class="orphan-detail__select"
-        :value="orphanSort"
-        @change="onSortChange"
-      >
-        <option value="updated-desc">{{ t('orphanDetail.sortUpdatedDesc') }}</option>
-        <option value="updated-asc">{{ t('orphanDetail.sortUpdatedAsc') }}</option>
-        <option value="created-desc">{{ t('orphanDetail.sortCreatedDesc') }}</option>
-        <option value="created-asc">{{ t('orphanDetail.sortCreatedAsc') }}</option>
-        <option value="title-asc">{{ t('orphanDetail.sortTitleAsc') }}</option>
-        <option value="title-desc">{{ t('orphanDetail.sortTitleDesc') }}</option>
-      </select>
-    </div>
-
     <div
       v-if="items.length"
       class="summary-detail-list"
@@ -204,8 +188,8 @@ import SuggestionCallout from './SuggestionCallout.vue'
 
 const props = defineProps<{
   items: Array<SummaryDetailItem & { themeSuggestions?: ThemeDocumentMatch[]; keywordSuggestions?: string[] }>
-  orphanSort: OrphanSort
-  onUpdateOrphanSort: (value: OrphanSort) => void
+  orphanSort?: OrphanSort
+  onUpdateOrphanSort?: (value: OrphanSort) => void
   openDocument: (documentId: string) => void
   onToggleThemeSuggestion: (documentId: string, themeDocumentId: string) => void
   isThemeSuggestionActive: (documentId: string, themeDocumentId: string) => boolean
@@ -220,11 +204,6 @@ const props = defineProps<{
   isItemCollapsed?: (documentId: string) => boolean
   toggleItemCollapse?: (documentId: string) => void
 }>()
-
-function onSortChange(event: Event) {
-  const value = (event.target as HTMLSelectElement).value as OrphanSort
-  props.onUpdateOrphanSort(value)
-}
 
 function buildSuggestionCalloutItems(item: SummaryDetailItem & { themeSuggestions?: ThemeDocumentMatch[] }): DetailSuggestion[] {
   const suggestions = item.suggestions ?? []

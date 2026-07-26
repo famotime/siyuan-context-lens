@@ -14,13 +14,11 @@ describe('OrphanDetailPanel', () => {
     const source = await readFile(new URL('./OrphanDetailPanel.vue', import.meta.url), 'utf8')
 
     expect(source).toContain("import { t } from '@/i18n/ui'")
-    expect(source).toContain("{{ t('orphanDetail.sortLabel') }}")
-    expect(source).toContain("{{ t('orphanDetail.sortUpdatedDesc') }}")
     expect(source).toContain("{{ t('orphanDetail.empty') }}")
     expect(source).not.toContain('uiText(')
   })
 
-  it('renders orphan sort control and items', async () => {
+  it('renders items and action callouts', async () => {
     const app = createSSRApp({
       render: () => h(OrphanDetailPanel, {
         items: [
@@ -62,8 +60,6 @@ describe('OrphanDetailPanel', () => {
 
     const html = await renderToString(app)
 
-    expect(html).toContain('Orphan sort')
-    expect(html).toContain('By updated time')
     expect(html).toContain('Alpha')
     expect(html).toContain('Topic doc')
     expect(html).toContain('补齐链接')
@@ -169,8 +165,7 @@ describe('OrphanDetailPanel', () => {
 
     const html = await renderToString(app)
 
-    expect(html).toContain('孤立排序')
-    expect(html).toContain('按更新时间')
+    expect(html).not.toContain('orphan-detail__controls')
     expect(html).toContain('当前卡片下暂无文档。')
     expect(html).not.toContain('No docs to show under this card.')
   })

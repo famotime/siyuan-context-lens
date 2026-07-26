@@ -910,4 +910,59 @@ describe('SummaryDetailSection', () => {
     expect((html.match(/ai-suggestion-panel__action-pill/g) ?? []).length).toBeGreaterThanOrEqual(2)
     expect((html.match(/ai-suggestion-panel__action-pill--active/g) ?? [])).toHaveLength(1)
   })
+
+  it('uses generic document sort control for orphan detail section', async () => {
+    const app = createSSRApp({
+      render: () => h(SummaryDetailSection, {
+        ...baseProps,
+        orphanDetailItems: [
+          {
+            documentId: 'doc-1',
+            title: 'Orphan Document 1',
+            meta: 'Updated today',
+            isThemeDocument: false,
+            createdAt: '2026-04-01T00:00:00.000Z',
+            updatedAt: '2026-04-01T00:00:00.000Z',
+          },
+          {
+            documentId: 'doc-2',
+            title: 'Orphan Document 2',
+            meta: 'Updated yesterday',
+            isThemeDocument: false,
+            createdAt: '2026-03-31T00:00:00.000Z',
+            updatedAt: '2026-03-31T00:00:00.000Z',
+          },
+        ],
+        detail: {
+          key: 'orphans',
+          title: 'Orphan Documents',
+          description: 'Documents with no valid links',
+          kind: 'list',
+          items: [
+            {
+              documentId: 'doc-1',
+              title: 'Orphan Document 1',
+              meta: 'Updated today',
+              isThemeDocument: false,
+              createdAt: '2026-04-01T00:00:00.000Z',
+              updatedAt: '2026-04-01T00:00:00.000Z',
+            },
+            {
+              documentId: 'doc-2',
+              title: 'Orphan Document 2',
+              meta: 'Updated yesterday',
+              isThemeDocument: false,
+              createdAt: '2026-03-31T00:00:00.000Z',
+              updatedAt: '2026-03-31T00:00:00.000Z',
+            },
+          ],
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('summary-detail-sort')
+    expect(html).not.toContain('orphan-detail__controls')
+  })
 })

@@ -45,7 +45,7 @@
       <p class="panel-header__description">{{ detail.description }}</p>
       <DocumentSortControl
         v-if="showGenericDocumentSort && isExpanded"
-        v-model="documentSort"
+        v-model="activeDocumentSort"
       />
       <div
         v-if="detail.kind === 'aiInbox' && isExpanded"
@@ -944,6 +944,22 @@ const summaryCountLabel = computed(() => props.detail.kind === 'aiInbox'
 
 const documentSort = ref<DocumentSortMode>('updated-desc')
 
+const activeDocumentSort = computed<DocumentSortMode>({
+  get() {
+    if (props.detail.key === 'orphans') {
+      return props.orphanSort
+    }
+    return documentSort.value
+  },
+  set(val) {
+    if (props.detail.key === 'orphans') {
+      props.onUpdateOrphanSort(val as OrphanSort)
+    } else {
+      documentSort.value = val
+    }
+  },
+})
+
 const listItems = computed<DetailItemWithThemeSuggestions[]>(() => {
   if (props.detail.kind !== 'list') {
     return []
@@ -963,6 +979,12 @@ const listItems = computed<DetailItemWithThemeSuggestions[]>(() => {
 })
 
 const sortableDocumentCount = computed(() => {
+  if (props.detail.key === 'orphans') {
+    return props.orphanDetailItems.length
+  }
+  if (props.detail.key === 'dormant') {
+    return 0
+  }
   if (props.detail.kind === 'list') {
     return listItems.value.length
   }

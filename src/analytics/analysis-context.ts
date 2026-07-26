@@ -417,11 +417,20 @@ export function diffDays(now: Date, timestamp: string): number {
 
 export function sortOrphans(orphans: OrphanItem[], sort: OrphanSort = 'updated-desc'): OrphanItem[] {
   return [...orphans].sort((left, right) => {
+    if (sort === 'updated-asc') {
+      return compareTimestamp(left.updatedAt, right.updatedAt) || left.documentId.localeCompare(right.documentId)
+    }
     if (sort === 'created-desc') {
       return compareTimestamp(right.createdAt, left.createdAt) || left.documentId.localeCompare(right.documentId)
     }
+    if (sort === 'created-asc') {
+      return compareTimestamp(left.createdAt, right.createdAt) || left.documentId.localeCompare(right.documentId)
+    }
     if (sort === 'title-asc') {
       return left.title.localeCompare(right.title, 'zh-CN') || left.documentId.localeCompare(right.documentId)
+    }
+    if (sort === 'title-desc') {
+      return right.title.localeCompare(left.title, 'zh-CN') || left.documentId.localeCompare(right.documentId)
     }
     return compareTimestamp(right.updatedAt, left.updatedAt) || left.documentId.localeCompare(right.documentId)
   })

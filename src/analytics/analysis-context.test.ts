@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildGraphAnalysisContext,
   buildTrendAnalysisContext,
+  sortOrphans,
 } from './analysis-context'
 
 const now = new Date('2026-03-11T00:00:00Z')
@@ -115,5 +116,43 @@ describe('timeFilterByCreated / timeFilterByUpdated', () => {
     expect(ids).toContain('doc-created-recent')
     expect(ids).toContain('doc-updated-recent')
     expect(ids).not.toContain('doc-old')
+  })
+})
+
+describe('sortOrphans', () => {
+  const orphans = [
+    { documentId: 'doc-a', title: 'Banana', createdAt: '20260101000000', updatedAt: '20260310000000', historicalReferenceCount: 0, hasSparseEvidence: false },
+    { documentId: 'doc-b', title: 'Apple', createdAt: '20260201000000', updatedAt: '20260210000000', historicalReferenceCount: 0, hasSparseEvidence: false },
+    { documentId: 'doc-c', title: 'Cherry', createdAt: '20260115000000', updatedAt: '20260410000000', historicalReferenceCount: 0, hasSparseEvidence: false },
+  ]
+
+  it('sorts by updated-desc (default)', () => {
+    const sorted = sortOrphans(orphans, 'updated-desc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-c', 'doc-a', 'doc-b'])
+  })
+
+  it('sorts by updated-asc', () => {
+    const sorted = sortOrphans(orphans, 'updated-asc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-b', 'doc-a', 'doc-c'])
+  })
+
+  it('sorts by created-desc', () => {
+    const sorted = sortOrphans(orphans, 'created-desc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-b', 'doc-c', 'doc-a'])
+  })
+
+  it('sorts by created-asc', () => {
+    const sorted = sortOrphans(orphans, 'created-asc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-a', 'doc-c', 'doc-b'])
+  })
+
+  it('sorts by title-asc', () => {
+    const sorted = sortOrphans(orphans, 'title-asc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-b', 'doc-a', 'doc-c'])
+  })
+
+  it('sorts by title-desc', () => {
+    const sorted = sortOrphans(orphans, 'title-desc')
+    expect(sorted.map(item => item.documentId)).toEqual(['doc-c', 'doc-a', 'doc-b'])
   })
 })
