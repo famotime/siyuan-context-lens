@@ -137,7 +137,7 @@ export function createAiLinkSuggestionService(deps: {
           title: resolveNormalizedDocumentTitle(normalizedSourceDocument, params.config),
           hpath: normalizedSourceDocument.hpath,
           tags: normalizeTags(params.sourceDocument.tags),
-          contentPreview: extractContentPreview(params.sourceDocument.content),
+          contentPreview: extractContentPreview(params.sourceDocument.content) || resolveNormalizedDocumentTitle(normalizedSourceDocument, params.config) || normalizedSourceDocument.hpath || '',
           historicalReferenceCount: params.orphan.historicalReferenceCount,
           hasSparseEvidence: params.orphan.hasSparseEvidence,
         },
@@ -473,7 +473,14 @@ function normalizeSuggestionResult(payload: any, logger = createPluginLogger(() 
         ? Object.keys(rawSuggestions[0])
         : [],
     })
-    throw new Error(t('analytics.aiLink.invalidSuggestions'))
+    return {
+      generatedAt: new Date().toISOString(),
+      summary: typeof payload?.summary === 'string' && payload.summary.trim()
+        ? payload.summary.trim()
+        : t('analytics.aiLink.generatedForCurrentOrphan'),
+      suggestions: [],
+      tagSuggestions: [],
+    }
   }
 
   const defaultSummary = !suggestions.length && hasAnyTagSuggestions

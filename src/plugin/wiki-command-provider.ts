@@ -19,7 +19,7 @@ import {
   setBlockAttrs,
   updateBlock,
 } from '@/api'
-import { loadAnalyticsSnapshot } from '@/analytics/siyuan-data'
+import { fetchDocumentRecordById, loadAnalyticsSnapshot } from '@/analytics/siyuan-data'
 import { analyzeReferenceGraph, analyzeTrends } from '@/analytics/analysis'
 import type { DocumentRecord } from '@/analytics/analysis'
 import { collectThemeDocuments } from '@/analytics/theme-documents'
@@ -128,7 +128,10 @@ async function invokeOrphanLinkAndTagSuggestions(
       timeFilterByCreated: config.analysisTimeFilterByCreated,
       timeFilterByUpdated: config.analysisTimeFilterByUpdated,
     })
-    const sourceDocument = snapshot.documents.find(document => document.id === documentId)
+    let sourceDocument = snapshot.documents.find(document => document.id === documentId)
+    if (!sourceDocument) {
+      sourceDocument = (await fetchDocumentRecordById(documentId)) ?? undefined
+    }
     if (!sourceDocument) {
       return { ok: false, errorCode: 'execution-failed', message: `未找到文档：${documentId}` }
     }

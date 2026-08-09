@@ -77,3 +77,29 @@ export async function loadAnalyticsSnapshot(): Promise<AnalyticsSnapshot> {
     fetchedAt: formatCurrentSiyuanTimestamp(),
   }
 }
+
+export async function fetchDocumentRecordById(documentId: string): Promise<DocumentRecord | null> {
+  if (!documentId) {
+    return null
+  }
+  const safeId = documentId.replace(/'/g, "''")
+  const query = `SELECT id, box, path, hpath, title, name, alias, content, tag, created, updated FROM blocks WHERE id = '${safeId}' AND type = 'd' LIMIT 1`
+  const rows = await sql(query) as DocumentRow[]
+  const row = rows?.[0]
+  if (!row) {
+    return null
+  }
+  return {
+    id: row.id,
+    box: row.box,
+    path: row.path,
+    hpath: row.hpath,
+    title: row.title,
+    name: row.name ?? '',
+    alias: row.alias ?? '',
+    content: row.content ?? '',
+    tags: normalizeTags(row.tag),
+    created: row.created,
+    updated: row.updated,
+  }
+}
