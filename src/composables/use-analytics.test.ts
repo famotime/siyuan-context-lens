@@ -87,6 +87,7 @@ describe('useAnalyticsState', () => {
     await nextTick()
 
     expect(state.snapshotLabel.value).toBe('03/12, 12:00 AM')
+    expect(state.selectedSummaryCardKey.value).toBe('read')
 
     delete (globalThis as typeof globalThis & { siyuan?: unknown }).siyuan
   })

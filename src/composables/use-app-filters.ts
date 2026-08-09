@@ -56,7 +56,8 @@ export function createAppFilterController(params: {
       return
     }
     if (!cards.some(card => card.key === params.selectedSummaryCardKey.value)) {
-      params.selectSummaryCard(cards[0].key)
+      const defaultKey = cards.some(card => card.key === 'read') ? 'read' : cards[0].key
+      params.selectSummaryCard(defaultKey)
     }
   }, { immediate: true })
 

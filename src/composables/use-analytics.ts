@@ -231,7 +231,7 @@ export function useAnalyticsState(params: UseAnalyticsParams) {
   const selectedCommunityId = ref('')
   const pathScope = ref<PathScope>('focused')
   const maxPathDepth = ref(6)
-  const selectedSummaryCardKey = ref<SummaryCardKey>('documents')
+  const selectedSummaryCardKey = ref<SummaryCardKey>('read')
   const readCardMode = ref<ReadCardMode>('unread')
   const largeDocumentCardMode = ref<LargeDocumentCardMode>('words')
   const summaryCardOrder = ref<SummaryCardKey[]>(normalizeSummaryCardOrder(params.config.summaryCardOrder))

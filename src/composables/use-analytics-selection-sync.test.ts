@@ -118,6 +118,11 @@ describe('use-analytics-selection-sync helpers', () => {
 
   it('repairs selected summary card key and persisted summary card order only when needed', () => {
     expect(resolveSelectedSummaryCardKey({
+      cards: [{ key: 'read' }, { key: 'ranking' }] as any,
+      currentSelectedSummaryCardKey: 'orphans' as any,
+    })).toBe('read')
+
+    expect(resolveSelectedSummaryCardKey({
       cards: [{ key: 'documents' }, { key: 'ranking' }] as any,
       currentSelectedSummaryCardKey: 'orphans' as any,
     })).toBe('documents')

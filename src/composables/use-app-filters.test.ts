@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createAppFilterController } from './use-app-filters'
 
 describe('createAppFilterController', () => {
-  it('filters visible summary cards by config and alpha visibility, and falls back to the first visible key', () => {
+  it('filters visible summary cards by config and alpha visibility, preferring read card as fallback when current key is invalid', () => {
     const selectedSummaryCardKey = ref('trends')
     const selectSummaryCard = vi.fn((key: string) => {
       selectedSummaryCardKey.value = key as any
@@ -13,6 +13,7 @@ describe('createAppFilterController', () => {
     const controller = createAppFilterController({
       config: {
         showSummaryCards: true,
+        showRead: true,
         showDocuments: true,
         showReferences: false,
       } as any,
@@ -21,6 +22,7 @@ describe('createAppFilterController', () => {
       tagOptions: computed(() => []),
       summaryCards: computed(() => [
         { key: 'documents', label: '文档样本', value: '8' },
+        { key: 'read', label: '未读文档', value: '3' },
         { key: 'references', label: '引用关系', value: '5' },
       ] as any),
       selectedSummaryCardKey,
@@ -30,9 +32,9 @@ describe('createAppFilterController', () => {
       selectSummaryCard,
     })
 
-    expect(controller.visibleSummaryCards.value.map(card => card.key)).toEqual(['documents'])
-    expect(selectSummaryCard).toHaveBeenCalledWith('documents')
-    expect(selectedSummaryCardKey.value).toBe('documents')
+    expect(controller.visibleSummaryCards.value.map(card => card.key)).toEqual(['documents', 'read'])
+    expect(selectSummaryCard).toHaveBeenCalledWith('read')
+    expect(selectedSummaryCardKey.value).toBe('read')
   })
 
   it('builds filter option lists and exposes field setters as thin wrappers', () => {

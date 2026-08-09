@@ -116,14 +116,22 @@ export function normalizePathScopeForCommunity(scope: PathScope, hasSelectedComm
 export function resolveSelectedSummaryCardKey(params: {
   cards: readonly SummaryCardItem[]
   currentSelectedSummaryCardKey: SummaryCardKey
+  preferredDefaultKey?: SummaryCardKey
 }): SummaryCardKey {
   if (params.cards.length === 0) {
     return params.currentSelectedSummaryCardKey
   }
 
-  return params.cards.some(card => card.key === params.currentSelectedSummaryCardKey)
-    ? params.currentSelectedSummaryCardKey
-    : params.cards[0].key
+  if (params.cards.some(card => card.key === params.currentSelectedSummaryCardKey)) {
+    return params.currentSelectedSummaryCardKey
+  }
+
+  const preferredKey = params.preferredDefaultKey ?? 'read'
+  if (params.cards.some(card => card.key === preferredKey)) {
+    return preferredKey
+  }
+
+  return params.cards[0].key
 }
 
 export function resolveSummaryCardOrderSync(params: {
