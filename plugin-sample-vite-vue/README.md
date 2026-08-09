@@ -9,6 +9,21 @@
 3. Provides a github action template to automatically generate package.zip and upload to new release
 4. Provides a script to auto create tag and release. [link](#release-script)
 
+## Compatibility baseline
+
+- SiYuan: `3.7.3` or later
+- Plugin type package: `siyuan@1.2.3`
+- Locale keys in `plugin.json`: RFC 5646 (`en-US`, `zh-CN`)
+- This is a frontend-only sample. It does **not** build `kernel.js` and therefore does not declare `kernels`.
+
+SiYuan 3.7.x adds kernel plugins, secrets and variables, AI agent actions, `Protyle.switchMode`, and more AV APIs. Use the published `siyuan` package for types instead of adding local module declarations for these APIs.
+
+References:
+
+- [Official kernel API](https://github.com/siyuan-note/siyuan/blob/master/docs/API.md)
+- [Official plugin sample](https://github.com/siyuan-note/plugin-sample)
+- [Petal / plugin type definitions](https://github.com/siyuan-note/petal)
+
 > [!NOTE]
 >
 > Before your start, you need install [NodeJS](https://nodejs.org/en/download) and [pnpm](https://pnpm.io/installation) first.

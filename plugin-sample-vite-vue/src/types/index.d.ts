@@ -139,3 +139,8 @@ enum SyFrontendTypes {
   // 浏览器 - 移动端
   'browser-mobile' = 'browser-mobile',
 }
+
+/**
+ * Plugin.getSecret/getVariable/addAgentAction 已由 siyuan@1.2.3 正式声明。
+ * 请直接使用官方类型，避免通过模块增强重复声明或把 App 弱化为 any。
+ */

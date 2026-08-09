@@ -122,6 +122,7 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
       if (shared) {
         if (!this.isManaged) {
           this.localAiConfigBackup = {
+            aiProviderPreset: this.config.aiProviderPreset || 'custom',
             aiBaseUrl: this.config.aiBaseUrl,
             aiApiKey: this.config.aiApiKey,
             aiModel: this.config.aiModel,
@@ -132,6 +133,8 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
           this.isManaged = true
         }
 
+        const normalizedPreset = (['siliconflow', 'openai', 'gemini'].includes(shared.provider) ? shared.provider : 'custom') as any
+        this.config.aiProviderPreset = normalizedPreset
         this.config.aiBaseUrl = shared.baseUrl
         this.config.aiApiKey = shared.apiKey
         this.config.aiModel = shared.model
@@ -142,6 +145,7 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
         this.config.aiManagedProfileName = shared.profileName
       } else {
         if (this.isManaged && this.localAiConfigBackup) {
+          this.config.aiProviderPreset = this.localAiConfigBackup.aiProviderPreset || 'custom'
           this.config.aiBaseUrl = this.localAiConfigBackup.aiBaseUrl
           this.config.aiApiKey = this.localAiConfigBackup.aiApiKey
           this.config.aiModel = this.localAiConfigBackup.aiModel

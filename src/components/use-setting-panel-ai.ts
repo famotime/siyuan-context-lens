@@ -76,6 +76,16 @@ export function useSettingPanelAi(config: PluginConfig) {
     error: siliconFlowModelCatalogError.value,
   }))
   watch(
+    () => config.aiProviderPreset,
+    (newPreset) => {
+      if (newPreset && newPreset !== selectedAiProviderPreset.value) {
+        selectedAiProviderPreset.value = newPreset
+      }
+    },
+    { immediate: true },
+  )
+
+  watch(
     [
       () => selectedAiProviderPreset.value,
       () => config.aiBaseUrl ?? '',
@@ -87,7 +97,9 @@ export function useSettingPanelAi(config: PluginConfig) {
       () => config.aiMaxContextMessages,
     ],
     ([provider]) => {
-      syncAiProviderConfigSnapshot(config, provider)
+      if (!config.isAiManaged) {
+        syncAiProviderConfigSnapshot(config, provider)
+      }
     },
     { immediate: true },
   )

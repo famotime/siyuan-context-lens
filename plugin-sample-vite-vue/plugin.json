@@ -3,7 +3,7 @@
   "author": "wetoria",
   "url": "https://github.com/Wetoria/plugin-sample-vite-vue",
   "version": "0.0.1",
-  "minAppVersion": "2.10.14",
+  "minAppVersion": "3.7.3",
   "disabledInPublish": true,
   "backends": [
     "all"
@@ -13,18 +13,18 @@
   ],
   "displayName": {
     "default": "plugin-sample-vite-vue",
-    "en_US": "plugin-sample-vite-vue",
-    "zh_CN": "plugin-sample-vite-vue"
+    "en-US": "plugin-sample-vite-vue",
+    "zh-CN": "plugin-sample-vite-vue"
   },
   "description": {
     "default": "plugin-sample-vite-vue",
-    "en_US": "plugin-sample-vite-vue",
-    "zh_CN": "plugin-sample-vite-vue"
+    "en-US": "plugin-sample-vite-vue",
+    "zh-CN": "plugin-sample-vite-vue"
   },
   "readme": {
     "default": "README.md",
-    "en_US": "README.md",
-    "zh_CN": "README_zh_CN.md"
+    "en-US": "README.md",
+    "zh-CN": "README_zh_CN.md"
   },
   "funding": {
     "custom": []

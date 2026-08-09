@@ -136,9 +136,6 @@
       </button>
       <div id="setting-section-aiSettings" v-show="isSectionExpanded('aiSettings')">
       <div class="setting-form">
-        <div v-if="config.isAiManaged" class="setting-managed-tip" style="grid-column: 1 / -1; padding: 10px 12px; background: rgba(63, 81, 181, 0.08); border: 1px solid rgba(63, 81, 181, 0.2); border-radius: 6px; font-size: 12px; line-height: 1.5; color: var(--b3-theme-on-background); margin-bottom: 8px;">
-          💡 通用 AI API 已由 <strong>API 管家</strong> 接管 (Profile: {{ config.aiManagedProfileName || '未命名' }})。如需修改，请前往 API 管家插件面板。
-        </div>
         <label v-if="showAiServiceSettings" class="setting-item setting-item--full">
           <span class="setting-item__text">
             <strong>{{ t('settings.ai.enableTodaySuggestions') }}</strong>
@@ -185,6 +182,9 @@
             type="text"
           >
         </label>
+        <div v-if="config.isAiManaged" class="setting-managed-tip" style="grid-column: 1 / -1; padding: 10px 12px; background: rgba(63, 81, 181, 0.08); border: 1px solid rgba(63, 81, 181, 0.2); border-radius: 6px; font-size: 12px; line-height: 1.5; color: var(--b3-theme-on-background); margin-top: 4px; margin-bottom: 8px;">
+          💡 通用 AI API 已由 <strong>API 旋钮 (siyuan-api-switch)</strong> 接管 (Profile: {{ config.aiManagedProfileName || '未命名' }})。相关输入框已置灰只读，如需修改请前往 API 旋钮面板。
+        </div>
         <div v-if="showAiServiceSettings" class="setting-field setting-field--full">
           <span>{{ t('settings.ai.provider') }}</span>
           <div class="setting-field__inline">

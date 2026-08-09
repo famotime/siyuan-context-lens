@@ -9,6 +9,22 @@
 3. 提供一个github action 模板，能自动生成package.zip并上传到新版本中
 4. 提供自动更新 `plugin.json` 中的 `version` 并发布新版本的脚本。[link](#release-script)
 
+## 兼容性基线
+
+- 思源版本：`3.7.3` 或更高版本
+- 插件类型包：`siyuan@1.2.3`
+- `plugin.json` 多语言键：RFC 5646（`en-US`、`zh-CN`）
+- 本目录仍是纯前端插件示例，不构建 `kernel.js`，因此不声明 `kernels`。
+
+SiYuan 3.7.x 新增了内核插件、密钥与变量、AI 智能体动作、`Protyle.switchMode` 和更多 AV API。上述能力已经由正式 `siyuan` 类型包声明，不要再通过本地模块增强重复补齐。
+
+参考资料：
+
+- [官方内核 API](https://github.com/siyuan-note/siyuan/blob/master/docs/API.zh-CN.md)
+- [官方插件示例](https://github.com/siyuan-note/plugin-sample)
+- [Petal / 插件类型定义](https://github.com/siyuan-note/petal)
+- [本项目 v3.7.3 迁移指南](../developer_docs/00-version/SiYuan-v3.7.3开发进展与API迁移指南.md)
+
 > [!NOTE]
 >
 > 在开始之前，你需要先安装 [NodeJS](https://nodejs.org/en/download) 和 [pnpm](https://pnpm.io/installation)。
