@@ -114,6 +114,7 @@ describe('wiki command provider', () => {
             tagSuggestions: [{ tag: 'AI', source: 'existing', reason: '内容相关' }],
           },
         ],
+        tagSuggestions: [],
       },
     })
     expect(suggestForOrphan).toHaveBeenCalledWith(expect.objectContaining({

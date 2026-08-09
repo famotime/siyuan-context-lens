@@ -160,7 +160,12 @@ async function invokeOrphanLinkAndTagSuggestions(
       report,
     })
     const suggestions = result.suggestions.map(normalizePublicSuggestion)
-    const tagCount = countUniqueSuggestionTags(suggestions)
+    const topLevelTagSuggestions = (result.tagSuggestions ?? []).map(item => ({
+      tag: item.tag,
+      source: item.source,
+      reason: item.reason,
+    }))
+    const tagCount = countUniqueSuggestionTags(suggestions, topLevelTagSuggestions)
 
     return {
       ok: true,
@@ -169,6 +174,7 @@ async function invokeOrphanLinkAndTagSuggestions(
         generatedAt: result.generatedAt,
         summary: result.summary,
         suggestions,
+        tagSuggestions: topLevelTagSuggestions,
       },
     }
   } catch (error) {
@@ -641,7 +647,10 @@ function normalizeTagList(tags?: readonly string[] | string): string[] {
   return values.map(tag => tag.trim()).filter(Boolean)
 }
 
-function countUniqueSuggestionTags(suggestions: ReturnType<typeof normalizePublicSuggestion>[]): number {
+function countUniqueSuggestionTags(
+  suggestions: ReturnType<typeof normalizePublicSuggestion>[],
+  topLevelTags: Array<{ tag: string; source: string; reason?: string }> = [],
+): number {
   const seen = new Set<string>()
   for (const suggestion of suggestions) {
     for (const tagSuggestion of suggestion.tagSuggestions) {
@@ -649,6 +658,12 @@ function countUniqueSuggestionTags(suggestions: ReturnType<typeof normalizePubli
       if (key) {
         seen.add(key)
       }
+    }
+  }
+  for (const tagSuggestion of topLevelTags) {
+    const key = tagSuggestion.tag.trim().toLocaleLowerCase()
+    if (key) {
+      seen.add(key)
     }
   }
   return seen.size
