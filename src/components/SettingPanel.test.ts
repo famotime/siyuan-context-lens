@@ -351,6 +351,33 @@ describe('SettingPanel', () => {
     expect(html).not.toContain('>模型清单<')
     expect(html).not.toContain('加载模型列表')
   })
+
+  it('renders managed banner and disables API inputs when config.isAiManaged is true', async () => {
+    const app = createSSRApp({
+      render: () => h(SettingPanel, {
+        config: {
+          showSummaryCards: true,
+          aiEnabled: true,
+          isAiManaged: true,
+          aiManagedProfileName: 'DeepSeek-V3 默认',
+          aiBaseUrl: 'https://api.deepseek.com/v1',
+          aiApiKey: 'sk-managed-key',
+          aiModel: 'deepseek-chat',
+          aiRequestTimeoutSeconds: 30,
+          aiMaxTokens: 4096,
+          aiTemperature: 0.7,
+          themeDocumentPath: '/知识库/专题',
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('siyuan-api-switch')
+    expect(html).toContain('DeepSeek-V3 默认')
+    expect(html).toContain('disabled')
+    expect(html).toContain('Test connection')
+  })
 })
 
 function expectCardSettingVisibility(

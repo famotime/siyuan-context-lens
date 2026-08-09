@@ -3,6 +3,9 @@ import type { PluginConfig } from '@/types/config'
 import { t } from '@/i18n/ui'
 
 export function syncAiProviderConfigSnapshot(config: PluginConfig, provider: AiProviderPresetKey) {
+  if (config.isAiManaged) {
+    return
+  }
   config.aiProviderPreset = provider
   if (!config.aiProviderConfigs || typeof config.aiProviderConfigs !== 'object') {
     config.aiProviderConfigs = {}

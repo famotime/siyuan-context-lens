@@ -9,6 +9,7 @@ import { openPluginDock } from './plugin-dock'
 import { PLUGIN_ICON, PLUGIN_ICON_SYMBOL } from './plugin-icon'
 import { createWikiCommandProvider } from './plugin/wiki-command-provider'
 import type { WikiCommandProvider } from './plugin/wiki-command-provider-types'
+import type { SharedConfig } from './types/api-switch'
 import { DEFAULT_CONFIG, ensureConfigDefaults, type PluginConfig } from './types/config'
 
 const DOCK_TYPE = 'reference-analytics-dock'
@@ -41,7 +42,23 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
     ensureConfigDefaults(this.config)
 
     watch(() => { return { ...this.config } }, (newConfig) => {
-      this.saveData(STORAGE_NAME, newConfig)
+      // 当处于 API 旋钮接管状态时，保持保存真正的底层本地 AI 配置，避免将接管参数污染落盘
+      const configToSave = { ...newConfig }
+      if (this.isManaged && this.localAiConfigBackup) {
+        configToSave.aiProviderPreset = this.localAiConfigBackup.aiProviderPreset
+        configToSave.aiBaseUrl = this.localAiConfigBackup.aiBaseUrl
+        configToSave.aiApiKey = this.localAiConfigBackup.aiApiKey
+        configToSave.aiModel = this.localAiConfigBackup.aiModel
+        configToSave.aiRequestTimeoutSeconds = this.localAiConfigBackup.aiRequestTimeoutSeconds
+        configToSave.aiMaxTokens = this.localAiConfigBackup.aiMaxTokens
+        configToSave.aiTemperature = this.localAiConfigBackup.aiTemperature
+        configToSave.isAiManaged = false
+        configToSave.aiManagedProfileName = undefined
+      } else if (!this.isManaged) {
+        configToSave.isAiManaged = false
+        configToSave.aiManagedProfileName = undefined
+      }
+      this.saveData(STORAGE_NAME, configToSave)
     }, { deep: true })
 
     this.addCommand({
@@ -118,7 +135,7 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
   }
 
   private initApiSwitchSync() {
-    const sync = (shared: any | null) => {
+    const sync = (shared: SharedConfig | null) => {
       if (shared) {
         if (!this.isManaged) {
           this.localAiConfigBackup = {
@@ -160,21 +177,21 @@ export default class ReferenceAnalyticsPlugin extends Plugin {
       }
     }
 
-    const activeLocal = this.isManaged ? this.localAiConfigBackup : this.config;
+    const activeLocal = this.isManaged && this.localAiConfigBackup ? this.localAiConfigBackup : this.config
     const local = {
-      provider: this.config.aiProviderPreset || "custom",
-      baseUrl: activeLocal?.aiBaseUrl || "",
-      apiKey: activeLocal?.aiApiKey || "",
-      model: activeLocal?.aiModel || "",
+      provider: activeLocal?.aiProviderPreset || 'custom',
+      baseUrl: activeLocal?.aiBaseUrl || '',
+      apiKey: activeLocal?.aiApiKey || '',
+      model: activeLocal?.aiModel || '',
       requestTimeoutSeconds: activeLocal?.aiRequestTimeoutSeconds,
       temperature: activeLocal?.aiTemperature,
       maxTokens: activeLocal?.aiMaxTokens,
-    };
+    }
 
     if (window.siyuanApiSwitch) {
       window.siyuanApiSwitch.register(this.name, this.displayName, sync, local)
     } else {
-      window.addEventListener("siyuan-api-switch:ready", () => {
+      window.addEventListener('siyuan-api-switch:ready', () => {
         if (window.siyuanApiSwitch) {
           window.siyuanApiSwitch.register(this.name, this.displayName, sync, local)
         }

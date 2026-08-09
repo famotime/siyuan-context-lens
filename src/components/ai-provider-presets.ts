@@ -81,6 +81,7 @@ export function detectAiProviderPreset(baseUrl?: string): AiProviderPresetKey {
 }
 
 export function applyAiProviderPreset(config: {
+  isAiManaged?: boolean
   aiProviderPreset?: AiProviderPresetKey
   aiProviderConfigs?: AiProviderConfigMap
   aiBaseUrl?: string
@@ -91,6 +92,10 @@ export function applyAiProviderPreset(config: {
   aiTemperature?: number
   aiMaxContextMessages?: number
 }, provider: AiProviderPresetKey) {
+  if (config.isAiManaged) {
+    return
+  }
+
   const providerConfigs = ensureAiProviderConfigMap(config)
   const currentProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
 
@@ -112,6 +117,7 @@ export function applyAiProviderPreset(config: {
 }
 
 export function ensureAiProviderConfigState(config: {
+  isAiManaged?: boolean
   aiProviderPreset?: AiProviderPresetKey
   aiProviderConfigs?: AiProviderConfigMap
   aiBaseUrl?: string
@@ -122,6 +128,10 @@ export function ensureAiProviderConfigState(config: {
   aiTemperature?: number
   aiMaxContextMessages?: number
 }) {
+  if (config.isAiManaged) {
+    return
+  }
+
   const providerConfigs = ensureAiProviderConfigMap(config)
   const activeProvider = normalizeAiProviderPreset(config.aiProviderPreset, config.aiBaseUrl)
   const hasStoredConfig = typeof providerConfigs[activeProvider] === 'object' && providerConfigs[activeProvider] !== null

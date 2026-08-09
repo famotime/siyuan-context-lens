@@ -419,7 +419,7 @@
         <button
           class="setting-button"
           type="button"
-          :disabled="aiTestingConnection || !config.aiEnabled || !aiConfigComplete || config.isAiManaged"
+          :disabled="aiTestingConnection || !config.aiEnabled || !aiConfigComplete"
           @click="handleTestConnection"
         >
           {{ aiTestingConnection ? t('settings.ai.testing') : t('settings.ai.testConnection') }}

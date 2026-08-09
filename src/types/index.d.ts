@@ -125,6 +125,7 @@ interface Window {
   _sy_plugin_sample: {
     [key: string]: any;
   };
+  siyuanApiSwitch?: import('./api-switch').SiyuanApiSwitch;
 }
 
 
