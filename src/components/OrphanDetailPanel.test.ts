@@ -237,4 +237,60 @@ describe('OrphanDetailPanel', () => {
     expect(html).not.toContain('Existing tag')
     expect(html).not.toContain('New tag')
   })
+
+  it('renders top-level tag suggestions when link suggestions are empty', async () => {
+    ;(globalThis as any).siyuan = {
+      config: {
+        lang: 'zh_CN',
+      },
+    }
+    const app = createSSRApp({
+      render: () => h(OrphanDetailPanel, {
+        items: [
+          {
+            documentId: 'doc-a',
+            title: 'Doc A',
+            path: '/doc-a.sy',
+            hpath: '/Doc A',
+            updated: '2026-03-30',
+            hasSparseEvidence: false,
+            suggestions: [],
+          },
+        ],
+        openDocument: vi.fn(),
+        onToggleThemeSuggestion: vi.fn(),
+        isThemeSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiLinkSuggestion: vi.fn(),
+        isAiLinkSuggestionActive: vi.fn().mockReturnValue(false),
+        onToggleAiTagSuggestion: vi.fn(),
+        isAiTagSuggestionActive: vi.fn().mockReturnValue(false),
+        aiEnabled: true,
+        aiConfigReady: true,
+        aiSuggestionStates: new Map([
+          ['doc-a', {
+            loading: false,
+            statusMessage: '',
+            error: '',
+            result: {
+              generatedAt: '2026-04-18T08:00:00.000Z',
+              summary: '已根据文档内容生成建议标签。',
+              suggestions: [],
+              tagSuggestions: [
+                { tag: '深度思考', source: 'new', reason: '根据内容提炼出的主体标签。' },
+              ],
+            },
+          }],
+        ]),
+        onGenerateAiSuggestion: vi.fn(),
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('AI 建议')
+    expect(html).not.toContain('链接建议')
+    expect(html).toContain('标签建议')
+    expect(html).toContain('深度思考')
+    expect(html).toContain('根据内容提炼出的主体标签。')
+  })
 })

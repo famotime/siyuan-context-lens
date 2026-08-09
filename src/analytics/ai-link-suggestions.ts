@@ -69,6 +69,7 @@ export interface AiLinkSuggestionResult {
   generatedAt: string
   summary: string
   suggestions: AiLinkSuggestionItem[]
+  tagSuggestions?: AiLinkTagSuggestion[]
 }
 
 export interface OrphanAiSuggestionState {
@@ -118,10 +119,6 @@ export function createAiLinkSuggestionService(deps: {
         locale,
       })
 
-      if (!candidates.length) {
-        throw new Error(t('analytics.aiLink.notEnoughCandidateTargets'))
-      }
-
       const rankedCandidates = rankCandidatesWithoutEmbeddings({
         candidates,
       })
@@ -129,6 +126,7 @@ export function createAiLinkSuggestionService(deps: {
       const topCandidates = rankedCandidates
         .sort((left, right) => right.finalScore - left.finalScore || left.title.localeCompare(right.title, 'zh-CN'))
         .slice(0, 6)
+
       const normalizedSourceDocument = normalizeDocumentTitleFields(params.sourceDocument, params.config)
 
       params.onProgress?.(t('analytics.aiLink.aiIsAnalyzing'))
@@ -449,6 +447,7 @@ function parseJsonFromResponse(payload: any) {
   }
 }
 
+
 function normalizeSuggestionResult(payload: any, logger = createPluginLogger(() => false)): AiLinkSuggestionResult {
   const rawSuggestions = extractSuggestionArray(payload)
   const suggestions = rawSuggestions.length
@@ -457,8 +456,17 @@ function normalizeSuggestionResult(payload: any, logger = createPluginLogger(() 
       .filter((item: AiLinkSuggestionItem | null): item is AiLinkSuggestionItem => item !== null)
     : []
 
-  if (!suggestions.length) {
-    logger.warn('[ai-link-suggestions] AI response contained no usable suggestions', {
+  const topLevelTagSuggestions = normalizeTagSuggestions(
+    payload?.tagSuggestions ?? payload?.tags ?? payload?.suggestedTags
+  )
+
+  const hasAnyTagSuggestions = Boolean(
+    topLevelTagSuggestions?.length ||
+    suggestions.some(item => item.tagSuggestions?.length)
+  )
+
+  if (!suggestions.length && !hasAnyTagSuggestions) {
+    logger.warn('[ai-link-suggestions] AI response contained no usable suggestions or tag suggestions', {
       topLevelKeys: payload && typeof payload === 'object' ? Object.keys(payload) : [],
       rawSuggestionCount: rawSuggestions.length,
       firstSuggestionKeys: rawSuggestions[0] && typeof rawSuggestions[0] === 'object'
@@ -468,12 +476,17 @@ function normalizeSuggestionResult(payload: any, logger = createPluginLogger(() 
     throw new Error(t('analytics.aiLink.invalidSuggestions'))
   }
 
+  const defaultSummary = !suggestions.length && hasAnyTagSuggestions
+    ? t('analytics.aiLink.generatedTagsForCurrentOrphan')
+    : t('analytics.aiLink.generatedForCurrentOrphan')
+
   return {
     generatedAt: new Date().toISOString(),
     summary: typeof payload?.summary === 'string' && payload.summary.trim()
       ? payload.summary.trim()
-      : t('analytics.aiLink.generatedForCurrentOrphan'),
+      : defaultSummary,
     suggestions,
+    tagSuggestions: topLevelTagSuggestions,
   }
 }
 

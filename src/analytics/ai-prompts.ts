@@ -55,7 +55,9 @@ const AI_INBOX_SYSTEM_PROMPT = [
 const AI_LINK_SUGGESTION_SYSTEM_PROMPT = [
   'You are a link-repair assistant for SiYuan notes.',
   'Only choose from the provided candidate targets. Do not invent documents that do not exist.',
-  'You must return JSON in the format {"summary": string, "suggestions": Suggestion[] }.',
+  'You must return JSON in the format {"summary": string, "suggestions": Suggestion[], "tagSuggestions"?: TagSuggestion[] }.',
+  'If candidate targets are empty or no candidate target is suitable, suggestions may be an empty array [].',
+  'Regardless of whether suggestions is empty, actively analyze the source document title, path, content preview, and existing tags to produce tagSuggestions for the source document.',
   'Each Suggestion must include targetDocumentId, targetTitle, targetType, confidence, and reason, with optional draftText and tagSuggestions.',
   'reason must merge the recommendation basis and the main expected improvement into one concise explanation.',
   'tagSuggestions is an array of tag suggestions. Each item includes tag, source, and reason; source can only be existing or new.',

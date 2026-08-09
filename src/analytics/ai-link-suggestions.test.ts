@@ -783,4 +783,82 @@ describe('ai link suggestions', () => {
       }),
     ])
   })
+
+  it('handles orphan docs with no candidate targets by generating tag suggestions from document content', async () => {
+    let capturedPrompt: any = null
+    const service = createAiLinkSuggestionService({
+      forwardProxy: async (url, method, payload) => {
+        capturedPrompt = JSON.parse(payload)
+        return {
+          status: 200,
+          body: JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    summary: '已根据文档内容生成建议标签。',
+                    suggestions: [],
+                    tagSuggestions: [
+                      {
+                        tag: '人工智能',
+                        source: 'new',
+                        reason: '根据文档内容推导的主题标签。',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }),
+        } as any
+      },
+    })
+
+    const result = await service.suggestForOrphan({
+      config: {
+        aiEnabled: true,
+        aiBaseUrl: 'https://api.example.com/v1',
+        aiApiKey: 'sk-test',
+        aiModel: 'gpt-4.1-mini',
+      } as any,
+      sourceDocument: {
+        id: 'doc-orphan-alone',
+        box: 'box-1',
+        path: '/notes/orphan-alone.sy',
+        hpath: '/笔记/独立文档',
+        title: '独立AI思考',
+        tags: [],
+        content: '没有任何关联的其他文档，只有这一篇独立随笔。',
+        updated: '20260418120000',
+      },
+      orphan: {
+        documentId: 'doc-orphan-alone',
+        title: '独立AI思考',
+        degree: 0,
+        createdAt: '20260417120000',
+        updatedAt: '20260418120000',
+        historicalReferenceCount: 0,
+        lastHistoricalAt: '',
+        hasSparseEvidence: false,
+      },
+      documents: [
+        { id: 'doc-orphan-alone', box: 'box-1', path: '/notes/orphan-alone.sy', hpath: '/笔记/独立文档', title: '独立AI思考', tags: [], content: '没有任何关联的其他文档，只有这一篇独立随笔。', updated: '20260418120000' },
+      ],
+      themeDocuments: [],
+      existingTags: [],
+      report: {
+        ranking: [],
+      } as any,
+    })
+
+    expect(capturedPrompt.messages[1].content).toContain('"candidates":[]')
+    expect(result.suggestions).toEqual([])
+    expect(result.tagSuggestions).toEqual([
+      {
+        tag: '人工智能',
+        source: 'new',
+        reason: '根据文档内容推导的主题标签。',
+      },
+    ])
+  })
 })

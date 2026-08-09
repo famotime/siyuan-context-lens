@@ -249,25 +249,30 @@ function resolveAiLinkSuggestions(documentId: string): AiLinkSuggestionItem[] {
 }
 
 function resolveAiTagSuggestions(documentId: string): AiLinkTagSuggestion[] {
-  const suggestions = resolveAiLinkSuggestions(documentId)
+  const result = resolveAiSuggestionState(documentId)?.result
+  const suggestions = result?.suggestions ?? []
+  const topLevelTags = result?.tagSuggestions ?? []
   const deduplicated = new Map<string, AiLinkTagSuggestion>()
 
-  for (const suggestion of suggestions) {
-    for (const tagSuggestion of suggestion.tagSuggestions ?? []) {
-      const key = tagSuggestion.tag.trim().toLocaleLowerCase()
-      if (!key) {
-        continue
-      }
+  const allTagSuggestions = [
+    ...topLevelTags,
+    ...suggestions.flatMap(suggestion => suggestion.tagSuggestions ?? []),
+  ]
 
-      const existing = deduplicated.get(key)
-      if (!existing) {
-        deduplicated.set(key, tagSuggestion)
-        continue
-      }
+  for (const tagSuggestion of allTagSuggestions) {
+    const key = tagSuggestion.tag.trim().toLocaleLowerCase()
+    if (!key) {
+      continue
+    }
 
-      if (existing.source !== 'existing' && tagSuggestion.source === 'existing') {
-        deduplicated.set(key, tagSuggestion)
-      }
+    const existing = deduplicated.get(key)
+    if (!existing) {
+      deduplicated.set(key, tagSuggestion)
+      continue
+    }
+
+    if (existing.source !== 'existing' && tagSuggestion.source === 'existing') {
+      deduplicated.set(key, tagSuggestion)
     }
   }
 

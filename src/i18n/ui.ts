@@ -2668,7 +2668,11 @@ const UI_TEXT = {
       },
       invalidSuggestions: {
         en_US: 'AI did not return valid link suggestions',
-        zh_CN: 'AI 未返回有效的补链建议',
+        zh_CN: '未能解析出有效的 AI 关联建议',
+      },
+      generatedTagsForCurrentOrphan: {
+        en_US: 'Generated tag suggestions based on document content.',
+        zh_CN: '已根据文档内容生成建议标签。',
       },
       generatedForCurrentOrphan: {
         en_US: 'AI link suggestions generated for the current orphan doc.',
