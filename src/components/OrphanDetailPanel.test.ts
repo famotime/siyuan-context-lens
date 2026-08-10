@@ -134,7 +134,7 @@ describe('OrphanDetailPanel', () => {
     expect(html).toContain('New tag')
     expect(html).toContain('Existing tag')
     expect(html).not.toContain('orphan-detail__ai-card')
-    expect(html).toContain('orphan-detail__ai-item--elevated')
+    expect(html).toContain('document-ai-panel__item--elevated')
   })
 
   it('switches panel controls to Chinese when the workspace locale is zh_CN', async () => {

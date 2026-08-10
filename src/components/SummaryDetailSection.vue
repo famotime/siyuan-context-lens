@@ -351,6 +351,18 @@
                     </button>
                   </div>
                 </div>
+                <DocumentAiPanel
+                  v-if="detail.key === 'read' && readCardMode === 'unread'"
+                  :document-id="item.documentId"
+                  :ai-enabled="aiEnabled"
+                  :ai-config-ready="aiLinkSuggestionConfigReady"
+                  :ai-suggestion-state="orphanAiSuggestionStates.get(item.documentId)"
+                  :on-generate-ai-suggestion="generateOrphanAiSuggestion"
+                  :on-toggle-ai-link-suggestion="toggleOrphanAiLinkSuggestion"
+                  :is-ai-link-suggestion-active="isAiLinkSuggestionActive"
+                  :on-toggle-ai-tag-suggestion="toggleOrphanAiTagSuggestion"
+                  :is-ai-tag-suggestion-active="isAiTagSuggestionActive"
+                />
                 <div
                   v-if="showDocumentIndex && detail.key === 'documents'"
                   class="doc-index-actions"
@@ -831,6 +843,7 @@ import {
 } from '@/components/summary-detail-ai-inbox'
 import DocumentSortControl, { type DocumentSortMode } from '@/components/DocumentSortControl.vue'
 import DocumentTitle from '@/components/DocumentTitle.vue'
+import DocumentAiPanel from '@/components/DocumentAiPanel.vue'
 import DormantDetailPanel from '@/components/DormantDetailPanel.vue'
 import OrphanDetailPanel from '@/components/OrphanDetailPanel.vue'
 import RankingPanel from '@/components/RankingPanel.vue'

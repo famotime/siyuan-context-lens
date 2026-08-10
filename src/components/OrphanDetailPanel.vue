@@ -62,111 +62,19 @@
             </button>
           </div>
         </div>
-        <div
-          v-if="aiEnabled"
-          class="orphan-detail__ai-panel"
-        >
-          <div class="orphan-detail__ai-actions">
-            <button
-              class="orphan-detail__ai-button"
-              type="button"
-              :disabled="!aiConfigReady || resolveAiSuggestionState(item.documentId)?.loading"
-              @click="onGenerateAiSuggestion(item.documentId)"
-            >
-              {{ resolveAiSuggestionState(item.documentId)?.result ? t('orphanDetail.regenerateAiSuggestions') : t('orphanDetail.aiSuggestions') }}
-            </button>
-            <span
-              v-if="!aiConfigReady"
-              class="orphan-detail__ai-hint"
-            >
-              {{ t('orphanDetail.aiConfigHint') }}
-            </span>
-          </div>
-
-          <div
-            v-if="resolveAiSuggestionState(item.documentId)?.loading || resolveAiSuggestionState(item.documentId)?.error || resolveAiSuggestionState(item.documentId)?.result"
-            class="orphan-detail__ai-body"
-          >
-            <p
-              v-if="resolveAiSuggestionState(item.documentId)?.loading"
-              class="orphan-detail__ai-status"
-            >
-              {{ resolveAiSuggestionState(item.documentId)?.statusMessage }}
-            </p>
-            <p
-              v-else-if="resolveAiSuggestionState(item.documentId)?.error"
-              class="orphan-detail__ai-error"
-            >
-              {{ resolveAiSuggestionState(item.documentId)?.error }}
-            </p>
-            <div
-              v-else-if="resolveAiSuggestionState(item.documentId)?.result"
-              class="orphan-detail__ai-result"
-            >
-              <p class="orphan-detail__ai-summary">{{ resolveAiSuggestionState(item.documentId)?.result?.summary }}</p>
-              <div class="orphan-detail__ai-groups">
-                <section
-                  v-if="resolveAiLinkSuggestions(item.documentId).length"
-                  class="orphan-detail__ai-group"
-                >
-                  <div class="orphan-detail__ai-group-header">
-                    <p class="orphan-detail__ai-group-title">{{ t('orphanDetail.linkSuggestions') }}</p>
-                    <span class="orphan-detail__ai-group-meta">{{ t('orphanDetail.itemCount', { count: resolveAiLinkSuggestions(item.documentId).length }) }}</span>
-                  </div>
-                  <div class="orphan-detail__ai-group-list">
-                    <div
-                      v-for="suggestion in resolveAiLinkSuggestions(item.documentId)"
-                      :key="`${item.documentId}-${suggestion.targetDocumentId}`"
-                      class="orphan-detail__ai-item orphan-detail__ai-item--elevated"
-                    >
-                      <div class="orphan-detail__ai-item-top">
-                        <button
-                          :class="['orphan-detail__ai-pill', { 'orphan-detail__ai-pill--active': isAiLinkSuggestionActive(item.documentId, suggestion.targetDocumentId) }]"
-                          type="button"
-                          @click="onToggleAiLinkSuggestion(item.documentId, suggestion.targetDocumentId, suggestion.targetTitle)"
-                        >
-                          {{ suggestion.targetTitle }}
-                        </button>
-                        <span class="orphan-detail__ai-badge">{{ resolveAiConfidenceLabel(suggestion.confidence) }}</span>
-                      </div>
-                      <p>{{ suggestion.reason }}</p>
-                      <p v-if="suggestion.draftText" class="orphan-detail__ai-draft">{{ suggestion.draftText }}</p>
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  v-if="resolveAiTagSuggestions(item.documentId).length"
-                  class="orphan-detail__ai-group"
-                >
-                  <div class="orphan-detail__ai-group-header">
-                    <p class="orphan-detail__ai-group-title">{{ t('orphanDetail.tagSuggestions') }}</p>
-                    <span class="orphan-detail__ai-group-meta">{{ t('orphanDetail.itemCount', { count: resolveAiTagSuggestions(item.documentId).length }) }}</span>
-                  </div>
-                  <div class="orphan-detail__ai-group-list">
-                    <div
-                      v-for="tagSuggestion in resolveAiTagSuggestions(item.documentId)"
-                      :key="`${item.documentId}-${tagSuggestion.tag}`"
-                      class="orphan-detail__ai-item orphan-detail__ai-item--elevated"
-                    >
-                      <div class="orphan-detail__ai-item-top">
-                        <button
-                          :class="['orphan-detail__ai-pill', { 'orphan-detail__ai-pill--active': isAiTagSuggestionActive(item.documentId, tagSuggestion.tag) }]"
-                          type="button"
-                          @click="onToggleAiTagSuggestion(item.documentId, tagSuggestion.tag)"
-                        >
-                          {{ tagSuggestion.tag }}
-                        </button>
-                        <span class="orphan-detail__ai-tag-badge">{{ resolveTagSuggestionSourceLabel(tagSuggestion.source) }}</span>
-                      </div>
-                      <p v-if="tagSuggestion.reason">{{ tagSuggestion.reason }}</p>
-                    </div>
-                  </div>
-                </section>
-              </div>
-            </div>
-          </div>
-        </div></div></article>
+        <DocumentAiPanel
+          :document-id="item.documentId"
+          :ai-enabled="aiEnabled"
+          :ai-config-ready="aiConfigReady"
+          :ai-suggestion-state="resolveAiSuggestionState(item.documentId)"
+          :on-generate-ai-suggestion="onGenerateAiSuggestion"
+          :on-toggle-ai-link-suggestion="onToggleAiLinkSuggestion"
+          :is-ai-link-suggestion-active="isAiLinkSuggestionActive"
+          :on-toggle-ai-tag-suggestion="onToggleAiTagSuggestion"
+          :is-ai-tag-suggestion-active="isAiTagSuggestionActive"
+        />
+      </div>
+    </article>
     </div>
     <div
       v-else
@@ -180,11 +88,12 @@
 <script setup lang="ts">
 import { t } from '@/i18n/ui'
 import type { OrphanSort } from '@/analytics/analysis'
-import type { AiLinkSuggestionItem, AiLinkTagSuggestion, OrphanAiSuggestionState } from '@/analytics/ai-link-suggestions'
+import type { OrphanAiSuggestionState } from '@/analytics/ai-link-suggestions'
 import type { DetailSuggestion, SummaryDetailItem } from '@/analytics/summary-details'
 import type { ThemeDocumentMatch } from '@/analytics/theme-documents'
 import DocumentTitle from './DocumentTitle.vue'
 import SuggestionCallout from './SuggestionCallout.vue'
+import DocumentAiPanel from './DocumentAiPanel.vue'
 
 const props = defineProps<{
   items: Array<SummaryDetailItem & { themeSuggestions?: ThemeDocumentMatch[]; keywordSuggestions?: string[] }>
@@ -226,57 +135,6 @@ function buildSuggestionCalloutItems(item: SummaryDetailItem & { themeSuggestion
 
 function resolveAiSuggestionState(documentId: string): OrphanAiSuggestionState | undefined {
   return props.aiSuggestionStates.get(documentId)
-}
-
-function resolveTagSuggestionSourceLabel(source: AiLinkTagSuggestion['source']) {
-  return source === 'existing'
-    ? t('orphanDetail.existingTag')
-    : t('orphanDetail.newTag')
-}
-
-function resolveAiConfidenceLabel(confidence: AiLinkSuggestionItem['confidence']) {
-  if (confidence === 'high') {
-    return t('orphanDetail.confidenceHigh')
-  }
-  if (confidence === 'low') {
-    return t('orphanDetail.confidenceLow')
-  }
-  return t('orphanDetail.confidenceMedium')
-}
-
-function resolveAiLinkSuggestions(documentId: string): AiLinkSuggestionItem[] {
-  return resolveAiSuggestionState(documentId)?.result?.suggestions ?? []
-}
-
-function resolveAiTagSuggestions(documentId: string): AiLinkTagSuggestion[] {
-  const result = resolveAiSuggestionState(documentId)?.result
-  const suggestions = result?.suggestions ?? []
-  const topLevelTags = result?.tagSuggestions ?? []
-  const deduplicated = new Map<string, AiLinkTagSuggestion>()
-
-  const allTagSuggestions = [
-    ...topLevelTags,
-    ...suggestions.flatMap(suggestion => suggestion.tagSuggestions ?? []),
-  ]
-
-  for (const tagSuggestion of allTagSuggestions) {
-    const key = tagSuggestion.tag.trim().toLocaleLowerCase()
-    if (!key) {
-      continue
-    }
-
-    const existing = deduplicated.get(key)
-    if (!existing) {
-      deduplicated.set(key, tagSuggestion)
-      continue
-    }
-
-    if (existing.source !== 'existing' && tagSuggestion.source === 'existing') {
-      deduplicated.set(key, tagSuggestion)
-    }
-  }
-
-  return [...deduplicated.values()]
 }
 </script>
 

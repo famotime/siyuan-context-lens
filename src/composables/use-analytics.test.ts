@@ -1579,6 +1579,17 @@ describe('useAnalyticsState', () => {
       error: '',
       result: aiSuggestionResult,
     })
+
+    // Test calling generateOrphanAiSuggestion on an unread non-orphan document
+    await (state as any).generateOrphanAiSuggestion('doc-b')
+    await nextTick()
+    expect(suggestForOrphan).toHaveBeenCalledTimes(2)
+    expect((state as any).orphanAiSuggestionStates.value.get('doc-b')).toEqual({
+      loading: false,
+      statusMessage: '',
+      error: '',
+      result: aiSuggestionResult,
+    })
   })
 
   it('toggles AI link suggestions with the same insertion rules as theme suggestions and applies document tags via block attrs', async () => {

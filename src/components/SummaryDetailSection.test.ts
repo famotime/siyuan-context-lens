@@ -3,6 +3,7 @@ import { createSSRApp, h } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import SummaryDetailSection from './SummaryDetailSection.vue'
+import { t } from '@/i18n/ui'
 
 const wikiPanelProps = {
   wikiEnabled: true,
@@ -558,6 +559,58 @@ describe('SummaryDetailSection', () => {
     expect(html).toContain('No doc-level links in the current window, suggested topic docs below (click to add):')
     expect(html).toContain('AI')
     expect(html).not.toContain('<span class="suggestion-callout__label">Read tags</span>')
+  })
+
+  it('renders AI suggestions button and panel inside unread document detail items', async () => {
+    const app = createSSRApp({
+      render: () => h(SummaryDetailSection, {
+        ...baseProps,
+        aiEnabled: true,
+        aiLinkSuggestionConfigReady: true,
+        readCardMode: 'unread',
+        orphanAiSuggestionStates: new Map([
+          ['doc-unread-1', {
+            loading: false,
+            statusMessage: '',
+            error: '',
+            result: {
+              summary: '未读文档 AI 建议补链摘要',
+              suggestions: [
+                {
+                  targetDocumentId: 'target-doc-2',
+                  targetTitle: '相关文档',
+                  confidence: 'high',
+                  reason: '主题语义高度吻合',
+                  targetType: 'normal-document',
+                },
+              ],
+            },
+          }],
+        ]),
+        detail: {
+          key: 'read',
+          title: 'Unread docs',
+          description: 'Docs not matched by read rules.',
+          kind: 'list',
+          items: [
+            {
+              documentId: 'doc-unread-1',
+              title: '未读文章',
+              meta: 'Created 2026-03-14',
+              badge: 'Needs review',
+            },
+          ],
+        },
+      }),
+    })
+
+    const html = await renderToString(app)
+
+    expect(html).toContain('未读文章')
+    expect(html).toContain(t('orphanDetail.regenerateAiSuggestions'))
+    expect(html).toContain('未读文档 AI 建议补链摘要')
+    expect(html).toContain('相关文档')
+    expect(html).toContain('主题语义高度吻合')
   })
 
   it('renders today suggestions with a separate toolbar row below the title area', async () => {

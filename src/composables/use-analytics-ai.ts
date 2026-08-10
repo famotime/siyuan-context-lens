@@ -128,8 +128,7 @@ export function createAnalyticsAiController(params: {
     }
 
     const sourceDocument = params.snapshot.value.documents.find(document => document.id === documentId)
-    const orphan = params.report.value.orphans.find(item => item.documentId === documentId)
-    if (!sourceDocument || !orphan) {
+    if (!sourceDocument) {
       updateOrphanAiSuggestionState(documentId, {
         loading: false,
         statusMessage: '',
@@ -137,6 +136,12 @@ export function createAnalyticsAiController(params: {
         result: null,
       })
       return
+    }
+
+    const orphan = params.report.value.orphans.find(item => item.documentId === documentId) ?? {
+      documentId,
+      historicalReferenceCount: 0,
+      hasSparseEvidence: false,
     }
 
     updateOrphanAiSuggestionState(documentId, {
